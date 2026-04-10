@@ -1,0 +1,20 @@
+INSERT INTO environment.venue_tag_mapping (hashtag, osm_filter, description, is_brand) VALUES
+    ('#7-eleven',    '{"shop": "convenience", "brand": "7-Eleven"}',   '7-Eleven convenience store',      true),
+    ('#lawson',      '{"shop": "convenience", "brand": "Lawson"}',      'Lawson convenience store',         true),
+    ('#familymart',  '{"shop": "convenience", "brand": "FamilyMart"}',  'FamilyMart convenience store',     true),
+    ('#ministop',    '{"shop": "convenience", "brand": "Ministop"}',    'Ministop convenience store',       true),
+    ('#konbini',     '{"shop": "convenience"}',                          'Convenience store (any brand)',    false),
+    ('#cafe',        '{"amenity": "cafe"}',                              'Cafe',                             false),
+    ('#bike-shop',   '{"shop": "bicycle"}',                              'Bicycle shop',                     false),
+    ('#vending',     '{"amenity": "vending_machine"}',                   'Vending machine',                  false),
+    ('#park',        '{"leisure": "park"}',                              'Park',                             false),
+    ('#toilet',      '{"amenity": "toilets"}',                           'Public toilet',                    false),
+    ('#water',       '{"amenity": "drinking_water"}',                    'Drinking water',                   false),
+    ('#shrine',      '{"amenity": "place_of_worship", "religion": "shinto"}',   'Shinto shrine',            false),
+    ('#temple',      '{"amenity": "place_of_worship", "religion": "buddhist"}', 'Buddhist temple',           false),
+    ('#rest-area',   '{"highway": "rest_area"}',                         'Highway rest area',                false),
+    ('#supermarket', '{"shop": "supermarket"}',                          'Supermarket',                      false),
+    ('#restaurant',  '{"amenity": "restaurant"}',                        'Restaurant',                       false),
+    ('#onsen',       '{"leisure": "hot_spring"}',                        'Hot spring / onsen',               false),
+    ('#atm',         '{"amenity": "atm"}',                               'ATM',                              false)
+ON CONFLICT DO NOTHING;
