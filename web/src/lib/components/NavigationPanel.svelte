@@ -50,7 +50,9 @@
 
   function handleInput(index: number, e: Event) {
     const val = (e.target as HTMLInputElement).value;
-    stops = stops.map((s, i) => i === index ? { ...s, query: val, label: val, lat: null, lon: null } : s);
+    // Only update query (what's typed). Clear coordinates since user is changing the location.
+    // Don't overwrite label — it gets set properly by selectSuggestion or handleMapClick.
+    stops = stops.map((s, i) => i === index ? { ...s, query: val, lat: null, lon: null } : s);
     clearTimeout(searchDebounce);
     searchDebounce = setTimeout(() => searchAddress(val), 300);
   }
@@ -98,13 +100,15 @@
 
   // Called by parent when map is clicked
   export function handleMapClick(lat: number, lon: number) {
-    // If an input is focused/active, set it from map click
     if (activeInputIndex !== null) {
       const idx = activeInputIndex;
-      const label = `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
-      stops = stops.map((s, i) =>
-        i === idx ? { ...s, lat, lon, label, query: label } : s
-      );
+      const coordLabel = `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+      stops = stops.map((s, i) => {
+        if (i !== idx) return s;
+        // Keep existing address name if user already searched. Only use coords if empty.
+        const displayName = s.query.trim() && s.lat === null ? s.query : coordLabel;
+        return { ...s, lat, lon, label: displayName, query: displayName };
+      });
       suggestions = [];
 
       // Auto-focus next empty
