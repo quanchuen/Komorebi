@@ -22,6 +22,12 @@ func (s *stubVenueRepo) AlongRoute(_ environment.AlongRouteParams) ([]environmen
 func (s *stubVenueRepo) ListTags() ([]environment.VenueTag, error) {
 	return s.tags, s.err
 }
+func (s *stubVenueRepo) GetTagMapping(_ string) (*environment.VenueTagMapping, error) {
+	return nil, s.err
+}
+func (s *stubVenueRepo) NearestAlongLine(_ environment.NearestAlongLineParams) (*environment.Venue, error) {
+	return nil, s.err
+}
 
 func TestVenueService_AlongRoute_DefaultBuffer(t *testing.T) {
 	stub := &stubVenueRepo{

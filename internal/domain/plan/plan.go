@@ -34,8 +34,11 @@ type RoutePlan struct {
 	Preferences Preferences
 	Stops       []StopPoint
 	Tasks       []PlanTask
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	// RouteWKT holds the last-computed Valhalla route as a LINESTRING WKT (SRID 4326).
+	// Empty until the first route computation.
+	RouteWKT  string
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
 // NewRoutePlan creates an empty RoutePlan for the given user.
@@ -82,6 +85,12 @@ func (p *RoutePlan) Validate() error {
 	}
 	return nil
 }
+
+// NewStopID generates a new random UUID for a StopPoint.
+func NewStopID() string { return newID() }
+
+// NewTaskID generates a new random UUID for a PlanTask.
+func NewTaskID() string { return newID() }
 
 // newID generates a random UUID-like string using crypto/rand.
 func newID() string {

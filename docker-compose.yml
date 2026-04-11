@@ -28,6 +28,19 @@ services:
     environment:
       tile_urls: https://download.geofabrik.de/asia/japan/kanto-latest.osm.pbf
 
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - ORIGIN=http://localhost:3001
+    depends_on:
+      - api
+    restart: unless-stopped
+
   plateau_shadow:
     build:
       context: ./pipelines/plateau_shadow

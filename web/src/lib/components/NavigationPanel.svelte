@@ -124,9 +124,20 @@
   let hasAllStops = $derived(stops.every((s) => s.lat !== null));
 
   // Routing state
+  import type { RouteAlternative } from '$lib/api/types';
+
   let isRouting = $state(false);
-  let routeResult = $state<{ distance_km: number; duration_s: number; geometry: [number, number][] } | null>(null);
+  let alternatives = $state<RouteAlternative[]>([]);
+  let selectedProfile = $state<string | null>(null);
   let routeError = $state<string | null>(null);
+
+  let selectedAlt = $derived(alternatives.find((a) => a.profile === selectedProfile) ?? null);
+
+  const profileIcons: Record<string, string> = {
+    suggested: '⚖',
+    fast: '⚡',
+    avoid_main_roads: '🛡'
+  };
 
   async function doRoute() {
     const validStops = stops.filter((s) => s.lat !== null && s.lon !== null);
@@ -134,7 +145,8 @@
 
     isRouting = true;
     routeError = null;
-    routeResult = null;
+    alternatives = [];
+    selectedProfile = null;
 
     try {
       const res = await routing.directions({
@@ -144,37 +156,9 @@
         preferences: { shade: 0.5, greenery: 0.5, wind: 0.5 }
       });
 
-      // Extract coordinates from GeoJSON geometry
-      const coords: [number, number][] = (res.geometry?.coordinates ?? []).map(
-        (c: number[]) => [c[0], c[1]] as [number, number]
-      );
-
-      routeResult = {
-        distance_km: res.total_distance_km ?? 0,
-        duration_s: res.total_duration_s ?? 0,
-        geometry: coords
-      };
-
-      // Show route on map
-      const mapInst = $mapInstance;
-      if (mapInst && coords.length > 0) {
-        // Dispatch geometry to parent via store
-        highlightedRouteId.set(null); // clear any highlighted curated route
-        const src = mapInst.getSource('highlight-route') as any;
-        if (src) {
-          src.setData({
-            type: 'Feature',
-            geometry: { type: 'LineString', coordinates: coords },
-            properties: {}
-          });
-        }
-        // Fit bounds
-        const lons = coords.map((c) => c[0]);
-        const lats = coords.map((c) => c[1]);
-        mapInst.fitBounds(
-          [[Math.min(...lons), Math.min(...lats)], [Math.max(...lons), Math.max(...lats)]],
-          { padding: 80, duration: 800 }
-        );
+      alternatives = res.alternatives ?? [];
+      if (alternatives.length > 0) {
+        selectAlternative(alternatives[0].profile); // auto-select suggested
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
@@ -187,6 +171,35 @@
       }
     } finally {
       isRouting = false;
+    }
+  }
+
+  function selectAlternative(profile: string) {
+    selectedProfile = profile;
+    const alt = alternatives.find((a) => a.profile === profile);
+    if (!alt) return;
+
+    const coords: [number, number][] = (alt.geometry?.coordinates ?? []).map(
+      (c: number[]) => [c[0], c[1]] as [number, number]
+    );
+
+    const mapInst = $mapInstance;
+    if (mapInst && coords.length > 0) {
+      highlightedRouteId.set(null);
+      const src = mapInst.getSource('highlight-route') as any;
+      if (src) {
+        src.setData({
+          type: 'Feature',
+          geometry: { type: 'LineString', coordinates: coords },
+          properties: {}
+        });
+      }
+      const lons = coords.map((c) => c[0]);
+      const lats = coords.map((c) => c[1]);
+      mapInst.fitBounds(
+        [[Math.min(...lons), Math.min(...lats)], [Math.max(...lons), Math.max(...lats)]],
+        { padding: 80, duration: 800 }
+      );
     }
   }
 
@@ -365,16 +378,31 @@
           ? 'bg-sky-800 text-sky-300 cursor-wait'
           : 'bg-sky-600 hover:bg-sky-500 text-white'}"
       >
-        {isRouting ? 'Routing...' : 'Route'}
+        {isRouting ? 'Finding routes...' : 'Route'}
       </button>
     {/if}
 
-    <!-- Route result -->
-    {#if routeResult}
-      <div class="mt-2 flex items-center gap-3 text-xs text-slate-300 bg-slate-800/60 rounded-lg px-3 py-2">
-        <span>{routeResult.distance_km.toFixed(1)} km</span>
-        <span class="text-slate-600">|</span>
-        <span>{Math.round(routeResult.duration_s / 60)} min</span>
+    <!-- Route alternatives -->
+    {#if alternatives.length > 0}
+      <div class="mt-2 flex flex-col gap-1.5">
+        {#each alternatives as alt (alt.profile)}
+          <button
+            onclick={() => selectAlternative(alt.profile)}
+            class="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left
+                   transition-colors border
+                   {selectedProfile === alt.profile
+              ? 'bg-sky-600/15 border-sky-500/40 text-slate-100'
+              : 'bg-slate-800/50 border-slate-700/50 text-slate-400 hover:bg-slate-800 hover:text-slate-200'}"
+          >
+            <span class="text-sm">{profileIcons[alt.profile] ?? '🚲'}</span>
+            <div class="flex-1 min-w-0">
+              <div class="text-[11px] font-medium">{alt.label}</div>
+              <div class="text-[10px] text-slate-500">
+                {alt.total_distance_km.toFixed(1)} km · {Math.round(alt.total_duration_s / 60)} min
+              </div>
+            </div>
+          </button>
+        {/each}
       </div>
     {/if}
 

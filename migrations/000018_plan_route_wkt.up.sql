@@ -1,0 +1,3 @@
+ALTER TABLE plan.route_plan
+    ADD COLUMN IF NOT EXISTS route_wkt TEXT,
+    ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT now();

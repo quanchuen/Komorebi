@@ -16,7 +16,7 @@ type fakeValhallaClient struct {
 	err    error
 }
 
-func (f *fakeValhallaClient) Route(stops []valhalla.Location) (*valhalla.RouteResult, error) {
+func (f *fakeValhallaClient) Route(stops []valhalla.Location, profile valhalla.RouteProfile) (*valhalla.RouteResult, error) {
 	return f.result, f.err
 }
 
@@ -60,14 +60,18 @@ func TestRoutingService_GetDirections_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetDirections() error: %v", err)
 	}
-	if result.TotalDistanceKm != 7.5 {
-		t.Errorf("expected distance 7.5, got %f", result.TotalDistanceKm)
+	if len(result.Alternatives) == 0 {
+		t.Fatal("expected at least one alternative")
 	}
-	if len(result.Legs) != 1 {
-		t.Errorf("expected 1 leg, got %d", len(result.Legs))
+	alt := result.Alternatives[0]
+	if alt.TotalDistanceKm != 7.5 {
+		t.Errorf("expected distance 7.5, got %f", alt.TotalDistanceKm)
+	}
+	if len(alt.Legs) != 1 {
+		t.Errorf("expected 1 leg, got %d", len(alt.Legs))
 	}
 	// GeoJSON geometry must be populated
-	if len(result.GeoJSON.Coordinates) == 0 {
+	if len(alt.GeoJSON.Coordinates) == 0 {
 		t.Error("expected non-empty GeoJSON coordinates")
 	}
 }
@@ -125,11 +129,15 @@ func TestRoutingService_GetDirections_MultiStop(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetDirections() error: %v", err)
 	}
-	if len(result.Legs) != 2 {
-		t.Errorf("expected 2 legs, got %d", len(result.Legs))
+	if len(result.Alternatives) == 0 {
+		t.Fatal("expected at least one alternative")
+	}
+	alt := result.Alternatives[0]
+	if len(alt.Legs) != 2 {
+		t.Errorf("expected 2 legs, got %d", len(alt.Legs))
 	}
 	// Full geometry should concatenate both legs' shapes
-	if len(result.GeoJSON.Coordinates) < 3 {
-		t.Errorf("expected merged geometry with at least 3 points, got %d", len(result.GeoJSON.Coordinates))
+	if len(alt.GeoJSON.Coordinates) < 3 {
+		t.Errorf("expected merged geometry with at least 3 points, got %d", len(alt.GeoJSON.Coordinates))
 	}
 }

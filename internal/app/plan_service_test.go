@@ -69,7 +69,7 @@ type stubRouter struct {
 	err    error
 }
 
-func (s *stubRouter) Route(_ []valhalla.Location) (*valhalla.RouteResult, error) {
+func (s *stubRouter) Route(_ []valhalla.Location, _ valhalla.RouteProfile) (*valhalla.RouteResult, error) {
 	return s.result, s.err
 }
 

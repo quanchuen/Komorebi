@@ -51,7 +51,7 @@ func TestClient_Route_Success(t *testing.T) {
 		{Lat: 35.6895, Lon: 139.6917},
 		{Lat: 35.6812, Lon: 139.7671},
 	}
-	result, err := client.Route(stops)
+	result, err := client.Route(stops, valhalla.ProfileSuggested)
 	if err != nil {
 		t.Fatalf("Route() returned error: %v", err)
 	}
@@ -101,7 +101,7 @@ func TestClient_Route_MultiStop(t *testing.T) {
 		{Lat: 35.6900, Lon: 139.7000},
 		{Lat: 35.6812, Lon: 139.7671},
 	}
-	result, err := client.Route(stops)
+	result, err := client.Route(stops, valhalla.ProfileSuggested)
 	if err != nil {
 		t.Fatalf("Route() returned error: %v", err)
 	}
@@ -122,7 +122,7 @@ func TestClient_Route_ValhallaError(t *testing.T) {
 		{Lat: 35.6895, Lon: 139.6917},
 		{Lat: 35.6812, Lon: 139.7671},
 	}
-	_, err := client.Route(stops)
+	_, err := client.Route(stops, valhalla.ProfileSuggested)
 	if err == nil {
 		t.Fatal("expected error for Valhalla 400 response, got nil")
 	}
@@ -130,7 +130,7 @@ func TestClient_Route_ValhallaError(t *testing.T) {
 
 func TestClient_Route_TooFewStops(t *testing.T) {
 	client := valhalla.NewClient("http://localhost:8002")
-	_, err := client.Route([]valhalla.Location{{Lat: 35.0, Lon: 139.0}})
+	_, err := client.Route([]valhalla.Location{{Lat: 35.0, Lon: 139.0}}, valhalla.ProfileSuggested)
 	if err == nil {
 		t.Fatal("expected error for single stop, got nil")
 	}

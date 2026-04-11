@@ -172,11 +172,17 @@ export interface DirectionsRequest {
   preferences: RoutingPreferences;
 }
 
-export interface DirectionsResponse {
-  geometry: GeoLineString;
+export interface RouteAlternative {
+  profile: string;           // "suggested" | "fast" | "avoid_main_roads"
+  label: string;             // "Suggested" | "Fast" | "Avoid main roads"
   total_distance_km: number;
   total_duration_s: number;
-  legs: { distance_km: number; duration_s: number; shape: [number, number][] }[];
+  legs: { distance_km: number; duration_s: number; eta_at: string }[];
+  geometry: GeoLineString;
+}
+
+export interface DirectionsResponse {
+  alternatives: RouteAlternative[];
 }
 
 // --- Venues ---

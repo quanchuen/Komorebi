@@ -207,14 +207,14 @@ func (s *PlanService) AddTask(req AddTaskRequest) (*plan.RoutePlan, error) {
 
 // --- internal helpers ---
 
-// reroute calls Valhalla and stores the computed WKT on the plan.
+// reroute calls Valhalla with the suggested profile and stores the computed WKT.
 func (s *PlanService) reroute(p *plan.RoutePlan) error {
-	result, err := s.routing.GetDirections(DirectionsRequest{
+	result, err := s.routing.GetSingleDirections(DirectionsRequest{
 		Stops:       p.Stops,
 		DepartureAt: p.DepartureAt,
 		SpeedModel:  p.SpeedModel,
 		Preferences: p.Preferences,
-	})
+	}, "suggested")
 	if err != nil {
 		return err
 	}

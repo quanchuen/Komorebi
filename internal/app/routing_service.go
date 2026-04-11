@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/cyclist-map/cyclist-map/internal/domain/plan"
@@ -14,9 +15,8 @@ import (
 var ErrTooFewDirectionStops = errors.New("routing: at least 2 stops required")
 
 // ValhallaRouter is the interface the RoutingService uses to call the routing engine.
-// Defined here so tests can inject a fake without importing the infra package.
 type ValhallaRouter interface {
-	Route(stops []valhalla.Location) (*valhalla.RouteResult, error)
+	Route(stops []valhalla.Location, profile valhalla.RouteProfile) (*valhalla.RouteResult, error)
 }
 
 // DirectionsRequest carries the inputs for a multi-stop route calculation.
@@ -31,8 +31,7 @@ type DirectionsRequest struct {
 type LegResult struct {
 	DistanceKm float64
 	DurationS  float64
-	// ETAAt is the projected arrival time at the end of this leg.
-	ETAAt time.Time
+	ETAAt      time.Time
 }
 
 // GeoJSONLineString represents a GeoJSON LineString geometry.
@@ -41,13 +40,19 @@ type GeoJSONLineString struct {
 	Coordinates [][2]float64 `json:"coordinates"`
 }
 
-// DirectionsResult is the structured output of a routing request.
+// DirectionsResult is the structured output of a single route alternative.
 type DirectionsResult struct {
-	TotalDistanceKm float64
-	TotalDurationS  float64
+	Profile         string  `json:"profile"`
+	Label           string  `json:"label"`
+	TotalDistanceKm float64 `json:"total_distance_km"`
+	TotalDurationS  float64 `json:"total_duration_s"`
 	Legs            []LegResult
-	// GeoJSON is the merged full-route geometry as a GeoJSON LineString.
-	GeoJSON GeoJSONLineString
+	GeoJSON         GeoJSONLineString `json:"geometry"`
+}
+
+// MultiDirectionsResult contains all route alternatives.
+type MultiDirectionsResult struct {
+	Alternatives []DirectionsResult `json:"alternatives"`
 }
 
 // RoutingService orchestrates multi-stop bicycle routing via Valhalla.
@@ -60,35 +65,121 @@ func NewRoutingService(router ValhallaRouter) *RoutingService {
 	return &RoutingService{router: router}
 }
 
-// GetDirections resolves stops to coordinates, calls Valhalla, and returns the
-// route geometry with per-leg ETAs.
-//
-// Venue-typed stops are passed through as-is in this initial implementation;
-// venue resolution (snapping to nearest OSM match) is a future concern.
-func (s *RoutingService) GetDirections(req DirectionsRequest) (*DirectionsResult, error) {
+var routeProfiles = []struct {
+	profile valhalla.RouteProfile
+	label   string
+}{
+	{valhalla.ProfileSuggested, "Suggested"},
+	{valhalla.ProfileFast, "Fast"},
+	{valhalla.ProfileAvoidMainRoads, "Avoid main roads"},
+}
+
+// GetDirections resolves stops, calls Valhalla with all 3 profiles in parallel,
+// and returns route alternatives.
+func (s *RoutingService) GetDirections(req DirectionsRequest) (*MultiDirectionsResult, error) {
 	if len(req.Stops) < 2 {
 		return nil, ErrTooFewDirectionStops
 	}
 
-	// Sort by SortOrder to guarantee sequence before sending to Valhalla.
 	stops := make([]plan.StopPoint, len(req.Stops))
 	copy(stops, req.Stops)
 	sort.Slice(stops, func(i, j int) bool {
 		return stops[i].SortOrder < stops[j].SortOrder
 	})
 
-	// Translate domain stops to Valhalla locations.
 	locs := make([]valhalla.Location, len(stops))
 	for i, sp := range stops {
 		locs[i] = valhalla.Location{Lat: sp.Lat, Lon: sp.Lon}
 	}
 
-	raw, err := s.router.Route(locs)
+	// Call all 3 profiles in parallel
+	type result struct {
+		idx int
+		res *DirectionsResult
+		err error
+	}
+	ch := make(chan result, len(routeProfiles))
+	var wg sync.WaitGroup
+
+	for idx, rp := range routeProfiles {
+		wg.Add(1)
+		go func(i int, profile valhalla.RouteProfile, label string) {
+			defer wg.Done()
+			raw, err := s.router.Route(locs, profile)
+			if err != nil {
+				ch <- result{i, nil, err}
+				return
+			}
+			dr := buildDirectionsResult(raw, req.DepartureAt, string(profile), label)
+			ch <- result{i, dr, nil}
+		}(idx, rp.profile, rp.label)
+	}
+
+	go func() { wg.Wait(); close(ch) }()
+
+	alternatives := make([]DirectionsResult, len(routeProfiles))
+	var firstErr error
+	received := 0
+	for r := range ch {
+		if r.err != nil {
+			if firstErr == nil {
+				firstErr = r.err
+			}
+			continue
+		}
+		alternatives[r.idx] = *r.res
+		received++
+	}
+
+	if received == 0 {
+		return nil, fmt.Errorf("routing: all profiles failed: %w", firstErr)
+	}
+
+	// Filter out empty slots (failed profiles)
+	var valid []DirectionsResult
+	for _, a := range alternatives {
+		if a.Profile != "" {
+			valid = append(valid, a)
+		}
+	}
+
+	return &MultiDirectionsResult{Alternatives: valid}, nil
+}
+
+// GetSingleDirections routes with a specific profile (for re-routing on stop changes).
+func (s *RoutingService) GetSingleDirections(req DirectionsRequest, profile valhalla.RouteProfile) (*DirectionsResult, error) {
+	if len(req.Stops) < 2 {
+		return nil, ErrTooFewDirectionStops
+	}
+
+	stops := make([]plan.StopPoint, len(req.Stops))
+	copy(stops, req.Stops)
+	sort.Slice(stops, func(i, j int) bool {
+		return stops[i].SortOrder < stops[j].SortOrder
+	})
+
+	locs := make([]valhalla.Location, len(stops))
+	for i, sp := range stops {
+		locs[i] = valhalla.Location{Lat: sp.Lat, Lon: sp.Lon}
+	}
+
+	raw, err := s.router.Route(locs, profile)
 	if err != nil {
 		return nil, fmt.Errorf("routing: valhalla error: %w", err)
 	}
 
-	// Build per-leg results with projected ETAs.
+	label := "Suggested"
+	for _, rp := range routeProfiles {
+		if rp.profile == profile {
+			label = rp.label
+			break
+		}
+	}
+
+	return buildDirectionsResult(raw, req.DepartureAt, string(profile), label), nil
+}
+
+func buildDirectionsResult(raw *valhalla.RouteResult, departure time.Time, profile, label string) *DirectionsResult {
 	legs := make([]LegResult, len(raw.Legs))
 	elapsed := 0.0
 	for i, l := range raw.Legs {
@@ -96,13 +187,10 @@ func (s *RoutingService) GetDirections(req DirectionsRequest) (*DirectionsResult
 		legs[i] = LegResult{
 			DistanceKm: l.DistanceKm,
 			DurationS:  l.DurationS,
-			ETAAt:      req.DepartureAt.Add(time.Duration(elapsed) * time.Second),
+			ETAAt:      departure.Add(time.Duration(elapsed) * time.Second),
 		}
 	}
 
-	// Merge all leg shapes into a single LineString.
-	// Deduplicate the shared point between consecutive legs (last point of leg N
-	// equals first point of leg N+1).
 	var merged [][2]float64
 	for i, l := range raw.Legs {
 		if i == 0 {
@@ -113,6 +201,8 @@ func (s *RoutingService) GetDirections(req DirectionsRequest) (*DirectionsResult
 	}
 
 	return &DirectionsResult{
+		Profile:         profile,
+		Label:           label,
 		TotalDistanceKm: raw.TotalDistanceKm,
 		TotalDurationS:  raw.TotalDurationS,
 		Legs:            legs,
@@ -120,5 +210,5 @@ func (s *RoutingService) GetDirections(req DirectionsRequest) (*DirectionsResult
 			Type:        "LineString",
 			Coordinates: merged,
 		},
-	}, nil
+	}
 }

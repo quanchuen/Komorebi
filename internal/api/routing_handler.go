@@ -11,9 +11,8 @@ import (
 )
 
 // RoutingDirector is the interface the handler uses to request directions.
-// Accepting an interface keeps the handler testable without the real service.
 type RoutingDirector interface {
-	GetDirections(req app.DirectionsRequest) (*app.DirectionsResult, error)
+	GetDirections(req app.DirectionsRequest) (*app.MultiDirectionsResult, error)
 }
 
 // RoutingHandler handles HTTP requests for the routing endpoints.
@@ -21,12 +20,9 @@ type RoutingHandler struct {
 	svc RoutingDirector
 }
 
-// NewRoutingHandler creates a RoutingHandler backed by the given service.
 func NewRoutingHandler(svc RoutingDirector) *RoutingHandler {
 	return &RoutingHandler{svc: svc}
 }
-
-// --- Request / Response types ---
 
 type directionsStopJSON struct {
 	Type    string  `json:"type"`
@@ -54,16 +50,21 @@ type legJSON struct {
 	ETAAt      string  `json:"eta_at"`
 }
 
-type directionsResponse struct {
-	TotalDistanceKm float64            `json:"total_distance_km"`
-	TotalDurationS  float64            `json:"total_duration_s"`
-	Legs            []legJSON          `json:"legs"`
+type alternativeJSON struct {
+	Profile         string                `json:"profile"`
+	Label           string                `json:"label"`
+	TotalDistanceKm float64               `json:"total_distance_km"`
+	TotalDurationS  float64               `json:"total_duration_s"`
+	Legs            []legJSON             `json:"legs"`
 	Geometry        app.GeoJSONLineString `json:"geometry"`
 }
 
-// --- Handler ---
+type directionsResponse struct {
+	Alternatives []alternativeJSON `json:"alternatives"`
+}
 
 // Directions handles POST /api/v1/routing/directions.
+// Returns up to 3 route alternatives: suggested, fast, avoid main roads.
 func (h *RoutingHandler) Directions(w http.ResponseWriter, r *http.Request) {
 	var req directionsRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -120,19 +121,25 @@ func (h *RoutingHandler) Directions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	legs := make([]legJSON, len(result.Legs))
-	for i, l := range result.Legs {
-		legs[i] = legJSON{
-			DistanceKm: l.DistanceKm,
-			DurationS:  l.DurationS,
-			ETAAt:      l.ETAAt.Format(time.RFC3339),
+	alts := make([]alternativeJSON, len(result.Alternatives))
+	for i, a := range result.Alternatives {
+		legs := make([]legJSON, len(a.Legs))
+		for j, l := range a.Legs {
+			legs[j] = legJSON{
+				DistanceKm: l.DistanceKm,
+				DurationS:  l.DurationS,
+				ETAAt:      l.ETAAt.Format(time.RFC3339),
+			}
+		}
+		alts[i] = alternativeJSON{
+			Profile:         a.Profile,
+			Label:           a.Label,
+			TotalDistanceKm: a.TotalDistanceKm,
+			TotalDurationS:  a.TotalDurationS,
+			Legs:            legs,
+			Geometry:        a.GeoJSON,
 		}
 	}
 
-	writeJSON(w, http.StatusOK, directionsResponse{
-		TotalDistanceKm: result.TotalDistanceKm,
-		TotalDurationS:  result.TotalDurationS,
-		Legs:            legs,
-		Geometry:        result.GeoJSON,
-	})
+	writeJSON(w, http.StatusOK, directionsResponse{Alternatives: alts})
 }

@@ -4,9 +4,12 @@ package postgres
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/cyclist-map/cyclist-map/internal/domain/environment"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -125,4 +128,112 @@ func (r *VenueRepo) ListTags() ([]environment.VenueTag, error) {
 		tags = []environment.VenueTag{}
 	}
 	return tags, nil
+}
+
+// GetTagMapping fetches the full tag mapping (including osm_filter JSON) for a hashtag.
+// Returns nil, nil when the hashtag is not found.
+func (r *VenueRepo) GetTagMapping(hashtag string) (*environment.VenueTagMapping, error) {
+	ctx := context.Background()
+	row := r.pool.QueryRow(ctx, `
+		SELECT hashtag, osm_filter, COALESCE(description, ''), is_brand
+		FROM environment.venue_tag_mapping
+		WHERE hashtag = $1
+	`, hashtag)
+
+	var m environment.VenueTagMapping
+	var filterJSON []byte
+	err := row.Scan(&m.Hashtag, &filterJSON, &m.Description, &m.IsBrand)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("GetTagMapping scan: %w", err)
+	}
+	if len(filterJSON) > 0 {
+		if err := json.Unmarshal(filterJSON, &m.OSMFilter); err != nil {
+			m.OSMFilter = map[string]string{}
+		}
+	} else {
+		m.OSMFilter = map[string]string{}
+	}
+	return &m, nil
+}
+
+// NearestAlongLine returns the nearest venue matching the OSM filter within
+// BufferM metres of the route geometry WKT, ordered by distance ASC LIMIT 1.
+// Returns nil, nil when no matching venue exists within the corridor.
+func (r *VenueRepo) NearestAlongLine(params environment.NearestAlongLineParams) (*environment.Venue, error) {
+	bufferM := params.BufferM
+	if bufferM <= 0 {
+		bufferM = 200
+	}
+
+	ctx := context.Background()
+
+	args := []any{params.RouteWKT, bufferM}
+	var filterClauses []string
+	for k, v := range params.OSMFilter {
+		if k == "brand" && params.IsBrand {
+			args = append(args, "%"+v+"%")
+			filterClauses = append(filterClauses,
+				fmt.Sprintf("v.brand ILIKE $%d", len(args)))
+		} else {
+			args = append(args, v)
+			filterClauses = append(filterClauses,
+				fmt.Sprintf("v.osm_tags->>'%s' = $%d", k, len(args)))
+		}
+	}
+
+	filterSQL := ""
+	if len(filterClauses) > 0 {
+		filterSQL = "AND " + strings.Join(filterClauses, " AND ")
+	}
+
+	query := fmt.Sprintf(`
+		SELECT
+			v.id,
+			v.osm_id,
+			v.name,
+			v.category,
+			COALESCE(v.brand, ''),
+			ST_Y(v.geometry) AS lat,
+			ST_X(v.geometry) AS lon,
+			COALESCE(v.osm_tags::text, '{}')
+		FROM environment.venue v
+		WHERE ST_DWithin(
+			v.geometry::geography,
+			ST_GeomFromText($1, 4326)::geography,
+			$2
+		)
+		%s
+		ORDER BY v.geometry::geography <-> ST_GeomFromText($1, 4326)::geography
+		LIMIT 1
+	`, filterSQL)
+
+	row := r.pool.QueryRow(ctx, query, args...)
+
+	var v environment.Venue
+	var osmID *int64
+	var tagsJSON []byte
+	err := row.Scan(
+		&v.ID, &osmID, &v.Name, &v.Category, &v.Brand,
+		&v.Lat, &v.Lon, &tagsJSON,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("NearestAlongLine scan: %w", err)
+	}
+	if osmID != nil {
+		v.OsmID = *osmID
+	}
+	if len(tagsJSON) > 0 {
+		if err := json.Unmarshal(tagsJSON, &v.OsmTags); err != nil {
+			v.OsmTags = map[string]string{}
+		}
+	} else {
+		v.OsmTags = map[string]string{}
+	}
+	return &v, nil
 }

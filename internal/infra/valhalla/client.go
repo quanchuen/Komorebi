@@ -29,6 +29,7 @@ type Leg struct {
 
 // RouteResult holds the parsed Valhalla response.
 type RouteResult struct {
+	Profile         RouteProfile
 	TotalDistanceKm float64
 	TotalDurationS  float64
 	Legs            []Leg
@@ -50,21 +51,51 @@ func NewClient(baseURL string) *Client {
 	}
 }
 
-// Route requests a bicycle route through the given stops via Valhalla's /route endpoint.
-// Intermediate stops (all but first and last) are sent as "through" type so Valhalla
-// treats them as via-points rather than full break stops, keeping geometry continuous.
-func (c *Client) Route(stops []Location) (*RouteResult, error) {
+// RouteProfile controls Valhalla's costing parameters for different route styles.
+type RouteProfile string
+
+const (
+	// ProfileSuggested balances greenery, speed, and bike route usage.
+	ProfileSuggested RouteProfile = "suggested"
+	// ProfileFast optimizes for shortest travel time, uses main roads.
+	ProfileFast RouteProfile = "fast"
+	// ProfileAvoidMainRoads avoids large/fast roads, prefers cycling paths and residential streets.
+	ProfileAvoidMainRoads RouteProfile = "avoid_main_roads"
+)
+
+var profileCosting = map[RouteProfile]map[string]any{
+	ProfileSuggested: {
+		"bicycle_type":  "Road",
+		"cycling_speed": 15,
+		"use_roads":     0.5,
+		"use_hills":     0.3,
+	},
+	ProfileFast: {
+		"bicycle_type":  "Road",
+		"cycling_speed": 20,
+		"use_roads":     0.9,
+		"use_hills":     0.5,
+	},
+	ProfileAvoidMainRoads: {
+		"bicycle_type":  "Hybrid",
+		"cycling_speed": 13,
+		"use_roads":     0.05,
+		"use_hills":     0.2,
+	},
+}
+
+// Route requests a bicycle route with the given profile.
+func (c *Client) Route(stops []Location, profile RouteProfile) (*RouteResult, error) {
 	if len(stops) < 2 {
 		return nil, ErrTooFewLocations
+	}
+	if profile == "" {
+		profile = ProfileSuggested
 	}
 
 	locations := make([]map[string]any, len(stops))
 	for i, s := range stops {
-		loc := map[string]any{
-			"lat": s.Lat,
-			"lon": s.Lon,
-		}
-		// Middle stops are via-points; first and last are full break stops.
+		loc := map[string]any{"lat": s.Lat, "lon": s.Lon}
 		if i > 0 && i < len(stops)-1 {
 			loc["type"] = "through"
 		} else {
@@ -73,16 +104,16 @@ func (c *Client) Route(stops []Location) (*RouteResult, error) {
 		locations[i] = loc
 	}
 
+	costing, ok := profileCosting[profile]
+	if !ok {
+		costing = profileCosting[ProfileSuggested]
+	}
+
 	body := map[string]any{
 		"locations": locations,
 		"costing":   "bicycle",
 		"costing_options": map[string]any{
-			"bicycle": map[string]any{
-				"bicycle_type":  "Road",
-				"cycling_speed": 15,
-				"use_roads":     0.5,
-				"use_hills":     0.2,
-			},
+			"bicycle": costing,
 		},
 		"directions_options": map[string]any{
 			"units": "km",
@@ -130,6 +161,7 @@ func (c *Client) Route(stops []Location) (*RouteResult, error) {
 	}
 
 	result := &RouteResult{
+		Profile:         profile,
 		TotalDistanceKm: raw.Trip.Summary.Length,
 		TotalDurationS:  raw.Trip.Summary.Time,
 		Legs:            make([]Leg, len(raw.Trip.Legs)),

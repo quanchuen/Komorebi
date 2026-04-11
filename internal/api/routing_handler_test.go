@@ -15,28 +15,32 @@ import (
 
 // fakeRoutingService is a test double for app.RoutingService.
 type fakeRoutingService struct {
-	result *app.DirectionsResult
+	result *app.MultiDirectionsResult
 	err    error
 }
 
-func (f *fakeRoutingService) GetDirections(req app.DirectionsRequest) (*app.DirectionsResult, error) {
+func (f *fakeRoutingService) GetDirections(req app.DirectionsRequest) (*app.MultiDirectionsResult, error) {
 	return f.result, f.err
 }
 
-func goodDirectionsResult() *app.DirectionsResult {
-	return &app.DirectionsResult{
-		TotalDistanceKm: 7.5,
-		TotalDurationS:  1800,
-		Legs: []app.LegResult{
+func goodDirectionsResult() *app.MultiDirectionsResult {
+	return &app.MultiDirectionsResult{
+		Alternatives: []app.DirectionsResult{
 			{
-				DistanceKm: 7.5,
-				DurationS:  1800,
-				ETAAt:      time.Date(2026, 4, 10, 14, 30, 0, 0, time.UTC),
+				TotalDistanceKm: 7.5,
+				TotalDurationS:  1800,
+				Legs: []app.LegResult{
+					{
+						DistanceKm: 7.5,
+						DurationS:  1800,
+						ETAAt:      time.Date(2026, 4, 10, 14, 30, 0, 0, time.UTC),
+					},
+				},
+				GeoJSON: app.GeoJSONLineString{
+					Type:        "LineString",
+					Coordinates: [][2]float64{{139.6917, 35.6895}, {139.7671, 35.6812}},
+				},
 			},
-		},
-		GeoJSON: app.GeoJSONLineString{
-			Type:        "LineString",
-			Coordinates: [][2]float64{{139.6917, 35.6895}, {139.7671, 35.6812}},
 		},
 	}
 }
@@ -75,13 +79,18 @@ func TestRoutingHandler_Directions_Success(t *testing.T) {
 	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
 		t.Fatalf("could not decode response: %v", err)
 	}
-	if resp["total_distance_km"] == nil {
+	alts, ok := resp["alternatives"].([]any)
+	if !ok || len(alts) == 0 {
+		t.Fatal("response missing or empty alternatives")
+	}
+	alt := alts[0].(map[string]any)
+	if alt["total_distance_km"] == nil {
 		t.Error("response missing total_distance_km")
 	}
-	if resp["geometry"] == nil {
+	if alt["geometry"] == nil {
 		t.Error("response missing geometry")
 	}
-	legs, ok := resp["legs"].([]any)
+	legs, ok := alt["legs"].([]any)
 	if !ok || len(legs) == 0 {
 		t.Error("response missing or empty legs")
 	}

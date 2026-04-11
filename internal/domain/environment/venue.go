@@ -35,6 +35,18 @@ type AlongRouteParams struct {
 	BufferM  float64 // distance from route geometry in metres; default 200
 }
 
+// NearestAlongLineParams holds parameters for finding the nearest venue along a route line.
+type NearestAlongLineParams struct {
+	// RouteWKT is the LINESTRING WKT of the current route geometry (SRID 4326).
+	RouteWKT string
+	// OSMFilter maps OSM tag keys to expected values (all must match).
+	OSMFilter map[string]string
+	// IsBrand when true uses ILIKE matching on brand field values.
+	IsBrand bool
+	// BufferM is the search corridor in metres; defaults to 200.
+	BufferM float64
+}
+
 // VenueRepository defines persistence operations for venue reads.
 type VenueRepository interface {
 	// AlongRoute returns venues within BufferM metres of the named route geometry.
@@ -43,4 +55,12 @@ type VenueRepository interface {
 
 	// ListTags returns all hashtag → filter mappings from venue_tag_mapping.
 	ListTags() ([]VenueTag, error)
+
+	// GetTagMapping returns the full VenueTagMapping for the given hashtag, or nil if not found.
+	GetTagMapping(hashtag string) (*VenueTagMapping, error)
+
+	// NearestAlongLine returns the single nearest venue matching the OSM filter
+	// within BufferM metres of the route geometry WKT.
+	// Returns nil, nil when no matching venue exists within the corridor.
+	NearestAlongLine(params NearestAlongLineParams) (*Venue, error)
 }
