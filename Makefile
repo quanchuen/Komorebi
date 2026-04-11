@@ -5,7 +5,7 @@ OSM_URL     := https://download.geofabrik.de/asia/japan/kanto-latest.osm.pbf
 OSM_LUA     := pipelines/osm_import/kanto.lua
 OSM_DB      := $(MIGRATE_URL)
 
-.PHONY: migrate-up migrate-down migrate-create osm-download osm-import osm-update osm-venues osm-all greenery help
+.PHONY: migrate-up migrate-down migrate-create osm-download osm-import osm-update osm-venues osm-all greenery plateau-shadow help
 
 migrate-up:
 	migrate -path migrations -database "$(MIGRATE_URL)" up
@@ -55,6 +55,13 @@ osm-all: osm-import osm-venues
 ## Populate environment.greenery_edge from osm.roads + osm.landuse (idempotent, ~5–15 min)
 greenery:
 	psql "$(OSM_DB)" -f pipelines/greenery/compute_greenery.sql
+
+## Run PLATEAU shadow precompute pipeline (requires Docker; uses pipelines profile)
+plateau-shadow:
+	docker compose --profile pipelines run --rm plateau_shadow \
+	    --db-url "$(MIGRATE_URL)" \
+	    --wards chiyoda,minato,shibuya \
+	    --months 1,4,7,10
 
 help:
 	@grep -E '^## ' Makefile | sed 's/^## //'
