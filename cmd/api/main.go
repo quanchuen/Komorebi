@@ -55,6 +55,10 @@ func main() {
 	venueRepo := postgres.NewVenueRepo(pool)
 	venueSvc := app.NewVenueService(venueRepo)
 
+	weatherRepo := postgres.NewWeatherRepo(pool)
+	weatherSvc := app.NewWeatherService(weatherRepo)
+	weatherHandler := api.NewWeatherHandler(weatherSvc)
+
 	valhallaURL := os.Getenv("VALHALLA_URL")
 	if valhallaURL == "" {
 		valhallaURL = "http://localhost:8002"
@@ -63,7 +67,7 @@ func main() {
 	routingSvc := app.NewRoutingService(valhallaClient)
 	routingHandler := api.NewRoutingHandler(routingSvc)
 
-	router := api.NewRouter(routeSvc, discoverySvc, venueSvc, routingHandler)
+	router := api.NewRouter(routeSvc, discoverySvc, venueSvc, routingHandler, weatherHandler)
 
 	// Start HTTP server
 	srv := &http.Server{

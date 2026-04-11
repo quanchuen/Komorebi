@@ -12,6 +12,7 @@ func NewRouter(
 	discoverySvc *app.DiscoveryService,
 	venueSvc *app.VenueService,
 	routingH *RoutingHandler,
+	weatherH *WeatherHandler,
 ) *chi.Mux {
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
@@ -40,6 +41,9 @@ func NewRouter(
 
 		// Routing
 		r.Post("/routing/directions", routingH.Directions)
+
+		// Weather
+		r.Get("/weather/point", weatherH.AtPoint)
 	})
 	return r
 }
