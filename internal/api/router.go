@@ -13,6 +13,8 @@ func NewRouter(
 	venueSvc *app.VenueService,
 	routingH *RoutingHandler,
 	weatherH *WeatherHandler,
+	conditionsH *ConditionsHandler,
+	previewH *PreviewHandler,
 ) *chi.Mux {
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
@@ -29,6 +31,7 @@ func NewRouter(
 		r.Get("/routes/{id}", rh.Get)
 		r.Patch("/routes/{id}", rh.Update)
 		r.Delete("/routes/{id}", rh.Archive)
+		r.Get("/routes/{id}/conditions", conditionsH.RouteConditions) // NEW
 
 		// Discovery
 		r.Get("/discover/nearby", dh.Nearby)
@@ -41,6 +44,7 @@ func NewRouter(
 
 		// Routing
 		r.Post("/routing/directions", routingH.Directions)
+		r.Get("/routing/conditions/preview", previewH.ConditionsPreview) // NEW
 
 		// Weather
 		r.Get("/weather/point", weatherH.AtPoint)
