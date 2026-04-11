@@ -264,7 +264,7 @@
 
         <!-- Connector + add-stop button between each pair -->
         {#if i < stops.length - 1}
-          <div class="flex items-center gap-2 my-0.5">
+          <div class="flex items-center gap-2 my-2">
             <!-- Vertical dash line under icon column -->
             <div class="w-5 shrink-0 flex justify-center">
               <div class="w-px h-4 border-l border-dashed border-slate-600"></div>
