@@ -1,5 +1,4 @@
 <!-- web/src/lib/components/NavigationPanel.svelte -->
-<!-- Floating panel: From/To inputs with insertable stops, route suggestions -->
 <script lang="ts">
   import { routing, discovery, routes as routesApi } from '$lib/api/client';
   import { departureAt, highlightedRouteId, bboxString, mapInstance } from '$lib/stores/map';
@@ -11,24 +10,87 @@
   interface Stop {
     id: string;
     label: string;
+    query: string;        // typed search text
     lat: number | null;
     lon: number | null;
   }
 
   let stops = $state<Stop[]>([
-    { id: crypto.randomUUID(), label: '', lat: null, lon: null },
-    { id: crypto.randomUUID(), label: '', lat: null, lon: null }
+    { id: crypto.randomUUID(), label: '', query: '', lat: null, lon: null },
+    { id: crypto.randomUUID(), label: '', query: '', lat: null, lon: null }
   ]);
 
   let conditionsCache = $state(new Map<string, RouteConditionSegment[]>());
   let routeGeometryCache = $state(new Map<string, number[][]>());
 
-  // Which input is awaiting a map click
-  let awaitingClickIndex = $state<number | null>(null);
+  // Address lookup
+  let activeInputIndex = $state<number | null>(null);
+  let suggestions = $state<{ display_name: string; lat: string; lon: string }[]>([]);
+  let searchDebounce: ReturnType<typeof setTimeout>;
+  let inputRefs: HTMLInputElement[] = [];
 
-  function addStopAfter(index: number) {
-    const newStop: Stop = { id: crypto.randomUUID(), label: '', lat: null, lon: null };
-    stops = [...stops.slice(0, index + 1), newStop, ...stops.slice(index + 1)];
+  function focusInput(index: number) {
+    activeInputIndex = index;
+    suggestions = [];
+  }
+
+  async function searchAddress(query: string) {
+    if (query.length < 3) { suggestions = []; return; }
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&countrycodes=jp&accept-language=en`
+      );
+      if (res.ok) {
+        suggestions = await res.json();
+      }
+    } catch {
+      suggestions = [];
+    }
+  }
+
+  function handleInput(index: number, e: Event) {
+    const val = (e.target as HTMLInputElement).value;
+    stops = stops.map((s, i) => i === index ? { ...s, query: val, label: val, lat: null, lon: null } : s);
+    clearTimeout(searchDebounce);
+    searchDebounce = setTimeout(() => searchAddress(val), 300);
+  }
+
+  function selectSuggestion(index: number, suggestion: { display_name: string; lat: string; lon: string }) {
+    const lat = parseFloat(suggestion.lat);
+    const lon = parseFloat(suggestion.lon);
+    const shortName = suggestion.display_name.split(',').slice(0, 2).join(',').trim();
+    stops = stops.map((s, i) =>
+      i === index ? { ...s, lat, lon, label: shortName, query: shortName } : s
+    );
+    suggestions = [];
+    activeInputIndex = null;
+
+    // Auto-focus next empty input
+    const nextEmpty = stops.findIndex((s, i) => i > index && s.lat === null);
+    if (nextEmpty !== -1) {
+      setTimeout(() => {
+        inputRefs[nextEmpty]?.focus();
+        activeInputIndex = nextEmpty;
+      }, 100);
+    }
+
+    // Fly map to selected location
+    const mapInst = $mapInstance;
+    if (mapInst) {
+      mapInst.flyTo({ center: [lon, lat], zoom: 14, duration: 800 });
+    }
+  }
+
+  function addStop() {
+    // Insert before the last stop (destination)
+    const insertAt = stops.length - 1;
+    const newStop: Stop = { id: crypto.randomUUID(), label: '', query: '', lat: null, lon: null };
+    stops = [...stops.slice(0, insertAt), newStop, ...stops.slice(insertAt)];
+    // Focus the new input
+    setTimeout(() => {
+      inputRefs[insertAt]?.focus();
+      activeInputIndex = insertAt;
+    }, 100);
   }
 
   function removeStop(index: number) {
@@ -36,23 +98,37 @@
     stops = stops.filter((_, i) => i !== index);
   }
 
-  function setStopFromMap(index: number) {
-    awaitingClickIndex = index;
-  }
-
   // Called by parent when map is clicked
   export function handleMapClick(lat: number, lon: number) {
-    if (awaitingClickIndex !== null) {
-      const idx = awaitingClickIndex;
+    // If an input is focused/active, set it from map click
+    if (activeInputIndex !== null) {
+      const idx = activeInputIndex;
+      const label = `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
       stops = stops.map((s, i) =>
-        i === idx ? { ...s, lat, lon, label: `${lat.toFixed(4)}, ${lon.toFixed(4)}` } : s
+        i === idx ? { ...s, lat, lon, label, query: label } : s
       );
-      awaitingClickIndex = null;
+      suggestions = [];
+
+      // Auto-focus next empty
+      const nextEmpty = stops.findIndex((s, i) => i > idx && s.lat === null);
+      if (nextEmpty !== -1) {
+        setTimeout(() => {
+          inputRefs[nextEmpty]?.focus();
+          activeInputIndex = nextEmpty;
+        }, 100);
+      } else {
+        activeInputIndex = null;
+      }
     }
   }
 
-  // Check if we have enough stops to route
   let canRoute = $derived(stops.filter((s) => s.lat !== null).length >= 2);
+  let hasAllStops = $derived(stops.every((s) => s.lat !== null));
+
+  // Close suggestions when clicking outside
+  function handleBlur() {
+    setTimeout(() => { suggestions = []; }, 200);
+  }
 
   // Load routes in viewport
   async function loadRoutes(bbox: string | null, departure: string) {
@@ -84,9 +160,7 @@
     }
   }
 
-  $effect(() => {
-    loadRoutes($bboxString, $departureAt);
-  });
+  $effect(() => { loadRoutes($bboxString, $departureAt); });
 
   function retryLoad() {
     discoveryError.set(null);
@@ -101,7 +175,6 @@
       routesApi.get(id).then((r) => {
         if (Array.isArray(r.geometry)) {
           routeGeometryCache = new Map(routeGeometryCache).set(id, r.geometry);
-          // Fly to route
           const mapInst = $mapInstance;
           if (mapInst && r.geometry.length > 0) {
             const lons = r.geometry.map((c: number[]) => c[0]);
@@ -126,72 +199,92 @@
   <!-- Navigation card -->
   <div class="bg-slate-900/90 backdrop-blur-lg border border-slate-700/50
               rounded-2xl shadow-2xl p-4 pointer-events-auto">
-    <h1 class="text-sm font-bold text-slate-100 mb-3">Cyclist Map</h1>
 
-    <!-- Stop inputs -->
-    <div class="flex flex-col gap-0">
-      {#each stops as stop, i (stop.id)}
-        <div class="flex items-center gap-2">
-          <!-- Dot indicator -->
-          <div class="flex flex-col items-center w-4 shrink-0">
-            {#if i === 0}
-              <div class="w-3 h-3 rounded-full bg-emerald-500 border-2 border-emerald-300"></div>
-            {:else if i === stops.length - 1}
-              <div class="w-3 h-3 rounded-full bg-red-500 border-2 border-red-300"></div>
-            {:else}
-              <div class="w-2.5 h-2.5 rounded-full bg-sky-400 border-2 border-sky-300"></div>
-            {/if}
-          </div>
-
-          <!-- Input -->
-          <div class="flex-1 relative">
-            <input
-              type="text"
-              placeholder={i === 0 ? 'From...' : i === stops.length - 1 ? 'To...' : 'Stop...'}
-              value={stop.label}
-              readonly
-              onclick={() => setStopFromMap(i)}
-              class="w-full bg-slate-800/80 border text-slate-100 text-xs rounded-lg
-                     px-3 py-2 cursor-pointer transition-colors
-                     {awaitingClickIndex === i
-                ? 'border-sky-500 ring-1 ring-sky-500/30'
-                : 'border-slate-700 hover:border-slate-600'}
-                     focus:outline-none placeholder:text-slate-500"
-            />
-            {#if awaitingClickIndex === i}
-              <span class="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-sky-400 animate-pulse">
-                Click map
-              </span>
-            {/if}
-          </div>
-
-          <!-- Remove button (only for intermediate stops) -->
-          {#if i > 0 && i < stops.length - 1}
-            <button
-              onclick={() => removeStop(i)}
-              class="text-slate-500 hover:text-red-400 text-xs w-5 h-5 flex items-center justify-center shrink-0"
-              aria-label="Remove stop"
-            >x</button>
+    <!-- Stop inputs with dot rail -->
+    <div class="flex gap-3">
+      <!-- Left rail: dots + connecting line -->
+      <div class="flex flex-col items-center pt-2.5 shrink-0 w-3">
+        {#each stops as _, i}
+          {#if i === 0}
+            <div class="w-3 h-3 rounded-full bg-emerald-500 border-2 border-emerald-300 shrink-0"></div>
+          {:else if i === stops.length - 1}
+            <div class="w-3 h-3 rounded-full bg-red-500 border-2 border-red-300 shrink-0"></div>
+          {:else}
+            <div class="w-2.5 h-2.5 rounded-full bg-sky-400 border-2 border-sky-300 shrink-0"></div>
           {/if}
-        </div>
+          {#if i < stops.length - 1}
+            <div class="w-px flex-1 min-h-3 bg-slate-600"></div>
+          {/if}
+        {/each}
+      </div>
 
-        <!-- Add stop button between entries -->
-        {#if i < stops.length - 1}
-          <div class="flex items-center ml-[7px] my-0.5">
-            <div class="w-px h-3 bg-slate-600"></div>
-            {#if canRoute || stops.every(s => s.lat !== null)}
-              <button
-                onclick={() => addStopAfter(i)}
-                class="ml-3 text-[10px] text-slate-500 hover:text-sky-400
-                       bg-slate-800 hover:bg-slate-700 border border-slate-700
-                       rounded px-1.5 py-0 leading-4 transition-colors"
-                aria-label="Add stop"
-              >+</button>
+      <!-- Right: input fields -->
+      <div class="flex-1 flex flex-col gap-2">
+        {#each stops as stop, i (stop.id)}
+          <div class="relative">
+            <div class="flex items-center gap-1">
+              <input
+                bind:this={inputRefs[i]}
+                type="text"
+                placeholder={i === 0 ? 'From' : i === stops.length - 1 ? 'To' : 'Via'}
+                value={stop.query}
+                onfocus={() => focusInput(i)}
+                onblur={handleBlur}
+                oninput={(e) => handleInput(i, e)}
+                class="w-full bg-slate-800/80 border text-slate-100 text-xs rounded-lg
+                       px-3 py-2 transition-colors
+                       {activeInputIndex === i
+                  ? 'border-sky-500 ring-1 ring-sky-500/30'
+                  : 'border-slate-700 hover:border-slate-600'}
+                       focus:outline-none placeholder:text-slate-500"
+              />
+              {#if i > 0 && i < stops.length - 1}
+                <button
+                  onclick={() => removeStop(i)}
+                  class="text-slate-500 hover:text-red-400 text-sm w-5 h-5
+                         flex items-center justify-center shrink-0"
+                  aria-label="Remove stop"
+                >&times;</button>
+              {/if}
+            </div>
+
+            <!-- Address suggestions dropdown -->
+            {#if activeInputIndex === i && suggestions.length > 0}
+              <div class="absolute top-full left-0 right-0 mt-1 z-50
+                          bg-slate-800 border border-slate-700 rounded-lg shadow-xl
+                          overflow-hidden">
+                {#each suggestions as s}
+                  <button
+                    onmousedown={() => selectSuggestion(i, s)}
+                    class="w-full text-left px-3 py-2 text-xs text-slate-300
+                           hover:bg-slate-700 transition-colors border-b border-slate-700/50
+                           last:border-b-0"
+                  >
+                    {s.display_name.split(',').slice(0, 3).join(',')}
+                  </button>
+                {/each}
+              </div>
             {/if}
           </div>
-        {/if}
-      {/each}
+        {/each}
+      </div>
     </div>
+
+    <!-- Add stop button -->
+    {#if canRoute || hasAllStops}
+      <div class="flex items-center justify-center mt-2 gap-2">
+        <div class="flex-1 h-px bg-slate-700"></div>
+        <button
+          onclick={addStop}
+          class="text-xs text-slate-500 hover:text-sky-400
+                 bg-slate-800 hover:bg-slate-700 border border-slate-700
+                 rounded-full w-6 h-6 flex items-center justify-center
+                 transition-colors"
+          aria-label="Add stop"
+        >+</button>
+        <div class="flex-1 h-px bg-slate-700"></div>
+      </div>
+    {/if}
 
     <!-- Overlay toggles -->
     <div class="mt-3 pt-3 border-t border-slate-700/50 flex items-center justify-between">
