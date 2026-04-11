@@ -25,6 +25,12 @@ func (s *stubVenueRepoHTTP) AlongRoute(_ environment.AlongRouteParams) ([]enviro
 func (s *stubVenueRepoHTTP) ListTags() ([]environment.VenueTag, error) {
 	return s.tags, nil
 }
+func (s *stubVenueRepoHTTP) GetTagMapping(_ string) (*environment.VenueTagMapping, error) {
+	return nil, nil
+}
+func (s *stubVenueRepoHTTP) NearestAlongLine(_ environment.NearestAlongLineParams) (*environment.Venue, error) {
+	return nil, nil
+}
 
 func newTestVenueSvc(venues []environment.Venue, tags []environment.VenueTag) *app.VenueService {
 	return app.NewVenueService(&stubVenueRepoHTTP{venues: venues, tags: tags})
