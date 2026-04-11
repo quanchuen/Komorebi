@@ -27,25 +27,48 @@
   // Address lookup
   let activeInputIndex = $state<number | null>(null);
   let suggestions = $state<{ display_name: string; lat: string; lon: string }[]>([]);
+  let highlightedSuggIdx = $state(-1);
   let searchDebounce: ReturnType<typeof setTimeout>;
   let inputRefs: HTMLInputElement[] = [];
 
   function focusInput(index: number) {
     activeInputIndex = index;
     suggestions = [];
+    highlightedSuggIdx = -1;
+  }
+
+  function handleKeydown(index: number, e: KeyboardEvent) {
+    if (suggestions.length === 0) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      highlightedSuggIdx = Math.min(highlightedSuggIdx + 1, suggestions.length - 1);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      highlightedSuggIdx = Math.max(highlightedSuggIdx - 1, 0);
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (highlightedSuggIdx >= 0 && highlightedSuggIdx < suggestions.length) {
+        selectSuggestion(index, suggestions[highlightedSuggIdx]);
+      }
+    } else if (e.key === 'Escape') {
+      suggestions = [];
+      highlightedSuggIdx = -1;
+    }
   }
 
   async function searchAddress(query: string) {
-    if (query.length < 3) { suggestions = []; return; }
+    if (query.length < 3) { suggestions = []; highlightedSuggIdx = -1; return; }
     try {
       const res = await fetch(
         `/nominatim/search?format=json&q=${encodeURIComponent(query)}&limit=5&countrycodes=jp&accept-language=en`
       );
       if (res.ok) {
         suggestions = await res.json();
+        highlightedSuggIdx = -1;
       }
     } catch {
       suggestions = [];
+      highlightedSuggIdx = -1;
     }
   }
 
@@ -409,6 +432,7 @@
                 onfocus={() => focusInput(i)}
                 onblur={handleBlur}
                 oninput={(e) => handleInput(i, e)}
+                onkeydown={(e) => handleKeydown(i, e)}
                 class="w-full bg-slate-800/80 border text-slate-100 text-xs rounded-lg
                        px-3 py-2 transition-colors
                        {activeInputIndex === i
@@ -431,12 +455,13 @@
               <div class="absolute top-full left-0 right-0 mt-1 z-50
                           bg-slate-800 border border-slate-700 rounded-lg shadow-xl
                           overflow-hidden">
-                {#each suggestions as s}
+                {#each suggestions as s, si}
                   <button
                     onmousedown={() => selectSuggestion(i, s)}
-                    class="w-full text-left px-3 py-2 text-xs text-slate-300
-                           hover:bg-slate-700 transition-colors border-b border-slate-700/50
-                           last:border-b-0"
+                    onmouseenter={() => highlightedSuggIdx = si}
+                    class="w-full text-left px-3 py-2 text-xs transition-colors border-b border-slate-700/50
+                           last:border-b-0
+                           {si === highlightedSuggIdx ? 'bg-sky-600/30 text-slate-100' : 'text-slate-300 hover:bg-slate-700'}"
                   >
                     {s.display_name.split(',').slice(0, 3).join(',')}
                   </button>
