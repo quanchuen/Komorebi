@@ -11,6 +11,7 @@ func NewRouter(
 	routeSvc *app.RouteService,
 	discoverySvc *app.DiscoveryService,
 	venueSvc *app.VenueService,
+	routingH *RoutingHandler,
 ) *chi.Mux {
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
@@ -36,6 +37,9 @@ func NewRouter(
 		// Venues
 		r.Get("/venues/along-route", vh.AlongRoute)
 		r.Get("/venues/tags", vh.Tags)
+
+		// Routing
+		r.Post("/routing/directions", routingH.Directions)
 	})
 	return r
 }

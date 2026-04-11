@@ -13,6 +13,7 @@ import (
 	"github.com/cyclist-map/cyclist-map/internal/api"
 	"github.com/cyclist-map/cyclist-map/internal/app"
 	"github.com/cyclist-map/cyclist-map/internal/infra/postgres"
+	"github.com/cyclist-map/cyclist-map/internal/infra/valhalla"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -54,7 +55,15 @@ func main() {
 	venueRepo := postgres.NewVenueRepo(pool)
 	venueSvc := app.NewVenueService(venueRepo)
 
-	router := api.NewRouter(routeSvc, discoverySvc, venueSvc)
+	valhallaURL := os.Getenv("VALHALLA_URL")
+	if valhallaURL == "" {
+		valhallaURL = "http://localhost:8002"
+	}
+	valhallaClient := valhalla.NewClient(valhallaURL)
+	routingSvc := app.NewRoutingService(valhallaClient)
+	routingHandler := api.NewRoutingHandler(routingSvc)
+
+	router := api.NewRouter(routeSvc, discoverySvc, venueSvc, routingHandler)
 
 	// Start HTTP server
 	srv := &http.Server{

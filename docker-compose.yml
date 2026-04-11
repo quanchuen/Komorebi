@@ -5,7 +5,9 @@ services:
       - "8080:8080"
     environment:
       DATABASE_URL: postgres://osm_dev:osm_dev@localhost:5432/cyclist_map_dev?sslmode=disable
-    depends_on: []
+      VALHALLA_URL: http://valhalla:8002
+    depends_on:
+      - valhalla
 
   martin:
     image: ghcr.io/maplibre/martin:v0.14
