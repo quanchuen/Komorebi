@@ -5,7 +5,7 @@ OSM_URL     := https://download.geofabrik.de/asia/japan/kanto-latest.osm.pbf
 OSM_LUA     := pipelines/osm_import/kanto.lua
 OSM_DB      := $(MIGRATE_URL)
 
-.PHONY: migrate-up migrate-down migrate-create osm-download osm-import osm-update osm-venues osm-all help
+.PHONY: migrate-up migrate-down migrate-create osm-download osm-import osm-update osm-venues osm-all greenery help
 
 migrate-up:
 	migrate -path migrations -database "$(MIGRATE_URL)" up
@@ -28,6 +28,7 @@ osm-import: osm-download
 	    --output=flex \
 	    --style=$(OSM_LUA) \
 	    --database="$(OSM_DB)" \
+	    --schema=osm \
 	    --slim \
 	    --drop \
 	    --number-processes=4 \
@@ -39,6 +40,7 @@ osm-update: osm-download
 	    --output=flex \
 	    --style=$(OSM_LUA) \
 	    --database="$(OSM_DB)" \
+	    --schema=osm \
 	    --slim \
 	    --number-processes=4 \
 	    $(OSM_PBF)
@@ -49,6 +51,10 @@ osm-venues:
 
 ## Run full OSM pipeline: download → import → venues
 osm-all: osm-import osm-venues
+
+## Populate environment.greenery_edge from osm.roads + osm.landuse (idempotent, ~5–15 min)
+greenery:
+	psql "$(OSM_DB)" -f pipelines/greenery/compute_greenery.sql
 
 help:
 	@grep -E '^## ' Makefile | sed 's/^## //'
