@@ -72,7 +72,31 @@ func main() {
 	routingSvc := app.NewRoutingService(valhallaClient)
 	routingHandler := api.NewRoutingHandler(routingSvc)
 
-	router := api.NewRouter(routeSvc, discoverySvc, venueSvc, routingHandler, weatherHandler, conditionsHandler, previewHandler)
+	// Plan dependencies
+	planRepo := postgres.NewPlanRepo(pool)
+	venueResolutionSvc := app.NewVenueResolutionService(venueRepo, venueRepo)
+	planSvc := app.NewPlanService(planRepo, routeRepo, routingSvc, venueResolutionSvc)
+	planHandler := api.NewPlanHandler(planSvc)
+
+	// Auth + Community dependencies
+	jwtSecret := os.Getenv("JWT_SECRET")
+	if jwtSecret == "" {
+		log.Fatal("JWT_SECRET environment variable is required")
+	}
+
+	userRepo := postgres.NewUserRepo(pool)
+	authSvc, err := app.NewAuthService(userRepo, jwtSecret, 15*time.Minute, 7*24*time.Hour)
+	if err != nil {
+		log.Fatalf("failed to create auth service: %v", err)
+	}
+
+	contribRepo := postgres.NewContributionRepo(pool)
+	reviewRepo := postgres.NewReviewRepo(pool)
+	rideLogRepo := postgres.NewRideLogRepo(pool)
+	communitySvc := app.NewCommunityService(contribRepo, reviewRepo, rideLogRepo)
+	communityHandler := api.NewCommunityHandler(communitySvc)
+
+	router := api.NewRouter(routeSvc, discoverySvc, venueSvc, routingHandler, weatherHandler, conditionsHandler, previewHandler, planHandler, authSvc, communityHandler)
 
 	// Start HTTP server
 	srv := &http.Server{
