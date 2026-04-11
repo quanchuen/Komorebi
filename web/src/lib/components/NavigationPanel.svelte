@@ -123,6 +123,76 @@
   let canRoute = $derived(stops.filter((s) => s.lat !== null).length >= 2);
   let hasAllStops = $derived(stops.every((s) => s.lat !== null));
 
+  // Routing state
+  let isRouting = $state(false);
+  let routeResult = $state<{ distance_km: number; duration_s: number; geometry: [number, number][] } | null>(null);
+  let routeError = $state<string | null>(null);
+
+  async function doRoute() {
+    const validStops = stops.filter((s) => s.lat !== null && s.lon !== null);
+    if (validStops.length < 2) return;
+
+    isRouting = true;
+    routeError = null;
+    routeResult = null;
+
+    try {
+      const res = await routing.directions({
+        stops: validStops.map((s) => ({ type: 'manual' as const, lat: s.lat!, lon: s.lon! })),
+        departure_at: $departureAt,
+        speed_model: 'elevation',
+        preferences: { shade: 0.5, greenery: 0.5, wind: 0.5 }
+      });
+
+      // Merge leg shapes into a single geometry
+      const coords: [number, number][] = [];
+      for (const leg of res.legs ?? []) {
+        for (const pt of leg.shape ?? []) {
+          coords.push(pt);
+        }
+      }
+
+      routeResult = {
+        distance_km: res.total_distance_km ?? 0,
+        duration_s: res.total_duration_s ?? 0,
+        geometry: coords
+      };
+
+      // Show route on map
+      const mapInst = $mapInstance;
+      if (mapInst && coords.length > 0) {
+        // Dispatch geometry to parent via store
+        highlightedRouteId.set(null); // clear any highlighted curated route
+        const src = mapInst.getSource('highlight-route') as any;
+        if (src) {
+          src.setData({
+            type: 'Feature',
+            geometry: { type: 'LineString', coordinates: coords },
+            properties: {}
+          });
+        }
+        // Fit bounds
+        const lons = coords.map((c) => c[0]);
+        const lats = coords.map((c) => c[1]);
+        mapInst.fitBounds(
+          [[Math.min(...lons), Math.min(...lats)], [Math.max(...lons), Math.max(...lats)]],
+          { padding: 80, duration: 800 }
+        );
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg.includes('Failed to fetch')) {
+        routeError = 'Cannot connect to API';
+      } else if (msg.includes('502')) {
+        routeError = 'Routing engine not running (Valhalla)';
+      } else {
+        routeError = msg;
+      }
+    } finally {
+      isRouting = false;
+    }
+  }
+
   // Close suggestions when clicking outside
   function handleBlur() {
     setTimeout(() => { suggestions = []; }, 200);
@@ -287,6 +357,36 @@
         {/if}
       {/each}
     </div>
+
+    <!-- Route button -->
+    {#if canRoute}
+      <button
+        onclick={doRoute}
+        disabled={isRouting}
+        class="w-full mt-3 py-2 rounded-lg text-xs font-semibold transition-colors
+               {isRouting
+          ? 'bg-sky-800 text-sky-300 cursor-wait'
+          : 'bg-sky-600 hover:bg-sky-500 text-white'}"
+      >
+        {isRouting ? 'Routing...' : 'Route'}
+      </button>
+    {/if}
+
+    <!-- Route result -->
+    {#if routeResult}
+      <div class="mt-2 flex items-center gap-3 text-xs text-slate-300 bg-slate-800/60 rounded-lg px-3 py-2">
+        <span>{routeResult.distance_km.toFixed(1)} km</span>
+        <span class="text-slate-600">|</span>
+        <span>{Math.round(routeResult.duration_s / 60)} min</span>
+      </div>
+    {/if}
+
+    <!-- Route error -->
+    {#if routeError}
+      <div class="mt-2 text-xs text-red-400 bg-red-950/50 rounded-lg px-3 py-2">
+        {routeError}
+      </div>
+    {/if}
 
     <!-- Overlay toggles -->
     <div class="mt-3 pt-3 border-t border-slate-700/50 flex items-center justify-between">

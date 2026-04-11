@@ -167,16 +167,16 @@ export interface RoutingPreferences {
 
 export interface DirectionsRequest {
   stops: RoutingStop[];
-  departureAt: string;
-  speedModel: 'elevation';
+  departure_at: string;
+  speed_model: 'elevation';
   preferences: RoutingPreferences;
 }
 
 export interface DirectionsResponse {
   geometry: GeoLineString;
-  distanceM: number;
-  durationS: number;
-  segments: RouteConditionSegment[];
+  total_distance_km: number;
+  total_duration_s: number;
+  legs: { distance_km: number; duration_s: number; shape: [number, number][] }[];
 }
 
 // --- Venues ---
