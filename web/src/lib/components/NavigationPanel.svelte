@@ -144,13 +144,10 @@
         preferences: { shade: 0.5, greenery: 0.5, wind: 0.5 }
       });
 
-      // Merge leg shapes into a single geometry
-      const coords: [number, number][] = [];
-      for (const leg of res.legs ?? []) {
-        for (const pt of leg.shape ?? []) {
-          coords.push(pt);
-        }
-      }
+      // Extract coordinates from GeoJSON geometry
+      const coords: [number, number][] = (res.geometry?.coordinates ?? []).map(
+        (c: number[]) => [c[0], c[1]] as [number, number]
+      );
 
       routeResult = {
         distance_km: res.total_distance_km ?? 0,
