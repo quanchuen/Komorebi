@@ -71,31 +71,11 @@ plateau-shadow:
 	    --wards chiyoda,minato,shibuya \
 	    --months 1,4,7,10
 
-## Start all dev services (API + Martin + Valhalla + Web)
+## Start all dev services (API + Martin + Valhalla + Web) — Ctrl-C stops all
 dev-run:
-	@echo "Starting cyclist-map dev stack..."
-	@$(MAKE) dev-valhalla &
-	@$(MAKE) dev-api &
-	@$(MAKE) dev-martin &
-	@sleep 2 && $(MAKE) dev-web
-
-## Start Go API server
-dev-api:
-	JWT_SECRET=$(DEV_JWT_SECRET) \
-	DATABASE_URL="$(DATABASE_URL)" \
-	PORT=$(API_PORT) \
-	go run ./cmd/api
-
-## Start Martin tile server (native, brew install martin)
-dev-martin:
-	martin --config martin.yaml
-
-## Start Valhalla routing engine (Docker, first run builds tiles ~15 min)
-dev-valhalla:
-	docker compose up valhalla
-
-## Start SvelteKit dev server
-dev-web:
+	docker compose up valhalla -d
+	martin --config martin.yaml &
+	JWT_SECRET=$(DEV_JWT_SECRET) DATABASE_URL="$(DATABASE_URL)" PORT=$(API_PORT) go run ./cmd/api &
 	cd web && npm run dev
 
 help:
