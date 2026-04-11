@@ -39,6 +39,12 @@ func NewClient(baseURL string) *Client {
 	}
 }
 
+// Name returns the provider identifier.
+func (c *Client) Name() string { return "open-meteo" }
+
+// Compile-time check that Client implements WeatherFetcher.
+var _ environment.WeatherFetcher = (*Client)(nil)
+
 // FetchPoint fetches hourly forecast for a single (lat, lon) and returns one
 // WeatherGrid row per forecast hour. cell_geometry is a 5 km square centred on
 // the point. The ValidAt times are in UTC.

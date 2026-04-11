@@ -1,6 +1,7 @@
 package environment
 
 import (
+	"context"
 	"errors"
 	"math"
 	"time"
@@ -28,6 +29,20 @@ type SegmentWeather struct {
 
 // ErrNoWeather is returned when no weather data covers the requested point/time.
 var ErrNoWeather = errors.New("weather: no data for point/time")
+
+// WeatherFetcher abstracts an external weather API provider.
+// Each provider (Open-Meteo, Tomorrow.io, OpenWeatherMap) implements this
+// interface so the pipeline and services can swap providers via configuration.
+type WeatherFetcher interface {
+	// FetchPoint returns hourly forecast rows for a single (lat, lon).
+	FetchPoint(ctx context.Context, lat, lon float64) ([]WeatherGrid, error)
+
+	// FetchGrid fetches forecasts for a bounding box at the given step size.
+	FetchGrid(ctx context.Context, minLat, maxLat, minLon, maxLon, stepDeg float64) ([]WeatherGrid, error)
+
+	// Name returns the provider name (e.g. "open-meteo", "tomorrow-io", "openweathermap").
+	Name() string
+}
 
 // WeatherSegmentQuery is an input tuple for AlongRoute.
 type WeatherSegmentQuery struct {

@@ -2,14 +2,16 @@
 //
 // Weather Fetch Pipeline
 //
-// Fetches hourly Open-Meteo forecasts for the Greater Tokyo grid and stores
-// them in environment.weather_grid. Designed to run hourly via cron:
+// Fetches hourly forecasts for the Greater Tokyo grid and stores them in
+// environment.weather_grid. Designed to run hourly via cron:
 //
 //	0 * * * * DATABASE_URL=... /path/to/weather_fetch
 //
-// Grid coverage: 35.5–35.85°N, 139.4–140.0°E at 0.05° spacing (~5 km cells).
-// Each run fetches ~48 forecast hours × ~91 grid points = ~4 400 rows.
-// Rows older than 48 hours are pruned after each successful fetch.
+// Provider selection via WEATHER_PROVIDER env var:
+//
+//	open-meteo       (default, free, no API key)
+//	tomorrow-io      (requires WEATHER_API_KEY)
+//	openweathermap   (requires WEATHER_API_KEY)
 package main
 
 import (
@@ -18,8 +20,11 @@ import (
 	"os"
 	"time"
 
+	"github.com/cyclist-map/cyclist-map/internal/domain/environment"
 	"github.com/cyclist-map/cyclist-map/internal/infra/openmeteo"
+	"github.com/cyclist-map/cyclist-map/internal/infra/openweathermap"
 	"github.com/cyclist-map/cyclist-map/internal/infra/postgres"
+	"github.com/cyclist-map/cyclist-map/internal/infra/tomorrowio"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -52,13 +57,11 @@ func main() {
 	}
 
 	weatherRepo := postgres.NewWeatherRepo(pool)
+	fetcher := newFetcher()
 
-	omBaseURL := os.Getenv("OPENMETEO_BASE_URL") // override in tests
-	client := openmeteo.NewClient(omBaseURL)
+	log.Printf("fetching weather grid via %s...", fetcher.Name())
 
-	log.Println("fetching Open-Meteo grid...")
-
-	cells, err := client.FetchGrid(ctx, gridMinLat, gridMaxLat, gridMinLon, gridMaxLon, gridStepDeg)
+	cells, err := fetcher.FetchGrid(ctx, gridMinLat, gridMaxLat, gridMinLon, gridMaxLon, gridStepDeg)
 	if err != nil {
 		log.Fatalf("FetchGrid: %v", err)
 	}
@@ -76,4 +79,31 @@ func main() {
 	}
 
 	log.Println("weather_fetch: done")
+}
+
+func newFetcher() environment.WeatherFetcher {
+	provider := os.Getenv("WEATHER_PROVIDER")
+	apiKey := os.Getenv("WEATHER_API_KEY")
+	baseURL := os.Getenv("WEATHER_BASE_URL") // override for testing
+
+	switch provider {
+	case "tomorrow-io":
+		if apiKey == "" {
+			log.Fatal("WEATHER_API_KEY is required for tomorrow-io")
+		}
+		return tomorrowio.NewClient(apiKey, baseURL)
+
+	case "openweathermap":
+		if apiKey == "" {
+			log.Fatal("WEATHER_API_KEY is required for openweathermap")
+		}
+		return openweathermap.NewClient(apiKey, baseURL)
+
+	case "open-meteo", "":
+		return openmeteo.NewClient(baseURL)
+
+	default:
+		log.Fatalf("unknown WEATHER_PROVIDER: %q (supported: open-meteo, tomorrow-io, openweathermap)", provider)
+		return nil
+	}
 }
