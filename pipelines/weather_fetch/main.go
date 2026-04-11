@@ -72,10 +72,34 @@ func main() {
 		log.Fatalf("Upsert: %v", err)
 	}
 
+	// Fetch minutely precipitation for key grid points (sparser grid, center Tokyo)
+	log.Printf("fetching minutely precipitation via %s...", fetcher.Name())
+	minutelyCount := 0
+	for lat := 35.60; lat <= 35.80+1e-9; lat += 0.10 {
+		for lon := 139.60; lon <= 139.90+1e-9; lon += 0.10 {
+			rows, err := fetcher.FetchMinutely(ctx, lat, lon)
+			if err != nil {
+				log.Printf("WARN: minutely %f,%f: %v (skipping)", lat, lon, err)
+				continue
+			}
+			if len(rows) > 0 {
+				if err := weatherRepo.UpsertMinutely(rows); err != nil {
+					log.Printf("WARN: minutely upsert: %v (skipping)", err)
+					continue
+				}
+				minutelyCount += len(rows)
+			}
+		}
+	}
+	log.Printf("upserted %d minutely rows", minutelyCount)
+
 	cutoff := time.Now().UTC().Add(-retainHours * time.Hour)
 	log.Printf("pruning rows older than %v...", cutoff.Format(time.RFC3339))
 	if err := weatherRepo.DeleteBefore(cutoff); err != nil {
 		log.Printf("WARN: DeleteBefore: %v (non-fatal)", err)
+	}
+	if err := weatherRepo.DeleteMinutelyBefore(cutoff); err != nil {
+		log.Printf("WARN: DeleteMinutelyBefore: %v (non-fatal)", err)
 	}
 
 	log.Println("weather_fetch: done")

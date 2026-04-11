@@ -25,7 +25,12 @@ func (f *fakeWeatherRepo) AtPoint(_, _ float64, _ time.Time) (*environment.Weath
 func (f *fakeWeatherRepo) AlongRoute(_ []environment.WeatherSegmentQuery) ([]environment.WeatherGrid, error) {
 	return nil, nil
 }
-func (f *fakeWeatherRepo) DeleteBefore(_ time.Time) error { return nil }
+func (f *fakeWeatherRepo) DeleteBefore(_ time.Time) error                        { return nil }
+func (f *fakeWeatherRepo) UpsertMinutely(_ []environment.MinutelyPrecip) error   { return nil }
+func (f *fakeWeatherRepo) MinutelyAt(_, _ float64, _, _ time.Time) ([]environment.MinutelyPrecip, error) {
+	return nil, nil
+}
+func (f *fakeWeatherRepo) DeleteMinutelyBefore(_ time.Time) error { return nil }
 
 func TestWeatherHandler_AtPoint_OK(t *testing.T) {
 	stub := &environment.WeatherGrid{

@@ -42,6 +42,55 @@ func NewClient(baseURL string) *Client {
 // Name returns the provider identifier.
 func (c *Client) Name() string { return "open-meteo" }
 
+// FetchMinutely returns 15-minute precipitation intervals for the next 24h.
+// Open-Meteo supports minutely_15, not true per-minute. Returns nil if unavailable.
+func (c *Client) FetchMinutely(ctx context.Context, lat, lon float64) ([]environment.MinutelyPrecip, error) {
+	u := fmt.Sprintf("%s?latitude=%s&longitude=%s&minutely_15=precipitation",
+		c.baseURL, strconv.FormatFloat(lat, 'f', 6, 64), strconv.FormatFloat(lon, 'f', 6, 64))
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("open-meteo minutely: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("open-meteo minutely: HTTP %d", resp.StatusCode)
+	}
+
+	var raw struct {
+		Minutely15 struct {
+			Time          []string  `json:"time"`
+			Precipitation []float64 `json:"precipitation"`
+		} `json:"minutely_15"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&raw); err != nil {
+		return nil, fmt.Errorf("open-meteo minutely: decode: %w", err)
+	}
+
+	now := time.Now().UTC()
+	result := make([]environment.MinutelyPrecip, 0, len(raw.Minutely15.Time))
+	for i, ts := range raw.Minutely15.Time {
+		t, err := time.Parse("2006-01-02T15:04", ts)
+		if err != nil {
+			continue
+		}
+		precip := 0.0
+		if i < len(raw.Minutely15.Precipitation) {
+			precip = raw.Minutely15.Precipitation[i]
+		}
+		result = append(result, environment.MinutelyPrecip{
+			Lat: lat, Lon: lon,
+			At: t.UTC(), IntensityMMH: precip,
+			FetchedAt: now,
+		})
+	}
+	return result, nil
+}
+
 // Compile-time check that Client implements WeatherFetcher.
 var _ environment.WeatherFetcher = (*Client)(nil)
 

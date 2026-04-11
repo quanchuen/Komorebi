@@ -38,6 +38,56 @@ func NewClient(apiKey, baseURL string) *Client {
 
 func (c *Client) Name() string { return "tomorrow-io" }
 
+// FetchMinutely returns per-minute precipitation nowcast for the next 60 min.
+func (c *Client) FetchMinutely(ctx context.Context, lat, lon float64) ([]environment.MinutelyPrecip, error) {
+	url := fmt.Sprintf("%s?location=%f,%f&timesteps=1m&apikey=%s",
+		c.baseURL, lat, lon, c.apiKey)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("tomorrow-io minutely: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("tomorrow-io minutely: HTTP %d", resp.StatusCode)
+	}
+
+	var raw struct {
+		Timelines struct {
+			Minutely []struct {
+				Time   string `json:"time"`
+				Values struct {
+					PrecipIntensity float64 `json:"precipitationIntensity"`
+				} `json:"values"`
+			} `json:"minutely"`
+		} `json:"timelines"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&raw); err != nil {
+		return nil, fmt.Errorf("tomorrow-io minutely: decode: %w", err)
+	}
+
+	now := time.Now().UTC()
+	result := make([]environment.MinutelyPrecip, 0, len(raw.Timelines.Minutely))
+	for _, m := range raw.Timelines.Minutely {
+		t, err := time.Parse(time.RFC3339, m.Time)
+		if err != nil {
+			continue
+		}
+		result = append(result, environment.MinutelyPrecip{
+			Lat: lat, Lon: lon,
+			At: t.UTC(), IntensityMMH: m.Values.PrecipIntensity,
+			FetchedAt: now,
+		})
+	}
+	return result, nil
+}
+
 var _ environment.WeatherFetcher = (*Client)(nil)
 
 func (c *Client) FetchPoint(ctx context.Context, lat, lon float64) ([]environment.WeatherGrid, error) {

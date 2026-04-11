@@ -120,6 +120,69 @@ func (r *WeatherRepo) DeleteBefore(cutoff time.Time) error {
 	return nil
 }
 
+// UpsertMinutely inserts minutely precipitation rows with ON CONFLICT upsert.
+func (r *WeatherRepo) UpsertMinutely(rows []environment.MinutelyPrecip) error {
+	if len(rows) == 0 {
+		return nil
+	}
+	ctx := context.Background()
+	return r.weatherWithTx(ctx, func(tx pgx.Tx) error {
+		for _, m := range rows {
+			_, err := tx.Exec(ctx, `
+				INSERT INTO environment.minutely_precip (lat, lon, at, intensity_mmh, fetched_at)
+				VALUES ($1, $2, $3, $4, $5)
+				ON CONFLICT (lat, lon, at)
+				DO UPDATE SET intensity_mmh = EXCLUDED.intensity_mmh,
+				              fetched_at    = EXCLUDED.fetched_at
+			`, m.Lat, m.Lon, m.At, m.IntensityMMH, m.FetchedAt)
+			if err != nil {
+				return fmt.Errorf("minutely upsert: %w", err)
+			}
+		}
+		return nil
+	})
+}
+
+// MinutelyAt returns cached minutely precipitation near (lat, lon) in [from, to].
+// Uses a small tolerance (~2.5km) to match the grid cell.
+func (r *WeatherRepo) MinutelyAt(lat, lon float64, from, to time.Time) ([]environment.MinutelyPrecip, error) {
+	ctx := context.Background()
+	const tolerance = 0.025 // ~2.5km at Tokyo latitude
+	rows, err := r.pool.Query(ctx, `
+		SELECT id::text, lat, lon, at, intensity_mmh, fetched_at
+		FROM environment.minutely_precip
+		WHERE lat BETWEEN $1 AND $2
+		  AND lon BETWEEN $3 AND $4
+		  AND at BETWEEN $5 AND $6
+		ORDER BY at ASC
+	`, lat-tolerance, lat+tolerance, lon-tolerance, lon+tolerance, from, to)
+	if err != nil {
+		return nil, fmt.Errorf("minutely.AtPoint: %w", err)
+	}
+	defer rows.Close()
+
+	var result []environment.MinutelyPrecip
+	for rows.Next() {
+		var m environment.MinutelyPrecip
+		if err := rows.Scan(&m.ID, &m.Lat, &m.Lon, &m.At, &m.IntensityMMH, &m.FetchedAt); err != nil {
+			return nil, fmt.Errorf("minutely scan: %w", err)
+		}
+		result = append(result, m)
+	}
+	return result, rows.Err()
+}
+
+// DeleteMinutelyBefore prunes stale minutely rows.
+func (r *WeatherRepo) DeleteMinutelyBefore(cutoff time.Time) error {
+	ctx := context.Background()
+	_, err := r.pool.Exec(ctx,
+		`DELETE FROM environment.minutely_precip WHERE at < $1`, cutoff)
+	if err != nil {
+		return fmt.Errorf("minutely.DeleteBefore: %w", err)
+	}
+	return nil
+}
+
 // --- helpers ---
 
 func (r *WeatherRepo) weatherWithTx(ctx context.Context, fn func(pgx.Tx) error) error {

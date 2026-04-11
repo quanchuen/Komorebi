@@ -37,6 +37,47 @@ func NewClient(apiKey, baseURL string) *Client {
 
 func (c *Client) Name() string { return "openweathermap" }
 
+// FetchMinutely returns per-minute precipitation for the next 60 min via One Call API.
+func (c *Client) FetchMinutely(ctx context.Context, lat, lon float64) ([]environment.MinutelyPrecip, error) {
+	url := fmt.Sprintf("%s?lat=%f&lon=%f&exclude=current,hourly,daily,alerts&units=metric&appid=%s",
+		c.baseURL, lat, lon, c.apiKey)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("openweathermap minutely: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("openweathermap minutely: HTTP %d", resp.StatusCode)
+	}
+
+	var raw struct {
+		Minutely []struct {
+			Dt            int64   `json:"dt"`
+			Precipitation float64 `json:"precipitation"` // mm/h
+		} `json:"minutely"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&raw); err != nil {
+		return nil, fmt.Errorf("openweathermap minutely: decode: %w", err)
+	}
+
+	now := time.Now().UTC()
+	result := make([]environment.MinutelyPrecip, 0, len(raw.Minutely))
+	for _, m := range raw.Minutely {
+		result = append(result, environment.MinutelyPrecip{
+			Lat: lat, Lon: lon,
+			At: time.Unix(m.Dt, 0).UTC(), IntensityMMH: m.Precipitation,
+			FetchedAt: now,
+		})
+	}
+	return result, nil
+}
+
 var _ environment.WeatherFetcher = (*Client)(nil)
 
 func (c *Client) FetchPoint(ctx context.Context, lat, lon float64) ([]environment.WeatherGrid, error) {

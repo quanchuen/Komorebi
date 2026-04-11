@@ -27,6 +27,16 @@ type SegmentWeather struct {
 	WindSpeedMS        float64
 }
 
+// MinutelyPrecip is one minute (or sub-hour interval) of precipitation nowcast.
+type MinutelyPrecip struct {
+	ID           string
+	Lat          float64
+	Lon          float64
+	At           time.Time
+	IntensityMMH float64
+	FetchedAt    time.Time // when this nowcast was fetched
+}
+
 // ErrNoWeather is returned when no weather data covers the requested point/time.
 var ErrNoWeather = errors.New("weather: no data for point/time")
 
@@ -39,6 +49,10 @@ type WeatherFetcher interface {
 
 	// FetchGrid fetches forecasts for a bounding box at the given step size.
 	FetchGrid(ctx context.Context, minLat, maxLat, minLon, maxLon, stepDeg float64) ([]WeatherGrid, error)
+
+	// FetchMinutely returns per-minute precipitation nowcast for the next ~60 min.
+	// Returns nil, nil if the provider doesn't support minutely data.
+	FetchMinutely(ctx context.Context, lat, lon float64) ([]MinutelyPrecip, error)
 
 	// Name returns the provider name (e.g. "open-meteo", "tomorrow-io", "openweathermap").
 	Name() string
@@ -69,6 +83,16 @@ type WeatherRepository interface {
 	// DeleteBefore removes rows with valid_at older than cutoff to keep the table
 	// from growing unboundedly.
 	DeleteBefore(cutoff time.Time) error
+
+	// UpsertMinutely inserts or replaces minutely precipitation rows.
+	UpsertMinutely(rows []MinutelyPrecip) error
+
+	// MinutelyAt returns cached minutely precipitation near (lat, lon)
+	// with At times within the range [from, to].
+	MinutelyAt(lat, lon float64, from, to time.Time) ([]MinutelyPrecip, error)
+
+	// DeleteMinutelyBefore prunes stale minutely rows.
+	DeleteMinutelyBefore(cutoff time.Time) error
 }
 
 // WindBenefit returns a score in [-1, +1].
