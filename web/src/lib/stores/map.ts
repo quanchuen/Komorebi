@@ -34,8 +34,13 @@ export interface RouteDisplayInfo {
   selected: boolean;
   profile: string;
   color: string;
+  distanceM: number;
 }
 export const routeDisplays = writable<RouteDisplayInfo[]>([]);
+
+// The selected route's geometry (for the highlight line + condition gradient)
+export const selectedRouteGeometry = writable<[number, number][] | null>(null);
+export const selectedRouteDistanceM = writable<number>(0);
 
 // Derived bbox string for API calls
 export const bboxString = derived(mapBounds, ($b) =>

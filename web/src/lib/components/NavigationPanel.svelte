@@ -1,7 +1,8 @@
 <!-- web/src/lib/components/NavigationPanel.svelte -->
 <script lang="ts">
   import { routing, discovery, routes as routesApi } from '$lib/api/client';
-  import { departureAt, highlightedRouteId, bboxString, mapInstance, routeDisplays } from '$lib/stores/map';
+  import { buildLineGradient } from '$lib/utils/conditionColors';
+  import { departureAt, highlightedRouteId, bboxString, mapInstance, routeDisplays, selectedRouteGeometry, selectedRouteDistanceM, activeOverlay } from '$lib/stores/map';
   import { discoveryRoutes, discoveryLoading, discoveryError } from '$lib/stores/discovery';
   import type { Route, RouteConditionSegment } from '$lib/api/types';
   import RouteCard from './RouteCard.svelte';
@@ -199,6 +200,43 @@
     }
   }
 
+  // Conditions for the selected route
+  let selectedConditions = $state<RouteConditionSegment[]>([]);
+
+  async function fetchRouteConditions(coords: [number, number][], distKm: number) {
+    // Build pseudo-conditions from weather at sampled points along the route
+    const numSamples = Math.min(10, coords.length);
+    const step = Math.max(1, Math.floor(coords.length / numSamples));
+    const departure = new Date($departureAt);
+    const speedKmh = 15;
+    const segments: RouteConditionSegment[] = [];
+
+    for (let i = 0; i < coords.length; i += step) {
+      const [lon, lat] = coords[i];
+      const km = (i / coords.length) * distKm;
+      const etaMinutes = (km / speedKmh) * 60;
+      const etaTime = new Date(departure.getTime() + etaMinutes * 60000);
+
+      try {
+        const res = await fetch(`/api/v1/weather/point?lat=${lat}&lon=${lon}&at=${etaTime.toISOString()}`);
+        if (res.ok) {
+          const w = await res.json();
+          segments.push({
+            km,
+            eta: etaTime.toISOString(),
+            shade: 0, // no shade data from weather endpoint
+            wind_benefit: (w.wind_speed_ms ?? 0) > 0.5 ? Math.cos((w.wind_bearing_deg ?? 0) * Math.PI / 180) * Math.min(1, (w.wind_speed_ms ?? 0) / 10) : 0,
+            precip: Math.min(1, (w.precip_intensity_mmh ?? 0) / 5),
+            green_wave: null,
+            signals: 0,
+            colors: { shade: '#eab308', wind: '#94a3b8', rain: '#f8fafc' }
+          });
+        }
+      } catch { /* skip */ }
+    }
+    return segments;
+  }
+
   function selectAlternative(profile: string) {
     selectedProfile = profile;
     updateRouteDisplays();
@@ -210,10 +248,18 @@
       (c: number[]) => [c[0], c[1]] as [number, number]
     );
 
+    // Set stores for reactive map update
+    highlightedRouteId.set(null);
+    selectedRouteGeometry.set(coords);
+    selectedRouteDistanceM.set(alt.total_distance_km * 1000);
+
+    // Fetch weather conditions for the route and store them
+    fetchRouteConditions(coords, alt.total_distance_km).then((segs) => {
+      selectedConditions = segs;
+    });
+
     const mapInst = $mapInstance;
     if (mapInst && coords.length > 0) {
-      highlightedRouteId.set(null);
-      // Selected route goes on the highlight layer (bright, on top)
       const src = mapInst.getSource('highlight-route') as any;
       if (src) {
         src.setData({
@@ -222,7 +268,7 @@
           properties: {}
         });
       }
-      // Set the selected route's color
+      // Default to profile color — overlay will replace via $effect
       mapInst.setPaintProperty('highlight-route-line', 'line-gradient', null);
       mapInst.setPaintProperty('highlight-route-line', 'line-color', profileColors[profile] ?? '#38BDF8');
 
@@ -234,6 +280,25 @@
       );
     }
   }
+
+  // Apply condition gradient when overlay is toggled
+  $effect(() => {
+    const overlay = $activeOverlay;
+    const mapInst = $mapInstance;
+    const geom = $selectedRouteGeometry;
+    const distM = $selectedRouteDistanceM;
+
+    if (!mapInst || !geom || geom.length === 0) return;
+    if (!overlay || selectedConditions.length === 0) {
+      // No overlay active — use profile color
+      mapInst.setPaintProperty('highlight-route-line', 'line-gradient', null);
+      mapInst.setPaintProperty('highlight-route-line', 'line-color', profileColors[selectedProfile ?? 'suggested'] ?? '#38BDF8');
+      return;
+    }
+
+    const gradient = buildLineGradient(selectedConditions, overlay, distM);
+    mapInst.setPaintProperty('highlight-route-line', 'line-gradient', gradient);
+  });
 
   // Close suggestions when clicking outside
   function handleBlur() {
