@@ -2,6 +2,15 @@ package environment
 
 import "time"
 
+// GreenWaveResult is the query result type returned by environment repositories.
+// It is a lightweight DTO separate from the full GreenWave aggregate.
+type GreenWaveResult struct {
+	ID               string
+	TargetSpeedKmh   float64
+	DirectionBearing float64
+	Confidence       float64
+}
+
 // GreenWaveSource indicates how a green wave was detected.
 type GreenWaveSource string
 
