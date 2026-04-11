@@ -47,7 +47,14 @@ func main() {
 	// Wire up dependencies
 	routeRepo := postgres.NewRouteRepo(pool)
 	routeSvc := app.NewRouteService(routeRepo)
-	router := api.NewRouter(routeSvc)
+
+	discoveryRepo := postgres.NewDiscoveryRepo(pool)
+	discoverySvc := app.NewDiscoveryService(discoveryRepo)
+
+	venueRepo := postgres.NewVenueRepo(pool)
+	venueSvc := app.NewVenueService(venueRepo)
+
+	router := api.NewRouter(routeSvc, discoverySvc, venueSvc)
 
 	// Start HTTP server
 	srv := &http.Server{
