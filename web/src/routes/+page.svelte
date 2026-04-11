@@ -2,8 +2,10 @@
 <script lang="ts">
   import type { PageData } from './$types';
   import Map from '$lib/components/Map.svelte';
-  import DiscoveryPanel from '$lib/components/DiscoveryPanel.svelte';
+  import NavigationPanel from '$lib/components/NavigationPanel.svelte';
+  import WeatherTimeline from '$lib/components/WeatherTimeline.svelte';
   import { highlightedRouteId, departureAt } from '$lib/stores/map';
+  import { discoveryRoutes } from '$lib/stores/discovery';
   import { routes as routesApi } from '$lib/api/client';
   import type { RouteConditionSegment } from '$lib/api/types';
 
@@ -13,6 +15,14 @@
   let highlightedDistanceM = $state(0);
   let highlightedGeometry = $state<[number, number][] | null>(null);
   let routeError = $state<string | null>(null);
+  let navPanel: NavigationPanel;
+
+  // Seed discovery routes from SSR
+  import { discoveryRoutes as dr } from '$lib/stores/discovery';
+  import { onMount } from 'svelte';
+  onMount(() => {
+    if (data.routes.length > 0) dr.set(data.routes);
+  });
 
   $effect(() => {
     const id = $highlightedRouteId;
@@ -24,22 +34,16 @@
       return;
     }
 
-    // Fetch full route (discovery results have no geometry)
     routesApi.get(id)
       .then((fullRoute) => {
         routeError = null;
-        // Route geometry comes as [[lon,lat,elev], ...] from the API
         const coords = fullRoute.geometry;
         if (Array.isArray(coords) && coords.length > 0) {
-          highlightedGeometry = coords.map(
-            (c: number[]) => [c[0], c[1]] as [number, number]
-          );
+          highlightedGeometry = coords.map((c: number[]) => [c[0], c[1]] as [number, number]);
         } else {
           highlightedGeometry = null;
         }
         highlightedDistanceM = fullRoute.distance_m ?? fullRoute.distanceM ?? 0;
-
-        // Fetch conditions
         return routesApi.conditions(id, $departureAt);
       })
       .then((c) => {
@@ -48,11 +52,13 @@
       .catch((e) => {
         highlightedConditions = [];
         const msg = e instanceof Error ? e.message : String(e);
-        if (msg.includes('Failed to fetch')) {
-          routeError = 'Cannot connect to API';
-        }
+        if (msg.includes('Failed to fetch')) routeError = 'Cannot connect to API';
       });
   });
+
+  function handleMapClick(detail: { lng: number; lat: number }) {
+    navPanel?.handleMapClick(detail.lat, detail.lng);
+  }
 </script>
 
 <svelte:head>
@@ -60,22 +66,27 @@
   <meta name="description" content="Discover cycling routes with shade, wind, and rain forecasts." />
 </svelte:head>
 
-<div class="flex h-full w-full overflow-hidden bg-slate-900">
-  <DiscoveryPanel initialRoutes={data.routes} />
+<div class="relative h-full w-full overflow-hidden bg-slate-900">
+  <!-- Full-screen map -->
+  <Map
+    highlightGeometry={highlightedGeometry}
+    conditionSegments={highlightedConditions}
+    conditionRouteDistanceM={highlightedDistanceM}
+    onclick={handleMapClick}
+  />
 
-  <div class="flex-1 relative">
-    <Map
-      highlightGeometry={highlightedGeometry}
-      conditionSegments={highlightedConditions}
-      conditionRouteDistanceM={highlightedDistanceM}
-    />
+  <!-- Floating navigation panel (left) -->
+  <NavigationPanel bind:this={navPanel} />
 
-    {#if routeError}
-      <div class="absolute top-4 left-1/2 -translate-x-1/2 z-20
-                  bg-red-950/90 border border-red-800 text-red-300 text-xs
-                  px-4 py-2 rounded-lg backdrop-blur">
-        {routeError}
-      </div>
-    {/if}
-  </div>
+  <!-- Weather timeline (bottom) -->
+  <WeatherTimeline />
+
+  <!-- Route error toast -->
+  {#if routeError}
+    <div class="absolute top-4 left-1/2 -translate-x-1/2 z-20
+                bg-red-950/90 border border-red-800 text-red-300 text-xs
+                px-4 py-2 rounded-lg backdrop-blur">
+      {routeError}
+    </div>
+  {/if}
 </div>
