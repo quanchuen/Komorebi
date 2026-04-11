@@ -81,12 +81,10 @@
     }
   }
 
-  function addStop() {
-    // Insert before the last stop (destination)
-    const insertAt = stops.length - 1;
+  function addStopAfter(index: number) {
+    const insertAt = index + 1;
     const newStop: Stop = { id: crypto.randomUUID(), label: '', query: '', lat: null, lon: null };
     stops = [...stops.slice(0, insertAt), newStop, ...stops.slice(insertAt)];
-    // Focus the new input
     setTimeout(() => {
       inputRefs[insertAt]?.focus();
       activeInputIndex = insertAt;
@@ -200,33 +198,29 @@
   <div class="bg-slate-900/90 backdrop-blur-lg border border-slate-700/50
               rounded-2xl shadow-2xl p-4 pointer-events-auto">
 
-    <!-- Stop inputs with dot rail -->
-    <div class="flex gap-3">
-      <!-- Left rail: dots + connecting line -->
-      <div class="flex flex-col items-center pt-2.5 shrink-0 w-3">
-        {#each stops as _, i}
-          {#if i === 0}
-            <div class="w-3 h-3 rounded-full bg-emerald-500 border-2 border-emerald-300 shrink-0"></div>
-          {:else if i === stops.length - 1}
-            <div class="w-3 h-3 rounded-full bg-red-500 border-2 border-red-300 shrink-0"></div>
-          {:else}
-            <div class="w-2.5 h-2.5 rounded-full bg-sky-400 border-2 border-sky-300 shrink-0"></div>
-          {/if}
-          {#if i < stops.length - 1}
-            <div class="w-px flex-1 min-h-3 bg-slate-600"></div>
-          {/if}
-        {/each}
-      </div>
+    <!-- Stop inputs with icon rail -->
+    <div class="flex flex-col gap-0">
+      {#each stops as stop, i (stop.id)}
+        <!-- Stop row -->
+        <div class="flex items-center gap-2">
+          <!-- Icon -->
+          <div class="w-5 shrink-0 flex items-center justify-center text-sm">
+            {#if i === 0}
+              <span title="Start">🏁</span>
+            {:else if i === stops.length - 1}
+              <span title="End">🚩</span>
+            {:else}
+              <div class="w-3 h-3 rounded-full bg-amber-400 border-2 border-amber-300"></div>
+            {/if}
+          </div>
 
-      <!-- Right: input fields -->
-      <div class="flex-1 flex flex-col gap-2">
-        {#each stops as stop, i (stop.id)}
-          <div class="relative">
+          <!-- Input -->
+          <div class="flex-1 relative">
             <div class="flex items-center gap-1">
               <input
                 bind:this={inputRefs[i]}
                 type="text"
-                placeholder={i === 0 ? 'From' : i === stops.length - 1 ? 'To' : 'Via'}
+                placeholder={i === 0 ? 'Start location' : i === stops.length - 1 ? 'Destination' : 'Via stop'}
                 value={stop.query}
                 onfocus={() => focusInput(i)}
                 onblur={handleBlur}
@@ -266,23 +260,33 @@
               </div>
             {/if}
           </div>
-        {/each}
-      </div>
-    </div>
+        </div>
 
-    <!-- Add stop button -->
-    <div class="flex items-center justify-center mt-2 gap-2">
-        <div class="flex-1 h-px bg-slate-700"></div>
-        <button
-          onclick={addStop}
-          class="text-xs text-slate-500 hover:text-sky-400
-                 bg-slate-800 hover:bg-slate-700 border border-slate-700
-                 rounded-full w-6 h-6 flex items-center justify-center
-                 transition-colors"
-          aria-label="Add stop"
-        >+</button>
-        <div class="flex-1 h-px bg-slate-700"></div>
-      </div>
+        <!-- Connector + add-stop button between each pair -->
+        {#if i < stops.length - 1}
+          <div class="flex items-center gap-2 my-0.5">
+            <!-- Vertical dash line under icon column -->
+            <div class="w-5 shrink-0 flex justify-center">
+              <div class="w-px h-4 border-l border-dashed border-slate-600"></div>
+            </div>
+            <!-- Dashed line + plus button -->
+            <div class="flex-1 flex items-center gap-2">
+              <div class="flex-1 border-t border-dashed border-slate-700"></div>
+              <button
+                onclick={() => addStopAfter(i)}
+                class="text-[10px] text-slate-500 hover:text-amber-400
+                       bg-slate-800 hover:bg-slate-700 border border-slate-700
+                       hover:border-amber-500/50
+                       rounded-full w-5 h-5 flex items-center justify-center
+                       transition-colors"
+                aria-label="Add stop"
+              >+</button>
+              <div class="flex-1 border-t border-dashed border-slate-700"></div>
+            </div>
+          </div>
+        {/if}
+      {/each}
+    </div>
 
     <!-- Overlay toggles -->
     <div class="mt-3 pt-3 border-t border-slate-700/50 flex items-center justify-between">
