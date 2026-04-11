@@ -5,8 +5,7 @@
 local tables = {}
 
 -- Roads and paths (line geometry)
-tables.roads = osm2pgsql.define_way_table('osm.roads', {
-    { column = 'osm_id',       type = 'bigint' },
+tables.roads = osm2pgsql.define_way_table('roads', {
     { column = 'name',         type = 'text' },
     { column = 'name_en',      type = 'text' },
     { column = 'highway',      type = 'text' },
@@ -23,11 +22,10 @@ tables.roads = osm2pgsql.define_way_table('osm.roads', {
     { column = 'lanes',        type = 'text' },
     { column = 'tags',         type = 'jsonb' },
     { column = 'geom',         type = 'linestring', projection = 4326 },
-})
+}, { schema = 'osm' })
 
 -- Points of interest: venues, signals, etc. (node geometry)
-tables.pois = osm2pgsql.define_node_table('osm.pois', {
-    { column = 'osm_id',    type = 'bigint' },
+tables.pois = osm2pgsql.define_node_table('pois', {
     { column = 'name',      type = 'text' },
     { column = 'name_en',   type = 'text' },
     { column = 'amenity',   type = 'text' },
@@ -42,23 +40,20 @@ tables.pois = osm2pgsql.define_node_table('osm.pois', {
     { column = 'website',   type = 'text' },
     { column = 'tags',      type = 'jsonb' },
     { column = 'geom',      type = 'point', projection = 4326 },
-})
+}, { schema = 'osm' })
 
 -- Land use and green areas (polygon geometry)
-tables.landuse = osm2pgsql.define_area_table('osm.landuse', {
-    { column = 'osm_id',    type = 'bigint' },
+tables.landuse = osm2pgsql.define_area_table('landuse', {
     { column = 'name',      type = 'text' },
     { column = 'landuse',   type = 'text' },
     { column = 'leisure',   type = 'text' },
     { column = 'natural_',  type = 'text' },
     { column = 'tags',      type = 'jsonb' },
     { column = 'geom',      type = 'geometry', projection = 4326 },
-})
+}, { schema = 'osm' })
 
 -- Highway-class filter: only import road types relevant to cycling
 local highway_keep = {
-    motorway = false,
-    motorway_link = false,
     trunk = true,
     trunk_link = true,
     primary = true,
@@ -76,8 +71,6 @@ local highway_keep = {
     path = true,
     cycleway = true,
     footway = true,
-    steps = false,
-    construction = false,
 }
 
 -- Amenity/shop types to capture as POIs
@@ -92,7 +85,6 @@ local poi_amenity = {
     bicycle_parking = true,
     bicycle_repair_station = true,
     place_of_worship = true,
-    rest_area = true,
 }
 
 local poi_shop = {
@@ -108,18 +100,14 @@ local poi_leisure = {
 
 local poi_highway = {
     traffic_signals = true,
-    rest_area = true,
 }
 
 -- Ways → roads table
 function osm2pgsql.process_way(object)
     local hw = object.tags.highway
-    if hw == nil then return end
-    if highway_keep[hw] == false then return end
-    if highway_keep[hw] == nil then return end
+    if hw == nil or not highway_keep[hw] then return end
 
-    local row = {
-        osm_id         = object.id,
+    tables.roads:insert({
         name           = object.tags.name,
         name_en        = object.tags['name:en'],
         highway        = hw,
@@ -135,9 +123,8 @@ function osm2pgsql.process_way(object)
         width          = object.tags.width,
         lanes          = object.tags.lanes,
         tags           = object.tags,
-        geom           = { create = 'line' },
-    }
-    tables.roads:insert(row)
+        geom           = object:as_linestring(),
+    })
 end
 
 -- Nodes → pois table
@@ -152,8 +139,7 @@ function osm2pgsql.process_node(object)
 
     if not keep then return end
 
-    local row = {
-        osm_id        = object.id,
+    tables.pois:insert({
         name          = t.name,
         name_en       = t['name:en'],
         amenity       = t.amenity,
@@ -167,9 +153,8 @@ function osm2pgsql.process_node(object)
         phone         = t.phone,
         website       = t.website,
         tags          = t,
-        geom          = { create = 'point' },
-    }
-    tables.pois:insert(row)
+        geom          = object:as_point(),
+    })
 end
 
 -- Relations/areas → landuse table
@@ -188,12 +173,11 @@ function osm2pgsql.process_relation(object)
     if not keep then return end
 
     tables.landuse:insert({
-        osm_id  = object.id,
         name    = t.name,
         landuse = t.landuse,
         leisure = t.leisure,
         natural_ = t.natural,
         tags    = t,
-        geom    = { create = 'area' },
+        geom    = object:as_multipolygon(),
     })
 end

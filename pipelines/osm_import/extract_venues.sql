@@ -4,7 +4,7 @@
 
 INSERT INTO environment.venue (osm_id, geometry, name, category, brand, osm_tags)
 SELECT
-    p.osm_id,
+    p.node_id,
     p.geom                                          AS geometry,
 
     COALESCE(p.name, p.brand, p.operator, 'unnamed') AS name,
@@ -36,8 +36,9 @@ SELECT
 
 FROM osm.pois p
 WHERE
+    p.geom IS NOT NULL
     -- Exclude traffic signals from venue table (handled by environment.traffic_signal)
-    p.highway IS DISTINCT FROM 'traffic_signals'
+    AND p.highway IS DISTINCT FROM 'traffic_signals'
 
 ON CONFLICT (osm_id) DO UPDATE
     SET
@@ -50,10 +51,11 @@ ON CONFLICT (osm_id) DO UPDATE
 -- Also populate environment.traffic_signal from osm.pois
 INSERT INTO environment.traffic_signal (osm_node_id, geometry)
 SELECT
-    p.osm_id,
+    p.node_id,
     p.geom
 FROM osm.pois p
 WHERE p.highway = 'traffic_signals'
+    AND p.geom IS NOT NULL
 ON CONFLICT (osm_node_id) DO UPDATE
     SET geometry = EXCLUDED.geometry;
 
