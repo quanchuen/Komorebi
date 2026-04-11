@@ -5,7 +5,6 @@
   import NavigationPanel from '$lib/components/NavigationPanel.svelte';
   import WeatherTimeline from '$lib/components/WeatherTimeline.svelte';
   import { highlightedRouteId, departureAt } from '$lib/stores/map';
-  import { discoveryRoutes } from '$lib/stores/discovery';
   import { routes as routesApi } from '$lib/api/client';
   import type { RouteConditionSegment } from '$lib/api/types';
 
@@ -17,7 +16,6 @@
   let routeError = $state<string | null>(null);
   let navPanel: NavigationPanel;
 
-  // Seed discovery routes from SSR
   import { discoveryRoutes as dr } from '$lib/stores/discovery';
   import { onMount } from 'svelte';
   onMount(() => {
@@ -66,27 +64,31 @@
   <meta name="description" content="Discover cycling routes with shade, wind, and rain forecasts." />
 </svelte:head>
 
-<div class="relative h-full w-full overflow-hidden bg-slate-900">
-  <!-- Full-screen map -->
-  <Map
-    highlightGeometry={highlightedGeometry}
-    conditionSegments={highlightedConditions}
-    conditionRouteDistanceM={highlightedDistanceM}
-    onclick={handleMapClick}
-  />
+<!-- Vertical flex: map area (grows) + timeline (fixed at bottom) -->
+<div class="flex flex-col h-full w-full overflow-hidden bg-slate-900">
 
-  <!-- Floating navigation panel (left) -->
-  <NavigationPanel bind:this={navPanel} />
+  <!-- Map area with floating nav panel -->
+  <div class="flex-1 relative min-h-0">
+    <Map
+      highlightGeometry={highlightedGeometry}
+      conditionSegments={highlightedConditions}
+      conditionRouteDistanceM={highlightedDistanceM}
+      onclick={handleMapClick}
+    />
 
-  <!-- Weather timeline (bottom) -->
+    <!-- Floating navigation panel — inset from edges, doesn't touch bottom -->
+    <NavigationPanel bind:this={navPanel} />
+
+    <!-- Route error toast -->
+    {#if routeError}
+      <div class="absolute top-4 left-1/2 -translate-x-1/2 z-20
+                  bg-red-950/90 border border-red-800 text-red-300 text-xs
+                  px-4 py-2 rounded-lg backdrop-blur">
+        {routeError}
+      </div>
+    {/if}
+  </div>
+
+  <!-- Weather timeline — fixed at bottom, never overlaps -->
   <WeatherTimeline />
-
-  <!-- Route error toast -->
-  {#if routeError}
-    <div class="absolute top-4 left-1/2 -translate-x-1/2 z-20
-                bg-red-950/90 border border-red-800 text-red-300 text-xs
-                px-4 py-2 rounded-lg backdrop-blur">
-      {routeError}
-    </div>
-  {/if}
 </div>

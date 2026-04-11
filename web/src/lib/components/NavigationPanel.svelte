@@ -193,7 +193,7 @@
 </script>
 
 <!-- Floating panel -->
-<div class="absolute top-4 left-4 bottom-20 z-10 w-80
+<div class="absolute top-4 left-4 bottom-4 z-10 w-80
             flex flex-col gap-3 pointer-events-none">
 
   <!-- Navigation card -->
@@ -271,8 +271,7 @@
     </div>
 
     <!-- Add stop button -->
-    {#if canRoute || hasAllStops}
-      <div class="flex items-center justify-center mt-2 gap-2">
+    <div class="flex items-center justify-center mt-2 gap-2">
         <div class="flex-1 h-px bg-slate-700"></div>
         <button
           onclick={addStop}
@@ -284,7 +283,6 @@
         >+</button>
         <div class="flex-1 h-px bg-slate-700"></div>
       </div>
-    {/if}
 
     <!-- Overlay toggles -->
     <div class="mt-3 pt-3 border-t border-slate-700/50 flex items-center justify-between">

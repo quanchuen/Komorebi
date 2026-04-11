@@ -116,9 +116,8 @@
   }
 </script>
 
-<div class="absolute bottom-0 left-0 right-0 z-10 pointer-events-auto">
-  <div class="mx-4 mb-4 bg-slate-900/90 backdrop-blur-lg border border-slate-700/50
-              rounded-2xl shadow-2xl overflow-hidden">
+<div class="shrink-0 border-t border-slate-800 bg-slate-900">
+  <div class="overflow-hidden">
 
     <!-- Header row -->
     <div class="flex items-center justify-between px-4 pt-2 pb-1">
