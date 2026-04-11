@@ -28,6 +28,15 @@ function defaultDeparture(): string {
 }
 export const departureAt = writable<string>(defaultDeparture());
 
+// Route alternatives displayed on the map
+export interface RouteDisplayInfo {
+  coords: [number, number][];
+  selected: boolean;
+  profile: string;
+  color: string;
+}
+export const routeDisplays = writable<RouteDisplayInfo[]>([]);
+
 // Derived bbox string for API calls
 export const bboxString = derived(mapBounds, ($b) =>
   $b ? `${$b.minLon},${$b.minLat},${$b.maxLon},${$b.maxLat}` : null

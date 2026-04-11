@@ -1,7 +1,7 @@
 <!-- web/src/lib/components/NavigationPanel.svelte -->
 <script lang="ts">
   import { routing, discovery, routes as routesApi } from '$lib/api/client';
-  import { departureAt, highlightedRouteId, bboxString, mapInstance } from '$lib/stores/map';
+  import { departureAt, highlightedRouteId, bboxString, mapInstance, routeDisplays } from '$lib/stores/map';
   import { discoveryRoutes, discoveryLoading, discoveryError } from '$lib/stores/discovery';
   import type { Route, RouteConditionSegment } from '$lib/api/types';
   import RouteCard from './RouteCard.svelte';
@@ -143,6 +143,26 @@
     avoid_main_roads: '🛡'
   };
 
+  const profileColors: Record<string, string> = {
+    suggested: '#38bdf8', // sky-400
+    fast: '#f59e0b',      // amber-500
+    avoid_main_roads: '#34d399' // emerald-400
+  };
+
+  function updateRouteDisplays() {
+    routeDisplays.set(alternatives.map((alt) => {
+      const coords: [number, number][] = (alt.geometry?.coordinates ?? []).map(
+        (c: number[]) => [c[0], c[1]] as [number, number]
+      );
+      return {
+        coords,
+        selected: alt.profile === selectedProfile,
+        profile: alt.profile,
+        color: profileColors[alt.profile] ?? '#64748b'
+      };
+    }));
+  }
+
   async function doRoute() {
     const validStops = stops.filter((s) => s.lat !== null && s.lon !== null);
     if (validStops.length < 2) return;
@@ -162,8 +182,9 @@
 
       alternatives = res.alternatives ?? [];
       if (alternatives.length > 0) {
-        selectAlternative(alternatives[0].profile); // auto-select suggested
+        selectAlternative(alternatives[0].profile);
       }
+      updateRouteDisplays();
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       if (msg.includes('Failed to fetch')) {
@@ -180,6 +201,8 @@
 
   function selectAlternative(profile: string) {
     selectedProfile = profile;
+    updateRouteDisplays();
+
     const alt = alternatives.find((a) => a.profile === profile);
     if (!alt) return;
 
@@ -190,6 +213,7 @@
     const mapInst = $mapInstance;
     if (mapInst && coords.length > 0) {
       highlightedRouteId.set(null);
+      // Selected route goes on the highlight layer (bright, on top)
       const src = mapInst.getSource('highlight-route') as any;
       if (src) {
         src.setData({
@@ -198,6 +222,10 @@
           properties: {}
         });
       }
+      // Set the selected route's color
+      mapInst.setPaintProperty('highlight-route-line', 'line-gradient', null);
+      mapInst.setPaintProperty('highlight-route-line', 'line-color', profileColors[profile] ?? '#38BDF8');
+
       const lons = coords.map((c) => c[0]);
       const lats = coords.map((c) => c[1]);
       mapInst.fitBounds(
@@ -420,13 +448,17 @@
         {#each alternatives as alt (alt.profile)}
           <button
             onclick={() => selectAlternative(alt.profile)}
-            class="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-left
+            class="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-left
                    transition-colors border
                    {selectedProfile === alt.profile
-              ? 'bg-sky-600/15 border-sky-500/40 text-slate-100'
+              ? 'border-sky-500/40 text-slate-100'
               : 'bg-slate-800/50 border-slate-700/50 text-slate-400 hover:bg-slate-800 hover:text-slate-200'}"
+            style={selectedProfile === alt.profile ? `background: ${profileColors[alt.profile]}15; border-color: ${profileColors[alt.profile]}66` : ''}
           >
-            <span class="text-sm">{profileIcons[alt.profile] ?? '🚲'}</span>
+            <!-- Color dot matching map line -->
+            <div class="w-3 h-3 rounded-full shrink-0"
+                 style="background: {profileColors[alt.profile] ?? '#64748b'}; opacity: {selectedProfile === alt.profile ? 1 : 0.4}"></div>
+            <span class="text-sm shrink-0">{profileIcons[alt.profile] ?? '🚲'}</span>
             <div class="flex-1 min-w-0">
               <div class="text-[11px] font-medium">{alt.label}</div>
               <div class="text-[10px] text-slate-500">

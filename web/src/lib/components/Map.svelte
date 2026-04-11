@@ -3,9 +3,18 @@
   import { onMount, onDestroy } from 'svelte';
   import maplibregl from 'maplibre-gl';
   import 'maplibre-gl/dist/maplibre-gl.css';
-  import { mapInstance, mapBounds, activeOverlay, visibleLayers } from '$lib/stores/map';
+  import { mapInstance, mapBounds, activeOverlay, visibleLayers, routeDisplays } from '$lib/stores/map';
   import { buildLineGradient } from '$lib/utils/conditionColors';
   import type { RouteConditionSegment } from '$lib/api/types';
+
+  import type { RouteAlternative } from '$lib/api/types';
+
+  interface RouteDisplay {
+    coords: [number, number][];
+    selected: boolean;
+    profile: string;
+    color: string;
+  }
 
   interface Props {
     interactive?: boolean;
@@ -15,6 +24,7 @@
     conditionSegments?: RouteConditionSegment[];
     conditionRouteDistanceM?: number;
     highlightGeometry?: [number, number][] | null;
+    routeAlternatives?: RouteDisplay[];
     onclick?: (detail: { lng: number; lat: number }) => void;
     onmoveend?: (detail: { bounds: maplibregl.LngLatBounds }) => void;
   }
@@ -27,6 +37,7 @@
     conditionSegments = [],
     conditionRouteDistanceM = 0,
     highlightGeometry = null,
+    routeAlternatives = [],
     onclick,
     onmoveend
   }: Props = $props();
@@ -167,7 +178,23 @@
         map.addLayer(def as any);
       }
 
-      // Highlight route source + layer (above everything)
+      // Route alternatives (up to 3 dimmed + 1 highlighted)
+      for (let i = 0; i < 3; i++) {
+        map.addSource(`route-alt-${i}`, {
+          type: 'geojson',
+          lineMetrics: true,
+          data: { type: 'FeatureCollection', features: [] }
+        });
+        map.addLayer({
+          id: `route-alt-line-${i}`,
+          type: 'line',
+          source: `route-alt-${i}`,
+          layout: { 'line-cap': 'round', 'line-join': 'round' },
+          paint: { 'line-width': 3, 'line-color': '#64748b', 'line-opacity': 0.3 }
+        });
+      }
+
+      // Highlight route source + layer (above alternatives)
       map.addSource('highlight-route', {
         type: 'geojson',
         lineMetrics: true,
@@ -237,10 +264,33 @@
     }
   });
 
-  // Dim curated routes when a highlight route is active
+  // Show all route alternatives on map (dimmed unselected, bright selected)
   $effect(() => {
     if (!map || !mapLoaded) return;
-    const hasHighlight = highlightGeometry !== null && highlightGeometry.length > 0;
+    const alts = $routeDisplays;
+    for (let i = 0; i < 3; i++) {
+      const src = map.getSource(`route-alt-${i}`) as maplibregl.GeoJSONSource;
+      if (!src) continue;
+      const alt = alts[i];
+      if (alt && alt.coords.length > 0 && !alt.selected) {
+        src.setData({
+          type: 'Feature',
+          geometry: { type: 'LineString', coordinates: alt.coords },
+          properties: {}
+        });
+        map.setPaintProperty(`route-alt-line-${i}`, 'line-color', alt.color);
+        map.setPaintProperty(`route-alt-line-${i}`, 'line-opacity', 0.3);
+        map.setPaintProperty(`route-alt-line-${i}`, 'line-width', 3);
+      } else {
+        src.setData({ type: 'FeatureCollection', features: [] });
+      }
+    }
+  });
+
+  // Dim curated routes when routes are displayed
+  $effect(() => {
+    if (!map || !mapLoaded) return;
+    const hasHighlight = (highlightGeometry !== null && highlightGeometry.length > 0) || $routeDisplays.length > 0;
     if (map.getLayer('curated-routes')) {
       map.setPaintProperty('curated-routes', 'line-opacity', hasHighlight ? 0.15 : 0.5);
     }
