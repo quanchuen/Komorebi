@@ -9,7 +9,7 @@ DEV_JWT_SECRET := cyclist-map-dev-secret-do-not-use-in-production
 DATABASE_URL   ?= $(MIGRATE_URL)
 API_PORT       ?= 8080
 
-.PHONY: migrate-up migrate-down migrate-create osm-download osm-import osm-update osm-venues osm-all greenery plateau-shadow weather dev-run dev-api dev-martin dev-web help
+.PHONY: migrate-up migrate-down migrate-create osm-download osm-import osm-update osm-venues osm-all greenery plateau-shadow weather dev-run dev-api dev-martin dev-valhalla dev-web help
 
 migrate-up:
 	migrate -path migrations -database "$(MIGRATE_URL)" up
@@ -71,9 +71,10 @@ plateau-shadow:
 	    --wards chiyoda,minato,shibuya \
 	    --months 1,4,7,10
 
-## Start all dev services (API + Martin + Web)
+## Start all dev services (API + Martin + Valhalla + Web)
 dev-run:
 	@echo "Starting cyclist-map dev stack..."
+	@$(MAKE) dev-valhalla &
 	@$(MAKE) dev-api &
 	@$(MAKE) dev-martin &
 	@sleep 2 && $(MAKE) dev-web
@@ -88,6 +89,10 @@ dev-api:
 ## Start Martin tile server (native, brew install martin)
 dev-martin:
 	martin --config martin.yaml
+
+## Start Valhalla routing engine (Docker, first run builds tiles ~15 min)
+dev-valhalla:
+	docker compose up valhalla
 
 ## Start SvelteKit dev server
 dev-web:
