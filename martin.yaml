@@ -1,19 +1,10 @@
 # martin.yaml — Vector tile sources for cyclist-map
-# Served by Martin v0.14 at http://localhost:3000
+# Martin v1.x config format
 
-listen_addresses:
-  - "0.0.0.0:3000"
-
-# Postgres connection (overridden by DATABASE_URL env var in docker-compose)
 postgres:
   connection_string: "postgres://osm_dev:osm_dev@localhost:5432/cyclist_map_dev?sslmode=disable"
-  pool_size: 10
-
-  # ---- OSM sources ----
-
+  auto_publish: false
   tables:
-
-    # All roads (zoom 8–18)
     osm_roads:
       schema: osm
       table: roads
@@ -23,41 +14,12 @@ postgres:
       minzoom: 8
       maxzoom: 18
       properties:
-        - osm_id
-        - name
-        - name_en
-        - highway
-        - cycleway
-        - cycleway_left
-        - cycleway_right
-        - bicycle
-        - surface
-        - smoothness
-        - maxspeed
-        - oneway
-        - lit
+        name: text
+        highway: text
+        cycleway: text
+        surface: text
+        bicycle: text
 
-    # Venues / POIs (zoom 12+)
-    osm_pois:
-      schema: osm
-      table: pois
-      srid: 4326
-      geometry_column: geom
-      geometry_type: POINT
-      minzoom: 12
-      maxzoom: 18
-      properties:
-        - osm_id
-        - name
-        - name_en
-        - amenity
-        - shop
-        - leisure
-        - highway
-        - brand
-        - opening_hours
-
-    # Landuse / greenery polygons (zoom 10+)
     osm_landuse:
       schema: osm
       table: landuse
@@ -67,15 +29,10 @@ postgres:
       minzoom: 10
       maxzoom: 18
       properties:
-        - osm_id
-        - name
-        - landuse
-        - leisure
-        - natural_
+        name: text
+        landuse: text
+        leisure: text
 
-    # ---- Application sources ----
-
-    # Curated routes (zoom 8+)
     routes:
       schema: routes
       table: route
@@ -85,14 +42,12 @@ postgres:
       minzoom: 8
       maxzoom: 18
       properties:
-        - id
-        - name
-        - distance_m
-        - elevation_gain_m
-        - difficulty
-        - status
+        id: uuid
+        name: text
+        difficulty: text
+        status: text
+        distance_m: float8
 
-    # Enriched venues from environment schema (zoom 12+)
     venues:
       schema: environment
       table: venue
@@ -102,13 +57,10 @@ postgres:
       minzoom: 12
       maxzoom: 18
       properties:
-        - id
-        - osm_id
-        - name
-        - category
-        - brand
+        name: text
+        category: text
+        brand: text
 
-    # Traffic signals (zoom 14+)
     traffic_signals:
       schema: environment
       table: traffic_signal
@@ -117,13 +69,3 @@ postgres:
       geometry_type: POINT
       minzoom: 14
       maxzoom: 18
-      properties:
-        - osm_node_id
-
-  # ---- Function sources (filtered cycling infrastructure) ----
-
-  functions:
-
-    osm_cycling:
-      schema: public
-      function: osm_cycling_tiles

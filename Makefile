@@ -81,9 +81,9 @@ dev-api:
 	PORT=$(API_PORT) \
 	go run ./cmd/api
 
-## Start Martin tile server
+## Start Martin tile server (native, brew install martin)
 dev-martin:
-	docker compose up martin
+	martin --config martin.yaml
 
 ## Start SvelteKit dev server
 dev-web:
