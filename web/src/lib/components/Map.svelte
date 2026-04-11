@@ -33,6 +33,7 @@
 
   let container: HTMLDivElement;
   let map: maplibregl.Map;
+  let tileError = $state<string | null>(null);
 
   const MARTIN_URL = 'http://localhost:3000';
 
@@ -149,6 +150,17 @@
       map.addControl(new maplibregl.NavigationControl(), 'top-right');
     }
 
+    // Show tile errors (Martin down, etc.)
+    let tileErrorShown = false;
+    map.on('error', (e) => {
+      if (tileErrorShown) return;
+      const msg = e.error?.message ?? '';
+      if (msg.includes('Failed to fetch') || msg.includes('localhost:3000')) {
+        tileError = 'Tile server not running (localhost:3000). Run: make dev-martin';
+        tileErrorShown = true;
+      }
+    });
+
     map.on('load', () => {
       // Source + layer for highlighted route line
       map.addSource('highlight-route', {
@@ -246,4 +258,15 @@
   });
 </script>
 
-<div bind:this={container} class="w-full h-full"></div>
+<div class="relative w-full h-full">
+  <div bind:this={container} class="w-full h-full"></div>
+
+  {#if tileError}
+    <div class="absolute bottom-4 left-4 z-10
+                bg-amber-950/90 border border-amber-700 text-amber-300 text-xs
+                px-3 py-2 rounded-lg backdrop-blur flex items-center gap-2">
+      <span>Tile server offline</span>
+      <button onclick={() => tileError = null} class="text-amber-500 hover:text-amber-300">x</button>
+    </div>
+  {/if}
+</div>

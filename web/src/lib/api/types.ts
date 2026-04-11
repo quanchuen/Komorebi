@@ -65,19 +65,25 @@ export interface GreenWaveInfo {
   lengthKm: number;
 }
 
+export interface ConditionColors {
+  shade: string;  // hex
+  wind: string;
+  rain: string;
+}
+
 export interface RouteConditionSegment {
   km: number;
   eta: string;
-  shade: number;        // 0.0–1.0
-  windBenefit: number;  // -1.0 (headwind) to 1.0 (tailwind)
-  precip: number;       // 0.0–1.0
-  greenWave: GreenWaveInfo | null;
+  shade: number;           // 0.0–1.0
+  wind_benefit: number;    // -1.0 (headwind) to 1.0 (tailwind)
+  precip: number;          // 0.0–1.0
+  green_wave: GreenWaveInfo | null;
   signals: number;
+  colors: ConditionColors;
 }
 
 export interface RouteConditionsResponse {
-  routeId: string;
-  departureAt: string;
+  route_id: string;
   segments: RouteConditionSegment[];
 }
 
