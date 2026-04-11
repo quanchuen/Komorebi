@@ -24,6 +24,8 @@ var (
 	colorRed     = [3]uint8{0xef, 0x44, 0x44} // #ef4444 — headwind
 	colorWhite   = [3]uint8{0xf8, 0xfa, 0xfc} // #f8fafc — dry
 	colorPurple  = [3]uint8{0x7c, 0x3a, 0xed} // #7c3aed — heavy rain
+	colorUVLow   = [3]uint8{0x86, 0xef, 0xac} // #86efac — low UV (green)
+	colorUVHigh  = [3]uint8{0xdc, 0x26, 0x26} // #dc2626 — extreme UV (red)
 )
 
 // ShadeColor returns a hex color for shade_coverage in [0, 1].
@@ -45,4 +47,11 @@ func WindColor(windBenefit float64) string {
 // 0 = dry (white), 1 = heavy rain (dark purple).
 func RainColor(precipNorm float64) string {
 	return lerpColor(colorWhite, colorPurple, precipNorm)
+}
+
+// UVColor returns a hex color for UV index (0-11+).
+// 0-2 = green (low), 11+ = red (extreme).
+func UVColor(uvIndex float64) string {
+	t := uvIndex / 11.0 // normalise to 0-1
+	return lerpColor(colorUVLow, colorUVHigh, t)
 }

@@ -16,6 +16,7 @@ type WeatherGrid struct {
 	WindBearingDeg     float64
 	PrecipIntensityMMH float64
 	TemperatureC       float64
+	UVIndex            float64 // 0-11+, UV radiation index
 }
 
 // SegmentWeather is the weather summary for one route segment, pre-computed
@@ -25,6 +26,7 @@ type SegmentWeather struct {
 	PrecipIntensityMMH float64
 	TemperatureC       float64
 	WindSpeedMS        float64
+	UVIndex            float64 // 0-11+
 }
 
 // MinutelyPrecip is one minute (or sub-hour interval) of precipitation nowcast.

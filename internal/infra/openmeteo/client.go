@@ -105,7 +105,7 @@ func (c *Client) FetchPoint(ctx context.Context, lat, lon float64) ([]environmen
 	q := u.Query()
 	q.Set("latitude", strconv.FormatFloat(lat, 'f', 6, 64))
 	q.Set("longitude", strconv.FormatFloat(lon, 'f', 6, 64))
-	q.Set("hourly", "wind_speed_10m,wind_direction_10m,precipitation,temperature_2m")
+	q.Set("hourly", "wind_speed_10m,wind_direction_10m,precipitation,temperature_2m,uv_index")
 	q.Set("wind_speed_unit", "ms")
 	q.Set("timezone", "UTC")
 	u.RawQuery = q.Encode()
@@ -168,6 +168,7 @@ type forecastResponse struct {
 		WindDir10M    []float64 `json:"wind_direction_10m"`
 		Precipitation []float64 `json:"precipitation"`
 		Temperature2M []float64 `json:"temperature_2m"`
+		UVIndex       []float64 `json:"uv_index"`
 	} `json:"hourly"`
 }
 
@@ -190,6 +191,7 @@ func (r *forecastResponse) toWeatherGrids(lat, lon float64) ([]environment.Weath
 			WindBearingDeg:     safeIndex(r.Hourly.WindDir10M, i),
 			PrecipIntensityMMH: safeIndex(r.Hourly.Precipitation, i),
 			TemperatureC:       safeIndex(r.Hourly.Temperature2M, i),
+			UVIndex:            safeIndex(r.Hourly.UVIndex, i),
 		})
 	}
 	return grids, nil

@@ -15,4 +15,5 @@ type SegmentConditions struct {
 	GreenWave     *GreenWave
 	SignalCount   int
 	GreeneryScore float64 // 0.0–1.0; 0 when greenery_edge table is unpopulated
+	UVIndex       float64 // 0-11+; UV radiation index at projected arrival time
 }

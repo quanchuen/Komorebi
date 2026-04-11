@@ -34,18 +34,19 @@ func (r *WeatherRepo) Upsert(cells []environment.WeatherGrid) error {
 			_, err := tx.Exec(ctx, `
 				INSERT INTO environment.weather_grid
 					(cell_geometry, valid_at, wind_speed_ms, wind_bearing_deg,
-					 precip_intensity_mmh, temperature_c)
+					 precip_intensity_mmh, temperature_c, uv_index)
 				VALUES (
-					ST_GeomFromText($1, 4326), $2, $3, $4, $5, $6
+					ST_GeomFromText($1, 4326), $2, $3, $4, $5, $6, $7
 				)
 				ON CONFLICT (grid_lat, grid_lon, valid_at)
 				DO UPDATE SET
 					wind_speed_ms        = EXCLUDED.wind_speed_ms,
 					wind_bearing_deg     = EXCLUDED.wind_bearing_deg,
 					precip_intensity_mmh = EXCLUDED.precip_intensity_mmh,
-					temperature_c        = EXCLUDED.temperature_c
+					temperature_c        = EXCLUDED.temperature_c,
+					uv_index             = EXCLUDED.uv_index
 			`, poly, c.ValidAt,
-				c.WindSpeedMS, c.WindBearingDeg, c.PrecipIntensityMMH, c.TemperatureC)
+				c.WindSpeedMS, c.WindBearingDeg, c.PrecipIntensityMMH, c.TemperatureC, c.UVIndex)
 			if err != nil {
 				return fmt.Errorf("weather upsert: %w", err)
 			}
@@ -67,7 +68,8 @@ func (r *WeatherRepo) AtPoint(lat, lon float64, t time.Time) (*environment.Weath
 			wind_speed_ms,
 			wind_bearing_deg,
 			precip_intensity_mmh,
-			temperature_c
+			temperature_c,
+			uv_index
 		FROM environment.weather_grid
 		WHERE ST_Contains(
 				  cell_geometry,
@@ -232,6 +234,7 @@ func scanWeatherGrid(row pgx.Row) (*environment.WeatherGrid, error) {
 		&wg.WindBearingDeg,
 		&wg.PrecipIntensityMMH,
 		&wg.TemperatureC,
+		&wg.UVIndex,
 	); err != nil {
 		return nil, err
 	}
