@@ -5,7 +5,11 @@ OSM_URL     := https://download.geofabrik.de/asia/japan/kanto-latest.osm.pbf
 OSM_LUA     := pipelines/osm_import/kanto.lua
 OSM_DB      := $(MIGRATE_URL)
 
-.PHONY: migrate-up migrate-down migrate-create osm-download osm-import osm-update osm-venues osm-all greenery plateau-shadow help
+DEV_JWT_SECRET := cyclist-map-dev-secret-do-not-use-in-production
+DATABASE_URL   ?= $(MIGRATE_URL)
+API_PORT       ?= 8080
+
+.PHONY: migrate-up migrate-down migrate-create osm-download osm-import osm-update osm-venues osm-all greenery plateau-shadow dev-run dev-api dev-martin dev-web help
 
 migrate-up:
 	migrate -path migrations -database "$(MIGRATE_URL)" up
@@ -62,6 +66,28 @@ plateau-shadow:
 	    --db-url "$(MIGRATE_URL)" \
 	    --wards chiyoda,minato,shibuya \
 	    --months 1,4,7,10
+
+## Start all dev services (API + Martin + Web)
+dev-run:
+	@echo "Starting cyclist-map dev stack..."
+	@$(MAKE) dev-api &
+	@$(MAKE) dev-martin &
+	@sleep 2 && $(MAKE) dev-web
+
+## Start Go API server
+dev-api:
+	JWT_SECRET=$(DEV_JWT_SECRET) \
+	DATABASE_URL="$(DATABASE_URL)" \
+	PORT=$(API_PORT) \
+	go run ./cmd/api
+
+## Start Martin tile server
+dev-martin:
+	docker compose up martin
+
+## Start SvelteKit dev server
+dev-web:
+	cd web && npm run dev
 
 help:
 	@grep -E '^## ' Makefile | sed 's/^## //'
