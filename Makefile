@@ -9,7 +9,7 @@ DEV_JWT_SECRET := cyclist-map-dev-secret-do-not-use-in-production
 DATABASE_URL   ?= $(MIGRATE_URL)
 API_PORT       ?= 8080
 
-.PHONY: migrate-up migrate-down migrate-create osm-download osm-import osm-update osm-venues osm-all greenery plateau-shadow dev-run dev-api dev-martin dev-web help
+.PHONY: migrate-up migrate-down migrate-create osm-download osm-import osm-update osm-venues osm-all greenery plateau-shadow weather dev-run dev-api dev-martin dev-web help
 
 migrate-up:
 	migrate -path migrations -database "$(MIGRATE_URL)" up
@@ -59,6 +59,10 @@ osm-all: osm-import osm-venues
 ## Populate environment.greenery_edge from osm.roads + osm.landuse (idempotent, ~5–15 min)
 greenery:
 	psql "$(OSM_DB)" -f pipelines/greenery/compute_greenery.sql
+
+## Fetch hourly weather from Open-Meteo for Tokyo area grid
+weather:
+	DATABASE_URL="$(MIGRATE_URL)" go run ./pipelines/weather_fetch/
 
 ## Run PLATEAU shadow precompute pipeline (requires Docker; uses pipelines profile)
 plateau-shadow:
