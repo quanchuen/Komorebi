@@ -389,13 +389,34 @@
       </button>
     {/if}
 
-    <!-- Route alternatives -->
+    <!-- Route error -->
+    {#if routeError}
+      <div class="mt-2 text-xs text-red-400 bg-red-950/50 rounded-lg px-3 py-2">
+        {routeError}
+      </div>
+    {/if}
+
+    <!-- Layer control -->
+    <div class="mt-3 pt-3 border-t border-slate-700/50 flex items-center justify-end">
+      <MapLayerControl />
+    </div>
+  </div>
+
+  <!-- Results panel: route alternatives OR suggested routes -->
+  <div class="flex-1 min-h-0 overflow-y-auto pointer-events-auto
+              bg-slate-900/80 backdrop-blur-lg border border-slate-700/50
+              rounded-2xl shadow-2xl p-3 space-y-2">
+
     {#if alternatives.length > 0}
-      <div class="mt-2 flex flex-col gap-1.5">
+      <!-- Route alternatives -->
+      <div class="text-[10px] text-slate-500 uppercase tracking-wider px-1 mb-1">
+        Routes found
+      </div>
+      <div class="flex flex-col gap-1.5">
         {#each alternatives as alt (alt.profile)}
           <button
             onclick={() => selectAlternative(alt.profile)}
-            class="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left
+            class="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-left
                    transition-colors border
                    {selectedProfile === alt.profile
               ? 'bg-sky-600/15 border-sky-500/40 text-slate-100'
@@ -411,46 +432,29 @@
           </button>
         {/each}
       </div>
-    {/if}
-
-    <!-- Route error -->
-    {#if routeError}
-      <div class="mt-2 text-xs text-red-400 bg-red-950/50 rounded-lg px-3 py-2">
-        {routeError}
-      </div>
-    {/if}
-
-    <!-- Layer control -->
-    <div class="mt-3 pt-3 border-t border-slate-700/50 flex items-center justify-end">
-      <MapLayerControl />
-    </div>
-  </div>
-
-  <!-- Route suggestions -->
-  <div class="flex-1 min-h-0 overflow-y-auto pointer-events-auto
-              bg-slate-900/80 backdrop-blur-lg border border-slate-700/50
-              rounded-2xl shadow-2xl p-3 space-y-2">
-
-    <div class="text-[10px] text-slate-500 uppercase tracking-wider px-1 mb-1">
-      Suggested routes
-    </div>
-
-    {#if $discoveryError}
-      <div class="rounded-lg bg-red-950/80 border border-red-800 p-3 text-center space-y-2">
-        <div class="text-red-400 text-xs">{$discoveryError}</div>
-        <button onclick={retryLoad}
-          class="text-[10px] bg-red-800 hover:bg-red-700 text-red-100 px-3 py-1 rounded">
-          Retry
-        </button>
-      </div>
-    {:else if $discoveryLoading}
-      <div class="text-slate-500 text-xs text-center py-6">Loading...</div>
-    {:else if filteredRoutes.length === 0}
-      <div class="text-slate-500 text-xs text-center py-6">No routes in view</div>
     {:else}
-      {#each filteredRoutes as route (route.id)}
-        <RouteCard {route} conditions={conditionsCache.get(route.id) ?? []} />
-      {/each}
+      <!-- Suggested routes -->
+      <div class="text-[10px] text-slate-500 uppercase tracking-wider px-1 mb-1">
+        Suggested routes
+      </div>
+
+      {#if $discoveryError}
+        <div class="rounded-lg bg-red-950/80 border border-red-800 p-3 text-center space-y-2">
+          <div class="text-red-400 text-xs">{$discoveryError}</div>
+          <button onclick={retryLoad}
+            class="text-[10px] bg-red-800 hover:bg-red-700 text-red-100 px-3 py-1 rounded">
+            Retry
+          </button>
+        </div>
+      {:else if $discoveryLoading}
+        <div class="text-slate-500 text-xs text-center py-6">Loading...</div>
+      {:else if filteredRoutes.length === 0}
+        <div class="text-slate-500 text-xs text-center py-6">No routes in view</div>
+      {:else}
+        {#each filteredRoutes as route (route.id)}
+          <RouteCard {route} conditions={conditionsCache.get(route.id) ?? []} />
+        {/each}
+      {/if}
     {/if}
   </div>
 </div>
