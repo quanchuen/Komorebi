@@ -216,8 +216,9 @@
     try {
       const res = await discovery.viewport({ bbox });
       discoveryRoutes.set(res.routes);
+      // Prefetch conditions for first 3 routes only (avoid flooding API)
       await Promise.allSettled(
-        res.routes.map(async (r) => {
+        res.routes.slice(0, 3).map(async (r) => {
           if (!conditionsCache.has(r.id)) {
             try {
               const c = await routesApi.conditions(r.id, departure);
@@ -238,7 +239,13 @@
     }
   }
 
-  $effect(() => { loadRoutes($bboxString, $departureAt); });
+  let loadDebounce: ReturnType<typeof setTimeout>;
+  $effect(() => {
+    const bbox = $bboxString;
+    const dep = $departureAt;
+    clearTimeout(loadDebounce);
+    loadDebounce = setTimeout(() => loadRoutes(bbox, dep), 1000);
+  });
 
   function retryLoad() {
     discoveryError.set(null);

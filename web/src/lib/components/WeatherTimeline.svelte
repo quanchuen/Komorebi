@@ -1,16 +1,15 @@
 <!-- web/src/lib/components/WeatherTimeline.svelte -->
-<!-- Bottom timeline scrubber showing hourly weather for the map center -->
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { departureAt, mapBounds, activeOverlay } from '$lib/stores/map';
+  import { departureAt, mapBounds } from '$lib/stores/map';
 
   interface HourSlot {
-    hour: string;       // "14:00"
+    hour: string;
     time: Date;
-    temp: number;       // celsius
-    windSpeed: number;  // m/s
-    windDir: number;    // degrees
-    precip: number;     // mm/h
+    temp: number;
+    windSpeed: number;
+    windDir: number;
+    precip: number;
     isSelected: boolean;
   }
 
@@ -18,8 +17,8 @@
   let loading = $state(false);
   let error = $state<string | null>(null);
   let scrollContainer: HTMLDivElement;
+  let lastFetchKey = '';
 
-  // Generate 24 hour slots from current time
   function generateSlots(): HourSlot[] {
     const now = new Date();
     now.setMinutes(0, 0, 0);
@@ -43,37 +42,77 @@
     const bounds = $mapBounds;
     if (!bounds) return;
 
-    const centerLat = (bounds.minLat + bounds.maxLat) / 2;
-    const centerLon = (bounds.minLon + bounds.maxLon) / 2;
+    const centerLat = ((bounds.minLat + bounds.maxLat) / 2).toFixed(2);
+    const centerLon = ((bounds.minLon + bounds.maxLon) / 2).toFixed(2);
+    const fetchKey = `${centerLat},${centerLon}`;
+
+    // Skip if same location (user just panned slightly)
+    if (fetchKey === lastFetchKey) return;
+    lastFetchKey = fetchKey;
 
     loading = true;
     error = null;
 
     try {
-      // Fetch weather for center point at each hour
-      const baseSlots = generateSlots();
-      const updated = await Promise.all(
-        baseSlots.map(async (slot) => {
-          try {
-            const res = await fetch(
-              `/api/v1/weather/point?lat=${centerLat}&lon=${centerLon}&at=${slot.time.toISOString()}`
-            );
-            if (res.ok) {
-              const data = await res.json();
-              return {
-                ...slot,
-                temp: Math.round(data.temperature_c ?? 0),
-                windSpeed: Math.round((data.wind_speed_ms ?? 0) * 10) / 10,
-                windDir: data.wind_bearing_deg ?? 0,
-                precip: data.precip_intensity_mmh ?? 0
-              };
-            }
-          } catch { /* weather unavailable for this hour */ }
-          return slot;
-        })
+      // Single fetch for current hour — use it for the whole timeline
+      // (weather doesn't change much across 24h at the same location for display purposes)
+      const now = new Date();
+      now.setMinutes(0, 0, 0);
+      const res = await fetch(
+        `/api/v1/weather/point?lat=${centerLat}&lon=${centerLon}&at=${now.toISOString()}`
       );
-      slots = updated;
-    } catch (e) {
+
+      const baseSlots = generateSlots();
+
+      if (res.ok) {
+        const data = await res.json();
+        // Apply current weather to all slots as baseline, fetch a few key hours
+        const baseTemp = Math.round(data.temperature_c ?? 0);
+        const baseWind = Math.round((data.wind_speed_ms ?? 0) * 10) / 10;
+        const baseWindDir = data.wind_bearing_deg ?? 0;
+        const basePrecip = data.precip_intensity_mmh ?? 0;
+
+        // Fetch a few spread-out hours for variation (0, 6, 12, 18)
+        const keyHours = [0, 6, 12, 18].map((offset) => {
+          const t = new Date(now.getTime() + offset * 3600000);
+          return { offset, time: t };
+        });
+
+        const keyData = await Promise.all(
+          keyHours.map(async (kh) => {
+            try {
+              const r = await fetch(
+                `/api/v1/weather/point?lat=${centerLat}&lon=${centerLon}&at=${kh.time.toISOString()}`
+              );
+              if (r.ok) return { offset: kh.offset, data: await r.json() };
+            } catch {}
+            return null;
+          })
+        );
+
+        // Build a lookup of known hours
+        const hourMap = new Map<number, any>();
+        hourMap.set(0, data);
+        for (const kd of keyData) {
+          if (kd) hourMap.set(kd.offset, kd.data);
+        }
+
+        slots = baseSlots.map((slot, i) => {
+          // Find nearest known hour
+          const known = hourMap.get(i) ?? hourMap.get(Math.floor(i / 6) * 6) ?? data;
+          return {
+            ...slot,
+            temp: Math.round(known.temperature_c ?? baseTemp),
+            windSpeed: Math.round((known.wind_speed_ms ?? baseWind) * 10) / 10,
+            windDir: known.wind_bearing_deg ?? baseWindDir,
+            precip: known.precip_intensity_mmh ?? basePrecip
+          };
+        });
+      } else {
+        slots = baseSlots;
+        error = 'Weather unavailable';
+      }
+    } catch {
       error = 'Weather unavailable';
       slots = generateSlots();
     } finally {
@@ -86,12 +125,12 @@
     fetchWeather();
   });
 
-  // Refetch when map moves
+  // Refetch when map moves (heavily debounced)
   let fetchTimeout: ReturnType<typeof setTimeout>;
   $effect(() => {
     const _ = $mapBounds;
     clearTimeout(fetchTimeout);
-    fetchTimeout = setTimeout(fetchWeather, 1500); // debounce
+    fetchTimeout = setTimeout(fetchWeather, 3000);
   });
 
   function selectHour(slot: HourSlot) {
@@ -100,26 +139,23 @@
   }
 
   function precipHeight(mmh: number): number {
-    return Math.min(100, Math.max(0, mmh * 50)); // 2mm/h = full bar
+    return Math.min(100, Math.max(0, mmh * 50));
   }
 
   function windArrow(deg: number): string {
-    // Rotate arrow to show wind FROM direction
     return `rotate(${deg + 180}deg)`;
   }
 
   function precipColor(mmh: number): string {
     if (mmh <= 0) return 'transparent';
-    if (mmh < 0.5) return '#818cf8'; // indigo-400
-    if (mmh < 2) return '#6366f1'; // indigo-500
-    return '#4338ca'; // indigo-700
+    if (mmh < 0.5) return '#818cf8';
+    if (mmh < 2) return '#6366f1';
+    return '#4338ca';
   }
 </script>
 
 <div class="shrink-0 border-t border-slate-800 bg-slate-900">
   <div class="overflow-hidden">
-
-    <!-- Header row -->
     <div class="flex items-center justify-between px-4 pt-2 pb-1">
       <span class="text-[10px] text-slate-500 uppercase tracking-wider">Weather timeline</span>
       {#if loading}
@@ -129,7 +165,6 @@
       {/if}
     </div>
 
-    <!-- Scrollable timeline -->
     <div bind:this={scrollContainer}
          class="flex overflow-x-auto gap-0 px-2 pb-2 scrollbar-thin">
       {#each slots as slot (slot.hour)}
@@ -140,37 +175,28 @@
             ? 'bg-sky-600/20 border border-sky-500/40'
             : 'hover:bg-slate-800/50 border border-transparent'}"
         >
-          <!-- Hour label -->
           <span class="text-[10px] font-medium {slot.isSelected ? 'text-sky-300' : 'text-slate-400'}">
             {slot.hour}
           </span>
 
-          <!-- Precip bar -->
           <div class="w-6 h-5 flex items-end justify-center my-0.5">
             {#if slot.precip > 0}
-              <div
-                class="w-4 rounded-t-sm"
-                style="height: {Math.max(2, precipHeight(slot.precip))}%; background: {precipColor(slot.precip)};"
-              ></div>
+              <div class="w-4 rounded-t-sm"
+                style="height: {Math.max(2, precipHeight(slot.precip))}%; background: {precipColor(slot.precip)};"></div>
             {:else}
               <div class="w-4 h-px bg-slate-700"></div>
             {/if}
           </div>
 
-          <!-- Wind arrow -->
-          <div class="text-[10px] h-4 flex items-center justify-center"
-               title="Wind {slot.windSpeed}m/s">
+          <div class="text-[10px] h-4 flex items-center justify-center" title="Wind {slot.windSpeed}m/s">
             {#if slot.windSpeed > 0.5}
               <span style="transform: {windArrow(slot.windDir)}; display: inline-block;"
-                    class="{slot.windSpeed > 5 ? 'text-amber-400' : 'text-slate-400'}">
-                ↑
-              </span>
+                    class="{slot.windSpeed > 5 ? 'text-amber-400' : 'text-slate-400'}">↑</span>
             {:else}
               <span class="text-slate-600">·</span>
             {/if}
           </div>
 
-          <!-- Temp -->
           <span class="text-[9px] {slot.temp > 30 ? 'text-red-400' : slot.temp < 10 ? 'text-blue-400' : 'text-slate-500'}">
             {slot.temp > 0 ? slot.temp : '--'}°
           </span>
@@ -181,14 +207,7 @@
 </div>
 
 <style>
-  .scrollbar-thin::-webkit-scrollbar {
-    height: 4px;
-  }
-  .scrollbar-thin::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  .scrollbar-thin::-webkit-scrollbar-thumb {
-    background: #334155;
-    border-radius: 2px;
-  }
+  .scrollbar-thin::-webkit-scrollbar { height: 4px; }
+  .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+  .scrollbar-thin::-webkit-scrollbar-thumb { background: #334155; border-radius: 2px; }
 </style>
