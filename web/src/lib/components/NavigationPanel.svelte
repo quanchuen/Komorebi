@@ -38,7 +38,7 @@
     if (query.length < 3) { suggestions = []; return; }
     try {
       const res = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&countrycodes=jp&accept-language=en`
+        `/nominatim/search?format=json&q=${encodeURIComponent(query)}&limit=5&countrycodes=jp&accept-language=en`
       );
       if (res.ok) {
         suggestions = await res.json();
