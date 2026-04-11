@@ -4,6 +4,10 @@ import type { Map as MapLibreMap } from 'maplibre-gl';
 
 export type OverlayType = 'shade' | 'wind' | 'rain' | null;
 
+// Optional map layers — all off by default (progressive disclosure)
+export type MapLayer = 'cycling-roads' | 'venues' | 'landuse';
+export const visibleLayers = writable<Set<MapLayer>>(new Set());
+
 // The MapLibre map instance — set once the map mounts
 export const mapInstance = writable<MapLibreMap | null>(null);
 

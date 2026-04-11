@@ -5,7 +5,7 @@
   import { discoveryRoutes, discoveryLoading, discoveryError } from '$lib/stores/discovery';
   import type { Route, RouteConditionSegment } from '$lib/api/types';
   import RouteCard from './RouteCard.svelte';
-  import MapOverlayToggle from './MapOverlayToggle.svelte';
+  import MapLayerControl from './MapLayerControl.svelte';
 
   interface Stop {
     id: string;
@@ -385,10 +385,9 @@
       </div>
     {/if}
 
-    <!-- Overlay toggles -->
-    <div class="mt-3 pt-3 border-t border-slate-700/50 flex items-center justify-between">
-      <span class="text-[10px] text-slate-500 uppercase tracking-wider">Overlay</span>
-      <MapOverlayToggle />
+    <!-- Layer control -->
+    <div class="mt-3 pt-3 border-t border-slate-700/50 flex items-center justify-end">
+      <MapLayerControl />
     </div>
   </div>
 
