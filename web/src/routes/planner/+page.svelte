@@ -31,7 +31,7 @@
 </script>
 
 <svelte:head>
-  <title>Route Planner — Cyclist Map</title>
+  <title>Route Planner — Komorebi</title>
 </svelte:head>
 
 <div class="flex h-dvh w-screen overflow-hidden bg-slate-900">

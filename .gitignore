@@ -1,2 +1,30 @@
+# Compiled binaries
+/api
+*.exe
+*.dll
+*.so
+*.dylib
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+
+# Local tooling & AI configs
+.claude/
+.superpowers/
+.git-backup-*/
+
+# Environment
+.env
+.env.*
+*.env
+
+# SvelteKit / web
+web/node_modules/
+web/.svelte-kit/
+web/build/
+
+# OSM source data
 pipelines/osm_import/*.osm.pbf
 pipelines/osm_import/*.osm.pbf.md5

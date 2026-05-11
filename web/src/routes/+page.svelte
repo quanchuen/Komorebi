@@ -60,7 +60,7 @@
 </script>
 
 <svelte:head>
-  <title>Cyclist Map — Discover Routes</title>
+  <title>Komorebi — Discover Routes</title>
   <meta name="description" content="Discover cycling routes with shade, wind, and rain forecasts." />
 </svelte:head>
 

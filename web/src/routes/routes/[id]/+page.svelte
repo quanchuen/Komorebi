@@ -35,7 +35,7 @@
 </script>
 
 <svelte:head>
-  <title>{route.name} — Cyclist Map</title>
+  <title>{route.name} — Komorebi</title>
   <meta name="description" content="{route.description || route.name} — {(route.distanceM / 1000).toFixed(1)} km cycling route." />
 </svelte:head>
 

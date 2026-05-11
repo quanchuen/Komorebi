@@ -104,7 +104,7 @@
 <!-- Desktop: left panel -->
 <aside class="hidden md:flex flex-col w-96 h-full bg-slate-900 border-r border-slate-800 z-10">
   <div class="p-4 border-b border-slate-800 space-y-3">
-    <h1 class="text-lg font-bold text-slate-100">Cyclist Map</h1>
+    <h1 class="text-lg font-bold text-slate-100">Komorebi</h1>
     <DepartureTimePicker />
     <FilterChips />
     <div class="flex items-center justify-between">
