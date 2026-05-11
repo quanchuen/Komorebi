@@ -21,7 +21,7 @@ The `environment.greenery_edge` table exists (schema created in migration 000008
 - `environment.greenery_edge`: `osm_way_id BIGINT PK`, `greenery_score DOUBLE PRECISION CHECK (0–1)`, `tree_lined BOOLEAN DEFAULT false`, `park_adjacent BOOLEAN DEFAULT false`.
 - `environment.traffic_signal`: `osm_node_id BIGINT PK`, `geometry POINT(4326)` with GiST index `idx_traffic_signal_geometry`.
 
-**Module path:** `github.com/cyclist-map/cyclist-map`  
+**Module path:** `komorebi`  
 **DB DSN (dev):** `postgres://osm_dev:osm_dev@localhost:5432/cyclist_map_dev?sslmode=disable`  
 **Test pattern:** `TEST_DB_DSN` env var; `t.Skip` when unset; `newTestPool(t)` defined in `discovery_repo_test.go`.
 
@@ -263,7 +263,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/cyclist-map/cyclist-map/internal/domain/environment"
+	"komorebi/internal/domain/environment"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -321,8 +321,8 @@ package postgres_test
 import (
 	"testing"
 
-	"github.com/cyclist-map/cyclist-map/internal/domain/environment"
-	"github.com/cyclist-map/cyclist-map/internal/infra/postgres"
+	"komorebi/internal/domain/environment"
+	"komorebi/internal/infra/postgres"
 )
 
 func TestGreeneryRepo_ScoreAlongRoute_NonExistentRoute(t *testing.T) {
@@ -451,7 +451,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/cyclist-map/cyclist-map/internal/domain/environment"
+	"komorebi/internal/domain/environment"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -561,8 +561,8 @@ package postgres_test
 import (
 	"testing"
 
-	"github.com/cyclist-map/cyclist-map/internal/domain/environment"
-	"github.com/cyclist-map/cyclist-map/internal/infra/postgres"
+	"komorebi/internal/domain/environment"
+	"komorebi/internal/infra/postgres"
 )
 
 func TestSignalRepo_CountAlongRoute_NonExistentRoute(t *testing.T) {

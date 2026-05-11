@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cyclist-map/cyclist-map/internal/api"
-	"github.com/cyclist-map/cyclist-map/internal/app"
+	"komorebi/internal/api"
+	"komorebi/internal/app"
 )
 
 // fakeRoutingService is a test double for app.RoutingService.

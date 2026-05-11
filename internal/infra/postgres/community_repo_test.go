@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cyclist-map/cyclist-map/internal/domain/community"
-	"github.com/cyclist-map/cyclist-map/internal/infra/postgres"
+	"komorebi/internal/domain/community"
+	"komorebi/internal/infra/postgres"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 

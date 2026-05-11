@@ -5,8 +5,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/cyclist-map/cyclist-map/internal/domain/environment"
-	"github.com/cyclist-map/cyclist-map/internal/infra/postgres"
+	"komorebi/internal/domain/environment"
+	"komorebi/internal/infra/postgres"
 )
 
 func TestSignalRepo_CountAlongRoute_NonExistentRoute(t *testing.T) {

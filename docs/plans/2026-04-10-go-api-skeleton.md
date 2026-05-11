@@ -21,7 +21,7 @@
 
 ```bash
 cd /Users/lug/src/cyclist-map
-go mod init github.com/cyclist-map/cyclist-map
+go mod init komorebi
 ```
 
 - [ ] 1.2 Create a minimal `cmd/api/main.go` so the module compiles.
@@ -84,7 +84,7 @@ package route_test
 import (
 	"testing"
 
-	"github.com/cyclist-map/cyclist-map/internal/domain/route"
+	"komorebi/internal/domain/route"
 )
 
 func TestNewRoute_Valid(t *testing.T) {
@@ -513,7 +513,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cyclist-map/cyclist-map/internal/domain/plan"
+	"komorebi/internal/domain/plan"
 )
 
 func TestNewRoutePlan(t *testing.T) {
@@ -807,7 +807,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cyclist-map/cyclist-map/internal/domain/community"
+	"komorebi/internal/domain/community"
 )
 
 func TestNewUser(t *testing.T) {
@@ -1173,7 +1173,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/cyclist-map/cyclist-map/internal/domain/environment"
+	"komorebi/internal/domain/environment"
 )
 
 func TestSpeedModel_Flat(t *testing.T) {
@@ -1472,7 +1472,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cyclist-map/cyclist-map/internal/domain/events"
+	"komorebi/internal/domain/events"
 )
 
 func TestContributionApprovedEvent(t *testing.T) {
@@ -1626,8 +1626,8 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/cyclist-map/cyclist-map/internal/domain/route"
-	"github.com/cyclist-map/cyclist-map/internal/infra/postgres"
+	"komorebi/internal/domain/route"
+	"komorebi/internal/infra/postgres"
 )
 
 func setupPool(t *testing.T) *pgxpool.Pool {
@@ -1724,7 +1724,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/cyclist-map/cyclist-map/internal/domain/route"
+	"komorebi/internal/domain/route"
 )
 
 // RouteRepository implements route.Repository using pgx + PostGIS.
@@ -2122,8 +2122,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/cyclist-map/cyclist-map/internal/app"
-	"github.com/cyclist-map/cyclist-map/internal/domain/route"
+	"komorebi/internal/app"
+	"komorebi/internal/domain/route"
 )
 
 // mockRouteRepo is a simple in-memory route repository for unit tests.
@@ -2302,7 +2302,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/cyclist-map/cyclist-map/internal/domain/route"
+	"komorebi/internal/domain/route"
 )
 
 // CreateRouteInput holds the data needed to create a route.
@@ -2449,9 +2449,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/cyclist-map/cyclist-map/internal/api"
-	"github.com/cyclist-map/cyclist-map/internal/app"
-	"github.com/cyclist-map/cyclist-map/internal/domain/route"
+	"komorebi/internal/api"
+	"komorebi/internal/app"
+	"komorebi/internal/domain/route"
 )
 
 type mockRouteRepo struct {
@@ -2690,8 +2690,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/cyclist-map/cyclist-map/internal/app"
-	"github.com/cyclist-map/cyclist-map/internal/domain/route"
+	"komorebi/internal/app"
+	"komorebi/internal/domain/route"
 )
 
 // RoutesHandler holds HTTP handlers for route endpoints.
@@ -2961,7 +2961,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
-	"github.com/cyclist-map/cyclist-map/internal/app"
+	"komorebi/internal/app"
 )
 
 // NewRouter builds the chi router with all routes mounted.
@@ -3030,9 +3030,9 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/cyclist-map/cyclist-map/internal/api"
-	"github.com/cyclist-map/cyclist-map/internal/app"
-	"github.com/cyclist-map/cyclist-map/internal/infra/postgres"
+	"komorebi/internal/api"
+	"komorebi/internal/app"
+	"komorebi/internal/infra/postgres"
 )
 
 func main() {

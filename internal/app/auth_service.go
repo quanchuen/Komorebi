@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/cyclist-map/cyclist-map/internal/domain/community"
+	"komorebi/internal/domain/community"
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
 )

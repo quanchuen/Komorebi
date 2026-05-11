@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cyclist-map/cyclist-map/internal/api"
-	"github.com/cyclist-map/cyclist-map/internal/domain/community"
+	"komorebi/internal/api"
+	"komorebi/internal/domain/community"
 	"github.com/go-chi/chi/v5"
 )
 

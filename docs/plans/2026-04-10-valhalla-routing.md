@@ -69,7 +69,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/cyclist-map/cyclist-map/internal/infra/valhalla"
+	"komorebi/internal/infra/valhalla"
 )
 
 // minimalValhallaResponse returns a Valhalla /route JSON response with one leg.
@@ -429,9 +429,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cyclist-map/cyclist-map/internal/app"
-	"github.com/cyclist-map/cyclist-map/internal/domain/plan"
-	"github.com/cyclist-map/cyclist-map/internal/infra/valhalla"
+	"komorebi/internal/app"
+	"komorebi/internal/domain/plan"
+	"komorebi/internal/infra/valhalla"
 )
 
 // fakeValhallaClient is a test double for the valhalla.Client.
@@ -574,8 +574,8 @@ import (
 	"sort"
 	"time"
 
-	"github.com/cyclist-map/cyclist-map/internal/domain/plan"
-	"github.com/cyclist-map/cyclist-map/internal/infra/valhalla"
+	"komorebi/internal/domain/plan"
+	"komorebi/internal/infra/valhalla"
 )
 
 // ErrTooFewStops is returned when a directions request has fewer than 2 stops.
@@ -737,8 +737,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cyclist-map/cyclist-map/internal/api"
-	"github.com/cyclist-map/cyclist-map/internal/app"
+	"komorebi/internal/api"
+	"komorebi/internal/app"
 )
 
 // fakeRoutingService is a test double for app.RoutingService.
@@ -881,8 +881,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/cyclist-map/cyclist-map/internal/app"
-	"github.com/cyclist-map/cyclist-map/internal/domain/plan"
+	"komorebi/internal/app"
+	"komorebi/internal/domain/plan"
 )
 
 // RoutingDirector is the interface the handler uses to request directions.
@@ -1093,7 +1093,7 @@ routingHandler := api.NewRoutingHandler(routingSvc)
 router := api.NewRouter(routeSvc, routingHandler)
 ```
 
-  Add imports: `"github.com/cyclist-map/cyclist-map/internal/infra/valhalla"` and ensure `app` and `api` are already imported.
+  Add imports: `"komorebi/internal/infra/valhalla"` and ensure `app` and `api` are already imported.
 
 - [ ] Add `VALHALLA_URL` to `docker-compose.yml` under the `api` service environment:
 

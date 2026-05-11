@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cyclist-map/cyclist-map/internal/domain/plan"
-	routedomain "github.com/cyclist-map/cyclist-map/internal/domain/route"
+	"komorebi/internal/domain/plan"
+	routedomain "komorebi/internal/domain/route"
 )
 
 // PlanRepository is the persistence interface used by PlanService.

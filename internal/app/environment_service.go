@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cyclist-map/cyclist-map/internal/domain/environment"
-	"github.com/cyclist-map/cyclist-map/internal/domain/plan"
-	"github.com/cyclist-map/cyclist-map/internal/domain/route"
+	"komorebi/internal/domain/environment"
+	"komorebi/internal/domain/plan"
+	"komorebi/internal/domain/route"
 )
 
 // EnvironmentQuerier is the repository interface the EnvironmentService depends on.

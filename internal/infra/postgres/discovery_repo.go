@@ -5,7 +5,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/cyclist-map/cyclist-map/internal/domain/discovery"
+	"komorebi/internal/domain/discovery"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 

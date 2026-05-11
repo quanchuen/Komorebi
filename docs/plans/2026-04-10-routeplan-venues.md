@@ -83,7 +83,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/cyclist-map/cyclist-map/internal/domain/plan"
+	"komorebi/internal/domain/plan"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -493,8 +493,8 @@ package app
 import (
 	"strings"
 
-	"github.com/cyclist-map/cyclist-map/internal/domain/environment"
-	"github.com/cyclist-map/cyclist-map/internal/domain/plan"
+	"komorebi/internal/domain/environment"
+	"komorebi/internal/domain/plan"
 )
 
 // VenueResolver is the interface the resolution service uses to look up venues.
@@ -687,7 +687,7 @@ type RouteGeometryReader interface {
 }
 ```
 
-Import `routedomain "github.com/cyclist-map/cyclist-map/internal/domain/route"`.
+Import `routedomain "komorebi/internal/domain/route"`.
 
 ### Service code
 
@@ -701,8 +701,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cyclist-map/cyclist-map/internal/domain/plan"
-	routedomain "github.com/cyclist-map/cyclist-map/internal/domain/route"
+	"komorebi/internal/domain/plan"
+	routedomain "komorebi/internal/domain/route"
 )
 
 // PlanRepository is the persistence interface used by PlanService.
@@ -964,8 +964,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/cyclist-map/cyclist-map/internal/app"
-	"github.com/cyclist-map/cyclist-map/internal/domain/plan"
+	"komorebi/internal/app"
+	"komorebi/internal/domain/plan"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -1345,8 +1345,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cyclist-map/cyclist-map/internal/domain/plan"
-	"github.com/cyclist-map/cyclist-map/internal/infra/postgres"
+	"komorebi/internal/domain/plan"
+	"komorebi/internal/infra/postgres"
 )
 
 func samplePlan(t *testing.T) *plan.RoutePlan {
@@ -1486,9 +1486,9 @@ package app_test
 import (
 	"testing"
 
-	"github.com/cyclist-map/cyclist-map/internal/app"
-	"github.com/cyclist-map/cyclist-map/internal/domain/environment"
-	"github.com/cyclist-map/cyclist-map/internal/domain/plan"
+	"komorebi/internal/app"
+	"komorebi/internal/domain/environment"
+	"komorebi/internal/domain/plan"
 )
 
 // stubVenueResolver satisfies app.VenueResolver for tests.
@@ -1608,9 +1608,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cyclist-map/cyclist-map/internal/app"
-	"github.com/cyclist-map/cyclist-map/internal/domain/plan"
-	routedomain "github.com/cyclist-map/cyclist-map/internal/domain/route"
+	"komorebi/internal/app"
+	"komorebi/internal/domain/plan"
+	routedomain "komorebi/internal/domain/route"
 )
 
 // --- stubs ---
@@ -1818,9 +1818,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cyclist-map/cyclist-map/internal/api"
-	"github.com/cyclist-map/cyclist-map/internal/app"
-	"github.com/cyclist-map/cyclist-map/internal/domain/plan"
+	"komorebi/internal/api"
+	"komorebi/internal/app"
+	"komorebi/internal/domain/plan"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -1964,7 +1964,7 @@ Before marking this plan complete, verify:
 - [ ] `environment.venue_tag_mapping.osm_filter` column is JSONB (not JSON) — the `GetTagMapping` query scans it as `[]byte` which works for both.
 - [ ] All new methods added to `VenueRepository` interface (`GetTagMapping`, `NearestAlongLine`) are implemented on `*postgres.VenueRepo` before compiling.
 - [ ] The `stubPlanRepo` in `plan_service_test.go` imports `postgres` package for `ErrNotFound` — alternatively, wrap with a local `ErrNotFound` sentinel in the plan domain or re-use `app.ErrPlanNotFound` from a check inside the stub. The cleanest approach is to make `stubPlanRepo.GetByID` return `app.ErrPlanNotFound` directly (no postgres import needed in the test).
-- [ ] `plan_service_test.go` imports `valhalla` for `noopRouter` — add `"github.com/cyclist-map/cyclist-map/internal/infra/valhalla"` to imports.
+- [ ] `plan_service_test.go` imports `valhalla` for `noopRouter` — add `"komorebi/internal/infra/valhalla"` to imports.
 - [ ] `venue_resolution_service.go` imports `"fmt"` (noted inline).
 - [ ] Run `go build ./...` — zero compile errors.
 - [ ] Run `go test ./internal/domain/plan/... ./internal/app/... ./internal/api/...` — all pass.

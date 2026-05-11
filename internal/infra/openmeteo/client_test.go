@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cyclist-map/cyclist-map/internal/infra/openmeteo"
+	"komorebi/internal/infra/openmeteo"
 )
 
 func TestFetchPoint_ParsesResponse(t *testing.T) {

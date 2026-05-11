@@ -9,9 +9,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/cyclist-map/cyclist-map/internal/api"
-	"github.com/cyclist-map/cyclist-map/internal/app"
-	"github.com/cyclist-map/cyclist-map/internal/domain/plan"
+	"komorebi/internal/api"
+	"komorebi/internal/app"
+	"komorebi/internal/domain/plan"
 	"github.com/go-chi/chi/v5"
 )
 

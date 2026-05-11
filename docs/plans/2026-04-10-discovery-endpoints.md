@@ -35,7 +35,7 @@ package discovery_test
 import (
 	"testing"
 
-	"github.com/cyclist-map/cyclist-map/internal/domain/discovery"
+	"komorebi/internal/domain/discovery"
 )
 
 func TestNearbyParams_DefaultRadius(t *testing.T) {
@@ -188,7 +188,7 @@ package environment_test
 import (
 	"testing"
 
-	"github.com/cyclist-map/cyclist-map/internal/domain/environment"
+	"komorebi/internal/domain/environment"
 )
 
 func TestAlongRouteParams_Defaults(t *testing.T) {
@@ -302,8 +302,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/cyclist-map/cyclist-map/internal/domain/discovery"
-	"github.com/cyclist-map/cyclist-map/internal/infra/postgres"
+	"komorebi/internal/domain/discovery"
+	"komorebi/internal/infra/postgres"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -392,7 +392,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/cyclist-map/cyclist-map/internal/domain/discovery"
+	"komorebi/internal/domain/discovery"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -634,8 +634,8 @@ package postgres_test
 import (
 	"testing"
 
-	"github.com/cyclist-map/cyclist-map/internal/domain/environment"
-	"github.com/cyclist-map/cyclist-map/internal/infra/postgres"
+	"komorebi/internal/domain/environment"
+	"komorebi/internal/infra/postgres"
 )
 
 func TestVenueRepo_ListTags(t *testing.T) {
@@ -686,7 +686,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/cyclist-map/cyclist-map/internal/domain/environment"
+	"komorebi/internal/domain/environment"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -845,8 +845,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cyclist-map/cyclist-map/internal/app"
-	"github.com/cyclist-map/cyclist-map/internal/domain/discovery"
+	"komorebi/internal/app"
+	"komorebi/internal/domain/discovery"
 )
 
 // stubDiscoveryRepo implements discovery.Repository for tests.
@@ -945,7 +945,7 @@ func TestDiscoveryService_Suggested(t *testing.T) {
 package app
 
 import (
-	"github.com/cyclist-map/cyclist-map/internal/domain/discovery"
+	"komorebi/internal/domain/discovery"
 )
 
 // DiscoveryService provides application-level route discovery use cases.
@@ -1025,8 +1025,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/cyclist-map/cyclist-map/internal/app"
-	"github.com/cyclist-map/cyclist-map/internal/domain/environment"
+	"komorebi/internal/app"
+	"komorebi/internal/domain/environment"
 )
 
 // stubVenueRepo implements environment.VenueRepository for tests.
@@ -1098,7 +1098,7 @@ func TestVenueService_ListTags(t *testing.T) {
 package app
 
 import (
-	"github.com/cyclist-map/cyclist-map/internal/domain/environment"
+	"komorebi/internal/domain/environment"
 )
 
 // VenueService provides application-level venue discovery use cases.
@@ -1164,9 +1164,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cyclist-map/cyclist-map/internal/api"
-	"github.com/cyclist-map/cyclist-map/internal/app"
-	"github.com/cyclist-map/cyclist-map/internal/domain/discovery"
+	"komorebi/internal/api"
+	"komorebi/internal/app"
+	"komorebi/internal/domain/discovery"
 )
 
 // stubDiscoveryRepoHTTP implements discovery.Repository for HTTP handler tests.
@@ -1282,8 +1282,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cyclist-map/cyclist-map/internal/app"
-	"github.com/cyclist-map/cyclist-map/internal/domain/discovery"
+	"komorebi/internal/app"
+	"komorebi/internal/domain/discovery"
 )
 
 // DiscoveryHandler handles HTTP requests for the Discovery bounded context.
@@ -1510,9 +1510,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/cyclist-map/cyclist-map/internal/api"
-	"github.com/cyclist-map/cyclist-map/internal/app"
-	"github.com/cyclist-map/cyclist-map/internal/domain/environment"
+	"komorebi/internal/api"
+	"komorebi/internal/app"
+	"komorebi/internal/domain/environment"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -1611,8 +1611,8 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/cyclist-map/cyclist-map/internal/app"
-	"github.com/cyclist-map/cyclist-map/internal/domain/environment"
+	"komorebi/internal/app"
+	"komorebi/internal/domain/environment"
 )
 
 // VenueHandler handles HTTP requests for venue discovery.
@@ -1762,7 +1762,7 @@ The updated `NewRouter` signature must remain backward-compatible for existing t
 package api
 
 import (
-	"github.com/cyclist-map/cyclist-map/internal/app"
+	"komorebi/internal/app"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 )
@@ -1816,9 +1816,9 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/cyclist-map/cyclist-map/internal/api"
-	"github.com/cyclist-map/cyclist-map/internal/app"
-	"github.com/cyclist-map/cyclist-map/internal/infra/postgres"
+	"komorebi/internal/api"
+	"komorebi/internal/app"
+	"komorebi/internal/infra/postgres"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 

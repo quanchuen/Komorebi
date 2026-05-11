@@ -2,7 +2,7 @@
 package app
 
 import (
-	"github.com/cyclist-map/cyclist-map/internal/domain/discovery"
+	"komorebi/internal/domain/discovery"
 )
 
 // DiscoveryService provides application-level route discovery use cases.

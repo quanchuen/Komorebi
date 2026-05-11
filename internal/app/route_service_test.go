@@ -4,8 +4,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/cyclist-map/cyclist-map/internal/app"
-	"github.com/cyclist-map/cyclist-map/internal/domain/route"
+	"komorebi/internal/app"
+	"komorebi/internal/domain/route"
 )
 
 // fakeRepo is an in-memory implementation of route.Repository for unit tests.

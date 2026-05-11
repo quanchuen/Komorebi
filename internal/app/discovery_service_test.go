@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cyclist-map/cyclist-map/internal/app"
-	"github.com/cyclist-map/cyclist-map/internal/domain/discovery"
+	"komorebi/internal/app"
+	"komorebi/internal/domain/discovery"
 )
 
 // stubDiscoveryRepo implements discovery.Repository for tests.

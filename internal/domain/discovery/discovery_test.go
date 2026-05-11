@@ -4,7 +4,7 @@ package discovery_test
 import (
 	"testing"
 
-	"github.com/cyclist-map/cyclist-map/internal/domain/discovery"
+	"komorebi/internal/domain/discovery"
 )
 
 func TestNearbyParams_DefaultRadius(t *testing.T) {

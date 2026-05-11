@@ -4,7 +4,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/cyclist-map/cyclist-map/internal/domain/environment"
+	"komorebi/internal/domain/environment"
 )
 
 func TestWindBenefit(t *testing.T) {

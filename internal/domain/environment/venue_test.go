@@ -4,7 +4,7 @@ package environment_test
 import (
 	"testing"
 
-	"github.com/cyclist-map/cyclist-map/internal/domain/environment"
+	"komorebi/internal/domain/environment"
 )
 
 func TestAlongRouteParams_Defaults(t *testing.T) {

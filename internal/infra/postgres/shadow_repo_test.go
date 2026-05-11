@@ -3,8 +3,8 @@ package postgres_test
 import (
 	"testing"
 
-	"github.com/cyclist-map/cyclist-map/internal/domain/environment"
-	"github.com/cyclist-map/cyclist-map/internal/infra/postgres"
+	"komorebi/internal/domain/environment"
+	"komorebi/internal/infra/postgres"
 )
 
 // TestShadowRepo_ForRoute_EmptyTable verifies that ForRoute returns an empty

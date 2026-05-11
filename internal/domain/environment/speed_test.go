@@ -4,7 +4,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/cyclist-map/cyclist-map/internal/domain/environment"
+	"komorebi/internal/domain/environment"
 )
 
 func approxEqual(a, b, tolerance float64) bool {

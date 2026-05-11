@@ -3,7 +3,7 @@ package plan_test
 import (
 	"testing"
 
-	"github.com/cyclist-map/cyclist-map/internal/domain/plan"
+	"komorebi/internal/domain/plan"
 )
 
 func TestNewRoutePlan(t *testing.T) {

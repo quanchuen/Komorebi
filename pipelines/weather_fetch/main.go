@@ -20,11 +20,11 @@ import (
 	"os"
 	"time"
 
-	"github.com/cyclist-map/cyclist-map/internal/domain/environment"
-	"github.com/cyclist-map/cyclist-map/internal/infra/openmeteo"
-	"github.com/cyclist-map/cyclist-map/internal/infra/openweathermap"
-	"github.com/cyclist-map/cyclist-map/internal/infra/postgres"
-	"github.com/cyclist-map/cyclist-map/internal/infra/tomorrowio"
+	"komorebi/internal/domain/environment"
+	"komorebi/internal/infra/openmeteo"
+	"komorebi/internal/infra/openweathermap"
+	"komorebi/internal/infra/postgres"
+	"komorebi/internal/infra/tomorrowio"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 

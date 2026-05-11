@@ -5,7 +5,7 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/cyclist-map/cyclist-map/internal/domain/community"
+	"komorebi/internal/domain/community"
 	"github.com/go-chi/chi/v5"
 )
 

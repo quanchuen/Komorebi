@@ -4,9 +4,9 @@ package app_test
 import (
 	"testing"
 
-	"github.com/cyclist-map/cyclist-map/internal/app"
-	"github.com/cyclist-map/cyclist-map/internal/domain/environment"
-	"github.com/cyclist-map/cyclist-map/internal/domain/plan"
+	"komorebi/internal/app"
+	"komorebi/internal/domain/environment"
+	"komorebi/internal/domain/plan"
 )
 
 // --- stubs ---

@@ -1,7 +1,7 @@
 package api
 
 import (
-	"github.com/cyclist-map/cyclist-map/internal/app"
+	"komorebi/internal/app"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 )

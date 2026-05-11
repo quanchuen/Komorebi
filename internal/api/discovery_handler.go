@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cyclist-map/cyclist-map/internal/app"
-	"github.com/cyclist-map/cyclist-map/internal/domain/discovery"
+	"komorebi/internal/app"
+	"komorebi/internal/domain/discovery"
 )
 
 // DiscoveryHandler handles HTTP requests for the Discovery bounded context.

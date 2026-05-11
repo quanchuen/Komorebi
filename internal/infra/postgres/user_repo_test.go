@@ -3,8 +3,8 @@ package postgres_test
 import (
 	"testing"
 
-	"github.com/cyclist-map/cyclist-map/internal/domain/community"
-	"github.com/cyclist-map/cyclist-map/internal/infra/postgres"
+	"komorebi/internal/domain/community"
+	"komorebi/internal/infra/postgres"
 )
 
 func TestUserRepo_CreateAndGetByID(t *testing.T) {

@@ -10,7 +10,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/cyclist-map/cyclist-map/internal/domain/environment"
+	"komorebi/internal/domain/environment"
 )
 
 const defaultBaseURL = "https://api.tomorrow.io/v4/weather/forecast"

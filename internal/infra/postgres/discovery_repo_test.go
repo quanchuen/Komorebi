@@ -6,8 +6,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/cyclist-map/cyclist-map/internal/domain/discovery"
-	"github.com/cyclist-map/cyclist-map/internal/infra/postgres"
+	"komorebi/internal/domain/discovery"
+	"komorebi/internal/infra/postgres"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 

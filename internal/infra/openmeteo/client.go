@@ -12,7 +12,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/cyclist-map/cyclist-map/internal/domain/environment"
+	"komorebi/internal/domain/environment"
 )
 
 const (

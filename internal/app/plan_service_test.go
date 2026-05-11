@@ -6,10 +6,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cyclist-map/cyclist-map/internal/app"
-	"github.com/cyclist-map/cyclist-map/internal/domain/plan"
-	routedomain "github.com/cyclist-map/cyclist-map/internal/domain/route"
-	"github.com/cyclist-map/cyclist-map/internal/infra/valhalla"
+	"komorebi/internal/app"
+	"komorebi/internal/domain/plan"
+	routedomain "komorebi/internal/domain/route"
+	"komorebi/internal/infra/valhalla"
 )
 
 // --- stubs ---

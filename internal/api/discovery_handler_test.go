@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cyclist-map/cyclist-map/internal/api"
-	"github.com/cyclist-map/cyclist-map/internal/app"
-	"github.com/cyclist-map/cyclist-map/internal/domain/discovery"
+	"komorebi/internal/api"
+	"komorebi/internal/app"
+	"komorebi/internal/domain/discovery"
 )
 
 // stubDiscoveryRepoHTTP implements discovery.Repository for HTTP handler tests.

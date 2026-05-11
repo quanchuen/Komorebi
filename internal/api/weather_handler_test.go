@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cyclist-map/cyclist-map/internal/api"
-	"github.com/cyclist-map/cyclist-map/internal/app"
-	"github.com/cyclist-map/cyclist-map/internal/domain/environment"
+	"komorebi/internal/api"
+	"komorebi/internal/app"
+	"komorebi/internal/domain/environment"
 )
 
 // fakeWeatherRepo implements environment.WeatherRepository for handler tests.

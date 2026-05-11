@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/cyclist-map/cyclist-map/internal/domain/environment"
-	"github.com/cyclist-map/cyclist-map/internal/domain/plan"
+	"komorebi/internal/domain/environment"
+	"komorebi/internal/domain/plan"
 )
 
 // VenueResolver is the interface the resolution service uses to find venues.

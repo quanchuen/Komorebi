@@ -3,7 +3,7 @@ package community_test
 import (
 	"testing"
 
-	"github.com/cyclist-map/cyclist-map/internal/domain/community"
+	"komorebi/internal/domain/community"
 )
 
 // User tests

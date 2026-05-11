@@ -6,7 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/cyclist-map/cyclist-map/internal/infra/valhalla"
+	"komorebi/internal/infra/valhalla"
 )
 
 // minimalValhallaResponse returns a Valhalla /route JSON response with one leg.

@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cyclist-map/cyclist-map/internal/domain/plan"
-	"github.com/cyclist-map/cyclist-map/internal/infra/postgres"
+	"komorebi/internal/domain/plan"
+	"komorebi/internal/infra/postgres"
 )
 
 func samplePlan(t *testing.T) *plan.RoutePlan {

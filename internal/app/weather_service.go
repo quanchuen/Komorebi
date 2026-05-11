@@ -4,7 +4,7 @@ import (
 	"math"
 	"time"
 
-	"github.com/cyclist-map/cyclist-map/internal/domain/environment"
+	"komorebi/internal/domain/environment"
 )
 
 // WeatherService is the application-layer facade over weather data.

@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cyclist-map/cyclist-map/internal/domain/plan"
-	"github.com/cyclist-map/cyclist-map/internal/infra/valhalla"
+	"komorebi/internal/domain/plan"
+	"komorebi/internal/infra/valhalla"
 )
 
 // ErrTooFewDirectionStops is returned when a directions request has fewer than 2 stops.

@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cyclist-map/cyclist-map/internal/app"
-	"github.com/cyclist-map/cyclist-map/internal/domain/plan"
-	"github.com/cyclist-map/cyclist-map/internal/infra/valhalla"
+	"komorebi/internal/app"
+	"komorebi/internal/domain/plan"
+	"komorebi/internal/infra/valhalla"
 )
 
 // fakeValhallaClient is a test double for the valhalla.Client.

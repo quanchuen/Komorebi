@@ -1,4 +1,4 @@
-module github.com/cyclist-map/cyclist-map
+module komorebi
 
 go 1.25.5
 

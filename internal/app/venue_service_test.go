@@ -5,8 +5,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/cyclist-map/cyclist-map/internal/app"
-	"github.com/cyclist-map/cyclist-map/internal/domain/environment"
+	"komorebi/internal/app"
+	"komorebi/internal/domain/environment"
 )
 
 // stubVenueRepo implements environment.VenueRepository for tests.

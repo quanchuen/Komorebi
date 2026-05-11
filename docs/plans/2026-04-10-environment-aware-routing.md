@@ -379,9 +379,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cyclist-map/cyclist-map/internal/domain/environment"
-	"github.com/cyclist-map/cyclist-map/internal/domain/plan"
-	"github.com/cyclist-map/cyclist-map/internal/domain/route"
+	"komorebi/internal/domain/environment"
+	"komorebi/internal/domain/plan"
+	"komorebi/internal/domain/route"
 )
 
 // EnvironmentQuerier is the repository interface the EnvironmentService depends on.
@@ -935,9 +935,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cyclist-map/cyclist-map/internal/domain/environment"
-	"github.com/cyclist-map/cyclist-map/internal/domain/plan"
-	"github.com/cyclist-map/cyclist-map/internal/domain/route"
+	"komorebi/internal/domain/environment"
+	"komorebi/internal/domain/plan"
+	"komorebi/internal/domain/route"
 )
 
 // stubEnvRepo returns fixed values for all queries.
@@ -1139,11 +1139,11 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/cyclist-map/cyclist-map/internal/app"
-	"github.com/cyclist-map/cyclist-map/internal/domain/environment"
-	"github.com/cyclist-map/cyclist-map/internal/domain/plan"
-	"github.com/cyclist-map/cyclist-map/internal/domain/route"
-	"github.com/cyclist-map/cyclist-map/internal/infra/postgres"
+	"komorebi/internal/app"
+	"komorebi/internal/domain/environment"
+	"komorebi/internal/domain/plan"
+	"komorebi/internal/domain/route"
+	"komorebi/internal/infra/postgres"
 )
 
 // --- stubs ---

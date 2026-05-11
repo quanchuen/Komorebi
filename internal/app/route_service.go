@@ -1,7 +1,7 @@
 package app
 
 import (
-	"github.com/cyclist-map/cyclist-map/internal/domain/route"
+	"komorebi/internal/domain/route"
 )
 
 // RouteService provides application-level operations on Routes.

@@ -10,10 +10,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/cyclist-map/cyclist-map/internal/api"
-	"github.com/cyclist-map/cyclist-map/internal/app"
-	"github.com/cyclist-map/cyclist-map/internal/infra/postgres"
-	"github.com/cyclist-map/cyclist-map/internal/infra/valhalla"
+	"komorebi/internal/api"
+	"komorebi/internal/app"
+	"komorebi/internal/infra/postgres"
+	"komorebi/internal/infra/valhalla"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 

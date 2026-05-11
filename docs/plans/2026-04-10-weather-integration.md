@@ -139,7 +139,7 @@ import (
     "strconv"
     "time"
 
-    "github.com/cyclist-map/cyclist-map/internal/domain/environment"
+    "komorebi/internal/domain/environment"
 )
 
 const (
@@ -310,7 +310,7 @@ import (
     "testing"
     "time"
 
-    "github.com/cyclist-map/cyclist-map/internal/infra/openmeteo"
+    "komorebi/internal/infra/openmeteo"
 )
 
 func TestFetchPoint_ParsesResponse(t *testing.T) {
@@ -436,7 +436,7 @@ import (
     "fmt"
     "time"
 
-    "github.com/cyclist-map/cyclist-map/internal/domain/environment"
+    "komorebi/internal/domain/environment"
     "github.com/jackc/pgx/v5"
     "github.com/jackc/pgx/v5/pgxpool"
 )
@@ -620,8 +620,8 @@ import (
     "testing"
     "time"
 
-    "github.com/cyclist-map/cyclist-map/internal/domain/environment"
-    "github.com/cyclist-map/cyclist-map/internal/infra/postgres"
+    "komorebi/internal/domain/environment"
+    "komorebi/internal/infra/postgres"
 )
 
 // seedWeatherCell inserts a single 5 km cell centred on (lat, lon) for the given time.
@@ -754,7 +754,7 @@ import (
     "math"
     "time"
 
-    "github.com/cyclist-map/cyclist-map/internal/domain/environment"
+    "komorebi/internal/domain/environment"
 )
 
 // WeatherService is the application-layer facade over weather data.
@@ -858,8 +858,8 @@ import (
     "os"
     "time"
 
-    "github.com/cyclist-map/cyclist-map/internal/infra/openmeteo"
-    "github.com/cyclist-map/cyclist-map/internal/infra/postgres"
+    "komorebi/internal/infra/openmeteo"
+    "komorebi/internal/infra/postgres"
     "github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -952,8 +952,8 @@ import (
     "strconv"
     "time"
 
-    "github.com/cyclist-map/cyclist-map/internal/app"
-    "github.com/cyclist-map/cyclist-map/internal/domain/environment"
+    "komorebi/internal/app"
+    "komorebi/internal/domain/environment"
 )
 
 // WeatherHandler serves weather condition endpoints.
@@ -1039,9 +1039,9 @@ import (
     "testing"
     "time"
 
-    "github.com/cyclist-map/cyclist-map/internal/api"
-    "github.com/cyclist-map/cyclist-map/internal/app"
-    "github.com/cyclist-map/cyclist-map/internal/domain/environment"
+    "komorebi/internal/api"
+    "komorebi/internal/app"
+    "komorebi/internal/domain/environment"
 )
 
 // fakeWeatherRepo implements environment.WeatherRepository for handler tests.

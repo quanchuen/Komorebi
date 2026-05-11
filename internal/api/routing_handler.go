@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/cyclist-map/cyclist-map/internal/app"
-	"github.com/cyclist-map/cyclist-map/internal/domain/plan"
+	"komorebi/internal/app"
+	"komorebi/internal/domain/plan"
 )
 
 // RoutingDirector is the interface the handler uses to request directions.

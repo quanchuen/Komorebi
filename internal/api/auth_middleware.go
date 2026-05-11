@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/cyclist-map/cyclist-map/internal/app"
+	"komorebi/internal/app"
 )
 
 type contextKey string

@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cyclist-map/cyclist-map/internal/domain/route"
+	"komorebi/internal/domain/route"
 )
 
 func TestNewRoute_Valid(t *testing.T) {

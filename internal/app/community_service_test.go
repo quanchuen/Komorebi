@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cyclist-map/cyclist-map/internal/app"
-	"github.com/cyclist-map/cyclist-map/internal/domain/community"
+	"komorebi/internal/app"
+	"komorebi/internal/domain/community"
 )
 
 // --- stub repos ---

@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cyclist-map/cyclist-map/internal/api"
-	"github.com/cyclist-map/cyclist-map/internal/app"
+	"komorebi/internal/api"
+	"komorebi/internal/app"
 )
 
 func makeAuthHandler(t *testing.T) (*api.AuthHandler, *app.AuthService) {

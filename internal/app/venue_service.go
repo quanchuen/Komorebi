@@ -2,7 +2,7 @@
 package app
 
 import (
-	"github.com/cyclist-map/cyclist-map/internal/domain/environment"
+	"komorebi/internal/domain/environment"
 )
 
 // VenueService provides application-level venue discovery use cases.

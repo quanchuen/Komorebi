@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cyclist-map/cyclist-map/internal/domain/environment"
-	"github.com/cyclist-map/cyclist-map/internal/infra/postgres"
+	"komorebi/internal/domain/environment"
+	"komorebi/internal/infra/postgres"
 )
 
 // seedWeatherCell inserts a single 5 km cell centred on (lat, lon) for the given time.

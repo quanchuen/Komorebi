@@ -5,8 +5,8 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/cyclist-map/cyclist-map/internal/app"
-	"github.com/cyclist-map/cyclist-map/internal/domain/community"
+	"komorebi/internal/app"
+	"komorebi/internal/domain/community"
 )
 
 // AuthHandler handles registration, login, and token refresh.

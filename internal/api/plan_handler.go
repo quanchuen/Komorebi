@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/cyclist-map/cyclist-map/internal/app"
-	"github.com/cyclist-map/cyclist-map/internal/domain/plan"
+	"komorebi/internal/app"
+	"komorebi/internal/domain/plan"
 	"github.com/go-chi/chi/v5"
 )
 

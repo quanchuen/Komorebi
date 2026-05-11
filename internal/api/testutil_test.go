@@ -1,8 +1,8 @@
 package api_test
 
 import (
-	"github.com/cyclist-map/cyclist-map/internal/app"
-	"github.com/cyclist-map/cyclist-map/internal/domain/community"
+	"komorebi/internal/app"
+	"komorebi/internal/domain/community"
 )
 
 // stubAuthRepo is an in-memory implementation of app.AuthUserRepo for tests.

@@ -113,8 +113,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cyclist-map/cyclist-map/internal/app"
-	"github.com/cyclist-map/cyclist-map/internal/domain/community"
+	"komorebi/internal/app"
+	"komorebi/internal/domain/community"
 )
 
 // --- stub repo ---
@@ -317,7 +317,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/cyclist-map/cyclist-map/internal/domain/community"
+	"komorebi/internal/domain/community"
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -515,8 +515,8 @@ package postgres_test
 import (
 	"testing"
 
-	"github.com/cyclist-map/cyclist-map/internal/domain/community"
-	"github.com/cyclist-map/cyclist-map/internal/infra/postgres"
+	"komorebi/internal/domain/community"
+	"komorebi/internal/infra/postgres"
 )
 
 func TestUserRepo_CreateAndGetByID(t *testing.T) {
@@ -650,8 +650,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/cyclist-map/cyclist-map/internal/app"
-	"github.com/cyclist-map/cyclist-map/internal/domain/community"
+	"komorebi/internal/app"
+	"komorebi/internal/domain/community"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -836,8 +836,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cyclist-map/cyclist-map/internal/domain/community"
-	"github.com/cyclist-map/cyclist-map/internal/infra/postgres"
+	"komorebi/internal/domain/community"
+	"komorebi/internal/infra/postgres"
 )
 
 // --- helpers ---
@@ -1041,7 +1041,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cyclist-map/cyclist-map/internal/domain/community"
+	"komorebi/internal/domain/community"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -1432,8 +1432,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cyclist-map/cyclist-map/internal/api"
-	"github.com/cyclist-map/cyclist-map/internal/app"
+	"komorebi/internal/api"
+	"komorebi/internal/app"
 )
 
 func makeAuthService(t *testing.T) *app.AuthService {
@@ -1524,7 +1524,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/cyclist-map/cyclist-map/internal/app"
+	"komorebi/internal/app"
 )
 
 type contextKey string
@@ -1603,8 +1603,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cyclist-map/cyclist-map/internal/api"
-	"github.com/cyclist-map/cyclist-map/internal/app"
+	"komorebi/internal/api"
+	"komorebi/internal/app"
 )
 
 func makeAuthHandler(t *testing.T) (*api.AuthHandler, *app.AuthService) {
@@ -1725,8 +1725,8 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/cyclist-map/cyclist-map/internal/app"
-	"github.com/cyclist-map/cyclist-map/internal/domain/community"
+	"komorebi/internal/app"
+	"komorebi/internal/domain/community"
 )
 
 // AuthHandler handles registration, login, and token refresh.
@@ -1866,9 +1866,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cyclist-map/cyclist-map/internal/api"
-	"github.com/cyclist-map/cyclist-map/internal/app"
-	"github.com/cyclist-map/cyclist-map/internal/domain/community"
+	"komorebi/internal/api"
+	"komorebi/internal/app"
+	"komorebi/internal/domain/community"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -2083,7 +2083,7 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/cyclist-map/cyclist-map/internal/domain/community"
+	"komorebi/internal/domain/community"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -2315,8 +2315,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cyclist-map/cyclist-map/internal/app"
-	"github.com/cyclist-map/cyclist-map/internal/domain/community"
+	"komorebi/internal/app"
+	"komorebi/internal/domain/community"
 )
 
 // --- stub repos ---
@@ -2470,7 +2470,7 @@ func TestCommunityService_ListUserRideLogs(t *testing.T) {
 package app
 
 import (
-	"github.com/cyclist-map/cyclist-map/internal/domain/community"
+	"komorebi/internal/domain/community"
 )
 
 // CommunityService orchestrates community use cases.
@@ -2567,7 +2567,7 @@ The new signature and auth group (replaces the existing `NewRouter` function bod
 package api
 
 import (
-	"github.com/cyclist-map/cyclist-map/internal/app"
+	"komorebi/internal/app"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 )

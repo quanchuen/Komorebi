@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/cyclist-map/cyclist-map/internal/app"
-	"github.com/cyclist-map/cyclist-map/internal/domain/environment"
+	"komorebi/internal/app"
+	"komorebi/internal/domain/environment"
 )
 
 // WeatherHandler serves weather condition endpoints.

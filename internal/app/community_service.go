@@ -1,7 +1,7 @@
 package app
 
 import (
-	"github.com/cyclist-map/cyclist-map/internal/domain/community"
+	"komorebi/internal/domain/community"
 )
 
 // CommunityService orchestrates community use cases.
