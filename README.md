@@ -1,7 +1,5 @@
 # Komorebi
 
-## A word
-
 This is a weekend learning project born from pain points I shared with my friends. From A->B there are so many routes, we have some favorite stops, quiet backstreets, green wave lights, our favorite bridge, and completely subjective personal energy cost, but they are often overlooked by mainstream map apps, even the best & paid ones doesn't give the flexibility in routing.
 
 I started this project because I suspected the building blocks were already there, and an LLM could stitch them together   into a *basic* PoC of this quite complex project. What I want is a proof that an LLM is able to deal with complex engineering problems. And what I got is something with potential but still rough.
