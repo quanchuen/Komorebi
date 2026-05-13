@@ -186,4 +186,14 @@ cd web && npm run build
 
 ## License
 
-Released into the public domain under [The Unlicense](LICENSE).
+Komorebi is **open-core**:
+
+- The reusable backend — `internal/domain/`, `internal/app/`, `internal/infra/`,
+  `pipelines/`, and `migrations/` — is licensed under the
+  [Apache License 2.0](LICENSE-APACHE).
+- The deployable application — `cmd/`, `internal/api/`, and `web/` — is
+  licensed under the [GNU Affero General Public License v3.0](LICENSE).
+
+See [`LICENSING.md`](LICENSING.md) for the full layout and the dependency rule
+between the two halves. Contributions are accepted under the
+[Contributor License Agreement](CLA.md); see [`CONTRIBUTING.md`](CONTRIBUTING.md).
