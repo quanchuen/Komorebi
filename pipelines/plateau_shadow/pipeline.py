@@ -3,12 +3,16 @@
 PLATEAU Shadow Pipeline — entry point.
 
 Usage:
-    python pipeline.py --db-url "postgres://..." [--months 1,4,7,10] [--wards chiyoda,minato,shibuya]
+    DATABASE_URL="postgres://..." python pipeline.py [--months 1,4,7,10] [--wards chiyoda,minato,shibuya]
+
+The database connection is read from the DATABASE_URL environment variable.
+A --db-url flag is also accepted and takes precedence when provided.
 
 Runs download → parse → compute → load for each requested ward and month.
 """
 
 import argparse
+import os
 import sys
 
 from download import download_citygml
@@ -31,7 +35,8 @@ REPRESENTATIVE_LON = 139.74
 
 def main():
     parser = argparse.ArgumentParser(description="PLATEAU shadow precompute pipeline")
-    parser.add_argument("--db-url", required=True)
+    parser.add_argument("--db-url", default=None,
+                        help="PostGIS connection URL (defaults to the DATABASE_URL env var)")
     parser.add_argument("--months", default="1,4,7,10",
                         help="Comma-separated month numbers (default: 1,4,7,10)")
     parser.add_argument("--wards", default="chiyoda,minato,shibuya",
@@ -39,6 +44,11 @@ def main():
     parser.add_argument("--data-dir", default="./data",
                         help="Directory for downloaded CityGML files")
     args = parser.parse_args()
+
+    db_url = args.db_url or os.environ.get("DATABASE_URL")
+    if not db_url:
+        print("No database URL: set DATABASE_URL or pass --db-url", file=sys.stderr)
+        sys.exit(1)
 
     months = [int(m) for m in args.months.split(",")]
     wards  = [w.strip() for w in args.wards.split(",")]
@@ -65,7 +75,7 @@ def main():
                 ref_lon=REPRESENTATIVE_LON,
             )
             print(f"  Loading {len(grid)} grid cells to DB ...")
-            load_to_db(grid, month=month, db_url=args.db_url)
+            load_to_db(grid, month=month, db_url=db_url)
 
     print("Done.")
 

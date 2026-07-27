@@ -25,6 +25,10 @@ web/node_modules/
 web/.svelte-kit/
 web/build/
 
+# Python
+__pycache__/
+*.py[cod]
+
 # OSM source data
 pipelines/osm_import/*.osm.pbf
 pipelines/osm_import/*.osm.pbf.md5

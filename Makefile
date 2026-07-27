@@ -9,7 +9,7 @@ DEV_JWT_SECRET := cyclist-map-dev-secret-do-not-use-in-production
 DATABASE_URL   ?= $(MIGRATE_URL)
 API_PORT       ?= 8080
 
-.PHONY: migrate-up migrate-down migrate-create osm-download osm-import osm-update osm-venues osm-all greenery plateau-shadow weather dev-run dev-api dev-martin dev-valhalla dev-web help
+.PHONY: migrate-up migrate-down migrate-create osm-download osm-import osm-update osm-venues osm-all greenery plateau-shadow weather dev-run dev-api dev-martin dev-valhalla dev-web web-lint web-lighthouse help
 
 migrate-up:
 	migrate -path migrations -database "$(MIGRATE_URL)" up
@@ -67,7 +67,6 @@ weather:
 ## Run PLATEAU shadow precompute pipeline (requires Docker; uses pipelines profile)
 plateau-shadow:
 	docker compose --profile pipelines run --rm plateau_shadow \
-	    --db-url "$(MIGRATE_URL)" \
 	    --wards chiyoda,minato,shibuya \
 	    --months 1,4,7,10
 
@@ -77,6 +76,14 @@ dev-run:
 	martin --config martin.yaml &
 	JWT_SECRET=$(DEV_JWT_SECRET) DATABASE_URL="$(DATABASE_URL)" PORT=$(API_PORT) go run ./cmd/api &
 	cd web && npm run dev
+
+## Lint + format-check + design-token guard for the web app
+web-lint:
+	cd web && npm run lint && npm run format:check && npm run check:tokens
+
+## Run Lighthouse budget against a production preview of the web app
+web-lighthouse:
+	cd web && npm run build && npm run lighthouse
 
 help:
 	@grep -E '^## ' Makefile | sed 's/^## //'

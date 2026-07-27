@@ -83,6 +83,12 @@ psql -d cyclist_map_dev -c 'CREATE EXTENSION postgis;'
 
 The default connection string used everywhere is `postgres://osm_dev:osm_dev@localhost:5432/cyclist_map_dev?sslmode=disable`. Override with `MIGRATE_URL` / `DATABASE_URL` if your local setup differs.
 
+`docker compose` reads `DATABASE_URL` and `JWT_SECRET` from a gitignored `db.env`. Create it once from the committed template:
+
+```bash
+cp db.env.example db.env
+```
+
 **2. Apply migrations**
 
 ```bash
