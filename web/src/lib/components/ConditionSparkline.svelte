@@ -42,13 +42,16 @@
     {#if noData}
       <!-- Hollow/flat line for no data -->
       <div
-        class="flex-1 rounded-sm border border-slate-700"
+        class="flex-1 rounded-sm border border-border"
         style="height: 25%; background: transparent;"
       ></div>
     {:else}
       <div
         class="flex-1 rounded-sm"
-        style="height: {Math.max(20, v * 100)}%; background: {conditionColor(overlay, overlay === 'wind' ? v * 2 - 1 : v)};"
+        style="height: {Math.max(20, v * 100)}%; background: {conditionColor(
+          overlay,
+          overlay === 'wind' ? v * 2 - 1 : v
+        )};"
       ></div>
     {/if}
   {/each}

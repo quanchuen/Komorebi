@@ -2,13 +2,25 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { discovery, routes as routesApi } from '$lib/api/client';
-  import { discoveryRoutes, discoveryLoading, discoveryFilters, discoveryError } from '$lib/stores/discovery';
-  import { departureAt, bboxString, highlightedRouteId, activeOverlay, mapInstance } from '$lib/stores/map';
+  import {
+    discoveryRoutes,
+    discoveryLoading,
+    discoveryFilters,
+    discoveryError
+  } from '$lib/stores/discovery';
+  import {
+    departureAt,
+    bboxString,
+    highlightedRouteId,
+    activeOverlay,
+    mapInstance
+  } from '$lib/stores/map';
   import type { Route, RouteConditionSegment } from '$lib/api/types';
   import RouteCard from './RouteCard.svelte';
   import DepartureTimePicker from './DepartureTimePicker.svelte';
   import FilterChips from './FilterChips.svelte';
   import MapOverlayToggle from './MapOverlayToggle.svelte';
+  import AsyncBoundary from './ui/AsyncBoundary.svelte';
 
   interface Props {
     initialRoutes?: Route[];
@@ -60,12 +72,15 @@
     loadRoutes($bboxString, $departureAt);
   });
 
-  let filteredRoutes = $derived($discoveryRoutes.filter((r) => {
-    const f = $discoveryFilters;
-    if (f.difficulty && r.difficulty !== f.difficulty) return false;
-    if (f.searchQuery && !r.name.toLowerCase().includes(f.searchQuery.toLowerCase())) return false;
-    return true;
-  }));
+  let filteredRoutes = $derived(
+    $discoveryRoutes.filter((r) => {
+      const f = $discoveryFilters;
+      if (f.difficulty && r.difficulty !== f.difficulty) return false;
+      if (f.searchQuery && !r.name.toLowerCase().includes(f.searchQuery.toLowerCase()))
+        return false;
+      return true;
+    })
+  );
 
   $effect(() => {
     const id = $highlightedRouteId;
@@ -102,13 +117,13 @@
 </script>
 
 <!-- Desktop: left panel -->
-<aside class="hidden md:flex flex-col w-96 h-full bg-slate-900 border-r border-slate-800 z-10">
-  <div class="p-4 border-b border-slate-800 space-y-3">
-    <h1 class="text-lg font-bold text-slate-100">Komorebi</h1>
+<aside class="hidden md:flex flex-col w-96 h-full bg-surface border-r border-border z-10">
+  <div class="p-4 border-b border-border space-y-3">
+    <h1 class="text-lg font-bold text-text">Komorebi</h1>
     <DepartureTimePicker />
     <FilterChips />
     <div class="flex items-center justify-between">
-      <span class="text-xs text-slate-500">Overlay</span>
+      <span class="text-xs text-text-subtle">Overlay</span>
       <MapOverlayToggle />
     </div>
     <div class="relative">
@@ -117,49 +132,43 @@
         placeholder="Search routes..."
         value={searchQuery}
         oninput={handleSearchInput}
-        class="w-full bg-slate-800 border border-slate-700 text-slate-100 text-sm rounded-lg
-               pl-3 pr-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500"
+        class="w-full bg-surface-raised border border-border text-text text-sm rounded-lg
+               pl-3 pr-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent"
       />
     </div>
   </div>
 
   <div class="flex-1 overflow-y-auto p-3 space-y-2">
-    {#if $discoveryError}
-      <div class="rounded-lg bg-red-950 border border-red-800 p-4 text-center space-y-2">
-        <div class="text-red-400 text-sm font-medium">Connection Error</div>
-        <div class="text-red-300 text-xs">{$discoveryError}</div>
-        <button
-          onclick={retryLoad}
-          class="mt-2 text-xs bg-red-800 hover:bg-red-700 text-red-100 px-3 py-1 rounded"
-        >
-          Retry
-        </button>
-      </div>
-    {:else if $discoveryLoading}
-      <div class="text-slate-500 text-sm text-center py-8">Loading routes...</div>
-    {:else if filteredRoutes.length === 0}
-      <div class="text-slate-500 text-sm text-center py-8">No routes found</div>
-    {:else}
+    <AsyncBoundary
+      loading={$discoveryLoading}
+      error={$discoveryError}
+      empty={filteredRoutes.length === 0}
+      errorTitle="Connection Error"
+      loadingMessage="Loading routes..."
+      emptyMessage="No routes found"
+      onRetry={retryLoad}
+    >
       {#each filteredRoutes as route (route.id)}
         <RouteCard {route} conditions={conditionsCache.get(route.id) ?? []} />
       {/each}
-    {/if}
+    </AsyncBoundary>
   </div>
 </aside>
 
 <!-- Mobile: bottom sheet -->
 <div class="md:hidden fixed bottom-0 inset-x-0 z-20">
   <div
-    class="bg-slate-900 border-t border-slate-800 rounded-t-2xl transition-all duration-300"
+    class="bg-surface border-t border-border rounded-t-2xl transition-all duration-300"
     style="height: {sheetOpen ? '70vh' : '6rem'};"
   >
     <button
       onclick={() => (sheetOpen = !sheetOpen)}
       class="w-full flex flex-col items-center pt-3 pb-2 gap-1"
       aria-label="Toggle route list"
+      aria-pressed={sheetOpen}
     >
-      <div class="w-10 h-1 rounded-full bg-slate-600"></div>
-      <span class="text-xs text-slate-400">
+      <div class="w-10 h-1 rounded-full bg-border-strong"></div>
+      <span class="text-xs text-text-muted">
         {#if $discoveryError}
           Connection error
         {:else}
@@ -175,16 +184,11 @@
         <MapOverlayToggle />
       </div>
       <div class="overflow-y-auto px-3 space-y-2" style="height: calc(70vh - 8rem);">
-        {#if $discoveryError}
-          <div class="rounded-lg bg-red-950 border border-red-800 p-4 text-center">
-            <div class="text-red-400 text-sm">{$discoveryError}</div>
-            <button onclick={retryLoad} class="mt-2 text-xs bg-red-800 text-red-100 px-3 py-1 rounded">Retry</button>
-          </div>
-        {:else}
+        <AsyncBoundary error={$discoveryError} errorTitle="Connection error" onRetry={retryLoad}>
           {#each filteredRoutes as route (route.id)}
             <RouteCard {route} conditions={conditionsCache.get(route.id) ?? []} />
           {/each}
-        {/if}
+        </AsyncBoundary>
       </div>
     {/if}
   </div>

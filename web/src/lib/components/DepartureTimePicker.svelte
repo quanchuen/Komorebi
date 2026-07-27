@@ -23,7 +23,7 @@
 </script>
 
 <div class="flex flex-col gap-1">
-  <label class="text-xs text-slate-400 font-medium uppercase tracking-wide" for="departure-time">
+  <label class="text-xs text-text-muted font-medium uppercase tracking-wide" for="departure-time">
     Depart
   </label>
   <input
@@ -31,8 +31,8 @@
     type="datetime-local"
     value={inputValue}
     onchange={handleChange}
-    class="bg-slate-800 border border-slate-700 text-slate-100 text-sm rounded-lg px-3 py-2
-           focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent
+    class="bg-surface-raised border border-border text-text text-sm rounded-lg px-3 py-2
+           focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent
            [color-scheme:dark]"
   />
 </div>

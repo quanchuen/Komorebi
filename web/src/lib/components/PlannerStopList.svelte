@@ -17,18 +17,24 @@
 
 <div class="space-y-1">
   {#each $plannerStops as stop, i (stop.id)}
-    <div class="flex items-center gap-2 bg-slate-800 rounded-lg px-3 py-2">
+    <div class="flex items-center gap-2 bg-surface-raised rounded-lg px-3 py-2">
       <div class="flex flex-col items-center gap-1 shrink-0">
-        <div class="w-3 h-3 rounded-full {i === 0 ? 'bg-green-400' : i === $plannerStops.length - 1 ? 'bg-red-400' : 'bg-sky-400'}"></div>
+        <div
+          class="w-3 h-3 rounded-full {i === 0
+            ? 'bg-green-400'
+            : i === $plannerStops.length - 1
+              ? 'bg-red-400'
+              : 'bg-sky-400'}"
+        ></div>
         {#if i < $plannerStops.length - 1}
-          <div class="w-0.5 h-3 bg-slate-700"></div>
+          <div class="w-0.5 h-3 bg-surface-overlay"></div>
         {/if}
       </div>
-      <span class="flex-1 text-sm text-slate-300 truncate">{stop.label}</span>
+      <span class="flex-1 text-sm text-text-muted truncate">{stop.label}</span>
       {#if $plannerStops.length > 2}
         <button
           onclick={() => removeStop(stop.id)}
-          class="text-slate-600 hover:text-red-400 text-xs transition-colors"
+          class="text-text-subtle hover:text-danger text-xs transition-colors"
           aria-label="Remove stop"
         >
           ✕

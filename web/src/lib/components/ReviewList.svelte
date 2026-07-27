@@ -3,6 +3,7 @@
   import { onMount } from 'svelte';
   import { reviews as reviewsApi } from '$lib/api/client';
   import type { Review } from '$lib/api/types';
+  import AsyncBoundary from './ui/AsyncBoundary.svelte';
 
   interface Props {
     routeId: string;
@@ -30,21 +31,24 @@
 </script>
 
 <div class="space-y-3">
-  <h3 class="text-sm font-semibold text-slate-300">Reviews</h3>
+  <h3 class="text-sm font-semibold text-text-muted">Reviews</h3>
 
-  {#if loading}
-    <div class="text-slate-500 text-sm">Loading reviews…</div>
-  {:else if items.length === 0}
-    <div class="text-slate-500 text-sm">No reviews yet.</div>
-  {:else}
+  <AsyncBoundary
+    {loading}
+    empty={items.length === 0}
+    loadingMessage="Loading reviews…"
+    emptyMessage="No reviews yet."
+  >
     {#each items as review (review.id)}
-      <div class="bg-slate-800 rounded-lg p-3 space-y-1">
+      <div class="bg-surface-raised rounded-lg p-3 space-y-1">
         <div class="flex items-center gap-2">
           <span class="text-yellow-400 text-xs tracking-wide">{stars(review.rating)}</span>
-          <span class="text-xs text-slate-500">{new Date(review.createdAt).toLocaleDateString()}</span>
+          <span class="text-xs text-text-subtle"
+            >{new Date(review.createdAt).toLocaleDateString()}</span
+          >
         </div>
-        <p class="text-sm text-slate-300 leading-snug">{review.body}</p>
+        <p class="text-sm text-text-muted leading-snug">{review.body}</p>
       </div>
     {/each}
-  {/if}
+  </AsyncBoundary>
 </div>

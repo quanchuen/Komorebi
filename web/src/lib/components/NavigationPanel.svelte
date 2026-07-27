@@ -2,16 +2,26 @@
 <script lang="ts">
   import { routing, discovery, routes as routesApi } from '$lib/api/client';
   import { buildLineGradient } from '$lib/utils/conditionColors';
-  import { departureAt, highlightedRouteId, bboxString, mapInstance, routeDisplays, selectedRouteGeometry, selectedRouteDistanceM, activeOverlay } from '$lib/stores/map';
+  import {
+    departureAt,
+    highlightedRouteId,
+    bboxString,
+    mapInstance,
+    routeDisplays,
+    selectedRouteGeometry,
+    selectedRouteDistanceM,
+    activeOverlay
+  } from '$lib/stores/map';
   import { discoveryRoutes, discoveryLoading, discoveryError } from '$lib/stores/discovery';
   import type { Route, RouteConditionSegment } from '$lib/api/types';
   import RouteCard from './RouteCard.svelte';
   import MapLayerControl from './MapLayerControl.svelte';
+  import AsyncBoundary from './ui/AsyncBoundary.svelte';
 
   interface Stop {
     id: string;
     label: string;
-    query: string;        // typed search text
+    query: string; // typed search text
     lat: number | null;
     lon: number | null;
   }
@@ -57,7 +67,11 @@
   }
 
   async function searchAddress(query: string) {
-    if (query.length < 3) { suggestions = []; highlightedSuggIdx = -1; return; }
+    if (query.length < 3) {
+      suggestions = [];
+      highlightedSuggIdx = -1;
+      return;
+    }
     try {
       const res = await fetch(
         `/nominatim/search?format=json&q=${encodeURIComponent(query)}&limit=5&countrycodes=jp&accept-language=en`
@@ -76,12 +90,15 @@
     const val = (e.target as HTMLInputElement).value;
     // Only update query (what's typed). Clear coordinates since user is changing the location.
     // Don't overwrite label — it gets set properly by selectSuggestion or handleMapClick.
-    stops = stops.map((s, i) => i === index ? { ...s, query: val, lat: null, lon: null } : s);
+    stops = stops.map((s, i) => (i === index ? { ...s, query: val, lat: null, lon: null } : s));
     clearTimeout(searchDebounce);
     searchDebounce = setTimeout(() => searchAddress(val), 300);
   }
 
-  function selectSuggestion(index: number, suggestion: { display_name: string; lat: string; lon: string }) {
+  function selectSuggestion(
+    index: number,
+    suggestion: { display_name: string; lat: string; lon: string }
+  ) {
     const lat = parseFloat(suggestion.lat);
     const lon = parseFloat(suggestion.lon);
     const shortName = suggestion.display_name.split(',').slice(0, 2).join(',').trim();
@@ -169,22 +186,24 @@
 
   const profileColors: Record<string, string> = {
     suggested: '#38bdf8', // sky-400
-    fast: '#f59e0b',      // amber-500
+    fast: '#f59e0b', // amber-500
     avoid_main_roads: '#34d399' // emerald-400
   };
 
   function updateRouteDisplays() {
-    routeDisplays.set(alternatives.map((alt) => {
-      const coords: [number, number][] = (alt.geometry?.coordinates ?? []).map(
-        (c: number[]) => [c[0], c[1]] as [number, number]
-      );
-      return {
-        coords,
-        selected: alt.profile === selectedProfile,
-        profile: alt.profile,
-        color: profileColors[alt.profile] ?? '#64748b'
-      };
-    }));
+    routeDisplays.set(
+      alternatives.map((alt) => {
+        const coords: [number, number][] = (alt.geometry?.coordinates ?? []).map(
+          (c: number[]) => [c[0], c[1]] as [number, number]
+        );
+        return {
+          coords,
+          selected: alt.profile === selectedProfile,
+          profile: alt.profile,
+          color: profileColors[alt.profile] ?? '#64748b'
+        };
+      })
+    );
   }
 
   async function doRoute() {
@@ -241,21 +260,29 @@
       const etaTime = new Date(departure.getTime() + etaMinutes * 60000);
 
       try {
-        const res = await fetch(`/api/v1/weather/point?lat=${lat}&lon=${lon}&at=${etaTime.toISOString()}`);
+        const res = await fetch(
+          `/api/v1/weather/point?lat=${lat}&lon=${lon}&at=${etaTime.toISOString()}`
+        );
         if (res.ok) {
           const w = await res.json();
           segments.push({
             km,
             eta: etaTime.toISOString(),
             shade: 0, // no shade data from weather endpoint
-            wind_benefit: (w.wind_speed_ms ?? 0) > 0.5 ? Math.cos((w.wind_bearing_deg ?? 0) * Math.PI / 180) * Math.min(1, (w.wind_speed_ms ?? 0) / 10) : 0,
+            wind_benefit:
+              (w.wind_speed_ms ?? 0) > 0.5
+                ? Math.cos(((w.wind_bearing_deg ?? 0) * Math.PI) / 180) *
+                  Math.min(1, (w.wind_speed_ms ?? 0) / 10)
+                : 0,
             precip: Math.min(1, (w.precip_intensity_mmh ?? 0) / 5),
             green_wave: null,
             signals: 0,
             colors: { shade: '#eab308', wind: '#94a3b8', rain: '#f8fafc' }
           });
         }
-      } catch { /* skip */ }
+      } catch {
+        /* skip */
+      }
     }
     return segments;
   }
@@ -293,12 +320,19 @@
       }
       // Default to profile color — overlay will replace via $effect
       mapInst.setPaintProperty('highlight-route-line', 'line-gradient', null);
-      mapInst.setPaintProperty('highlight-route-line', 'line-color', profileColors[profile] ?? '#38BDF8');
+      mapInst.setPaintProperty(
+        'highlight-route-line',
+        'line-color',
+        profileColors[profile] ?? '#38BDF8'
+      );
 
       const lons = coords.map((c) => c[0]);
       const lats = coords.map((c) => c[1]);
       mapInst.fitBounds(
-        [[Math.min(...lons), Math.min(...lats)], [Math.max(...lons), Math.max(...lats)]],
+        [
+          [Math.min(...lons), Math.min(...lats)],
+          [Math.max(...lons), Math.max(...lats)]
+        ],
         { padding: 80, duration: 800 }
       );
     }
@@ -315,7 +349,11 @@
     if (!overlay || selectedConditions.length === 0) {
       // No overlay active — use profile color
       mapInst.setPaintProperty('highlight-route-line', 'line-gradient', null);
-      mapInst.setPaintProperty('highlight-route-line', 'line-color', profileColors[selectedProfile ?? 'suggested'] ?? '#38BDF8');
+      mapInst.setPaintProperty(
+        'highlight-route-line',
+        'line-color',
+        profileColors[selectedProfile ?? 'suggested'] ?? '#38BDF8'
+      );
       return;
     }
 
@@ -325,7 +363,9 @@
 
   // Close suggestions when clicking outside
   function handleBlur() {
-    setTimeout(() => { suggestions = []; }, 200);
+    setTimeout(() => {
+      suggestions = [];
+    }, 200);
   }
 
   // Load routes in viewport
@@ -343,7 +383,9 @@
             try {
               const c = await routesApi.conditions(r.id, departure);
               conditionsCache = new Map(conditionsCache).set(r.id, c.segments ?? []);
-            } catch { /* skip */ }
+            } catch {
+              /* skip */
+            }
           }
         })
       );
@@ -377,20 +419,26 @@
     const id = $highlightedRouteId;
     if (!id) return;
     if (!routeGeometryCache.has(id)) {
-      routesApi.get(id).then((r) => {
-        if (Array.isArray(r.geometry)) {
-          routeGeometryCache = new Map(routeGeometryCache).set(id, r.geometry);
-          const mapInst = $mapInstance;
-          if (mapInst && r.geometry.length > 0) {
-            const lons = r.geometry.map((c: number[]) => c[0]);
-            const lats = r.geometry.map((c: number[]) => c[1]);
-            mapInst.fitBounds(
-              [[Math.min(...lons), Math.min(...lats)], [Math.max(...lons), Math.max(...lats)]],
-              { padding: 80, duration: 800 }
-            );
+      routesApi
+        .get(id)
+        .then((r) => {
+          if (Array.isArray(r.geometry)) {
+            routeGeometryCache = new Map(routeGeometryCache).set(id, r.geometry);
+            const mapInst = $mapInstance;
+            if (mapInst && r.geometry.length > 0) {
+              const lons = r.geometry.map((c: number[]) => c[0]);
+              const lats = r.geometry.map((c: number[]) => c[1]);
+              mapInst.fitBounds(
+                [
+                  [Math.min(...lons), Math.min(...lats)],
+                  [Math.max(...lons), Math.max(...lats)]
+                ],
+                { padding: 80, duration: 800 }
+              );
+            }
           }
-        }
-      }).catch(() => {});
+        })
+        .catch(() => {});
     }
   });
 
@@ -398,13 +446,15 @@
 </script>
 
 <!-- Floating panel -->
-<div class="absolute top-4 left-4 bottom-4 z-10 w-80
-            flex flex-col gap-3 pointer-events-none">
-
+<div
+  class="absolute top-4 left-4 bottom-4 z-10 w-80
+            flex flex-col gap-3 pointer-events-none"
+>
   <!-- Navigation card -->
-  <div class="bg-slate-900/90 backdrop-blur-lg border border-slate-700/50
-              rounded-2xl shadow-2xl p-4 pointer-events-auto">
-
+  <div
+    class="bg-surface/90 backdrop-blur-lg border border-border/50
+              rounded-2xl shadow-2xl p-4 pointer-events-auto"
+  >
     <!-- Stop inputs with icon rail -->
     <div class="flex flex-col gap-0">
       {#each stops as stop, i (stop.id)}
@@ -427,41 +477,49 @@
               <input
                 bind:this={inputRefs[i]}
                 type="text"
-                placeholder={i === 0 ? 'Start location' : i === stops.length - 1 ? 'Destination' : 'Via stop'}
+                placeholder={i === 0
+                  ? 'Start location'
+                  : i === stops.length - 1
+                    ? 'Destination'
+                    : 'Via stop'}
                 value={stop.query}
                 onfocus={() => focusInput(i)}
                 onblur={handleBlur}
                 oninput={(e) => handleInput(i, e)}
                 onkeydown={(e) => handleKeydown(i, e)}
-                class="w-full bg-slate-800/80 border text-slate-100 text-xs rounded-lg
+                class="w-full bg-surface-raised/80 border text-text text-xs rounded-lg
                        px-3 py-2 transition-colors
                        {activeInputIndex === i
-                  ? 'border-sky-500 ring-1 ring-sky-500/30'
-                  : 'border-slate-700 hover:border-slate-600'}
-                       focus:outline-none placeholder:text-slate-500"
+                  ? 'border-accent ring-1 ring-accent/30'
+                  : 'border-border hover:border-border-strong'}
+                       focus:outline-none placeholder:text-text-subtle"
               />
               {#if i > 0 && i < stops.length - 1}
                 <button
                   onclick={() => removeStop(i)}
-                  class="text-slate-500 hover:text-red-400 text-sm w-5 h-5
+                  class="text-text-subtle hover:text-danger text-sm w-5 h-5
                          flex items-center justify-center shrink-0"
-                  aria-label="Remove stop"
-                >&times;</button>
+                  aria-label="Remove stop">&times;</button
+                >
               {/if}
             </div>
 
             <!-- Address suggestions dropdown -->
             {#if activeInputIndex === i && suggestions.length > 0}
-              <div class="absolute top-full left-0 right-0 mt-1 z-50
-                          bg-slate-800 border border-slate-700 rounded-lg shadow-xl
-                          overflow-hidden">
+              <div
+                class="absolute top-full left-0 right-0 mt-1 z-50
+                          bg-surface-raised border border-border rounded-lg shadow-xl
+                          overflow-hidden"
+              >
                 {#each suggestions as s, si}
                   <button
                     onmousedown={() => selectSuggestion(i, s)}
-                    onmouseenter={() => highlightedSuggIdx = si}
-                    class="w-full text-left px-3 py-2 text-xs transition-colors border-b border-slate-700/50
+                    onmouseenter={() => (highlightedSuggIdx = si)}
+                    class="w-full text-left px-3 py-2 text-xs transition-colors border-b border-border/50
                            last:border-b-0
-                           {si === highlightedSuggIdx ? 'bg-sky-600/30 text-slate-100' : 'text-slate-300 hover:bg-slate-700'}"
+                           {si === highlightedSuggIdx
+                      ? 'bg-accent/30 text-text'
+                      : 'text-text-muted hover:bg-surface-overlay'}"
                   >
                     {s.display_name.split(',').slice(0, 3).join(',')}
                   </button>
@@ -476,21 +534,21 @@
           <div class="flex items-center gap-2 my-2">
             <!-- Vertical dash line under icon column -->
             <div class="w-5 shrink-0 flex justify-center">
-              <div class="w-px h-4 border-l border-dashed border-slate-600"></div>
+              <div class="w-px h-4 border-l border-dashed border-border-strong"></div>
             </div>
             <!-- Dashed line + plus button -->
             <div class="flex-1 flex items-center gap-2">
-              <div class="flex-1 border-t border-dashed border-slate-700"></div>
+              <div class="flex-1 border-t border-dashed border-border"></div>
               <button
                 onclick={() => addStopAfter(i)}
-                class="text-[10px] text-slate-500 hover:text-amber-400
-                       bg-slate-800 hover:bg-slate-700 border border-slate-700
+                class="text-3xs text-text-subtle hover:text-amber-400
+                       bg-surface-raised hover:bg-surface-overlay border border-border
                        hover:border-amber-500/50
                        rounded-full w-5 h-5 flex items-center justify-center
                        transition-colors"
-                aria-label="Add stop"
-              >+</button>
-              <div class="flex-1 border-t border-dashed border-slate-700"></div>
+                aria-label="Add stop">+</button
+              >
+              <div class="flex-1 border-t border-dashed border-border"></div>
             </div>
           </div>
         {/if}
@@ -504,8 +562,8 @@
         disabled={isRouting}
         class="w-full mt-3 py-2 rounded-lg text-xs font-semibold transition-colors
                {isRouting
-          ? 'bg-sky-800 text-sky-300 cursor-wait'
-          : 'bg-sky-600 hover:bg-sky-500 text-white'}"
+          ? 'bg-accent-strong text-accent cursor-wait'
+          : 'bg-accent hover:bg-accent-strong text-white'}"
       >
         {isRouting ? 'Finding routes...' : 'Route'}
       </button>
@@ -513,27 +571,26 @@
 
     <!-- Route error -->
     {#if routeError}
-      <div class="mt-2 text-xs text-red-400 bg-red-950/50 rounded-lg px-3 py-2">
+      <div class="mt-2 text-xs text-danger bg-danger-surface/50 rounded-lg px-3 py-2">
         {routeError}
       </div>
     {/if}
 
     <!-- Layer control -->
-    <div class="mt-3 pt-3 border-t border-slate-700/50 flex items-center justify-end">
+    <div class="mt-3 pt-3 border-t border-border/50 flex items-center justify-end">
       <MapLayerControl />
     </div>
   </div>
 
   <!-- Results panel: route alternatives OR suggested routes -->
-  <div class="flex-1 min-h-0 overflow-y-auto pointer-events-auto
-              bg-slate-900/80 backdrop-blur-lg border border-slate-700/50
-              rounded-2xl shadow-2xl p-3 space-y-2">
-
+  <div
+    class="flex-1 min-h-0 overflow-y-auto pointer-events-auto
+              bg-surface/80 backdrop-blur-lg border border-border/50
+              rounded-2xl shadow-2xl p-3 space-y-2"
+  >
     {#if alternatives.length > 0}
       <!-- Route alternatives -->
-      <div class="text-[10px] text-slate-500 uppercase tracking-wider px-1 mb-1">
-        Routes found
-      </div>
+      <div class="text-3xs text-text-subtle uppercase tracking-wider px-1 mb-1">Routes found</div>
       <div class="flex flex-col gap-1.5">
         {#each alternatives as alt (alt.profile)}
           <button
@@ -541,17 +598,22 @@
             class="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-left
                    transition-colors border
                    {selectedProfile === alt.profile
-              ? 'border-sky-500/40 text-slate-100'
-              : 'bg-slate-800/50 border-slate-700/50 text-slate-400 hover:bg-slate-800 hover:text-slate-200'}"
-            style={selectedProfile === alt.profile ? `background: ${profileColors[alt.profile]}15; border-color: ${profileColors[alt.profile]}66` : ''}
+              ? 'border-accent/40 text-text'
+              : 'bg-surface-raised/50 border-border/50 text-text-muted hover:bg-surface-raised hover:text-text'}"
+            style={selectedProfile === alt.profile
+              ? `background: ${profileColors[alt.profile]}15; border-color: ${profileColors[alt.profile]}66`
+              : ''}
           >
             <!-- Color dot matching map line -->
-            <div class="w-3 h-3 rounded-full shrink-0"
-                 style="background: {profileColors[alt.profile] ?? '#64748b'}; opacity: {selectedProfile === alt.profile ? 1 : 0.4}"></div>
+            <div
+              class="w-3 h-3 rounded-full shrink-0"
+              style="background: {profileColors[alt.profile] ??
+                '#64748b'}; opacity: {selectedProfile === alt.profile ? 1 : 0.4}"
+            ></div>
             <span class="text-sm shrink-0">{profileIcons[alt.profile] ?? '🚲'}</span>
             <div class="flex-1 min-w-0">
-              <div class="text-[11px] font-medium">{alt.label}</div>
-              <div class="text-[10px] text-slate-500">
+              <div class="text-2xs font-medium">{alt.label}</div>
+              <div class="text-3xs text-text-subtle">
                 {alt.total_distance_km.toFixed(1)} km · {Math.round(alt.total_duration_s / 60)} min
               </div>
             </div>
@@ -560,27 +622,22 @@
       </div>
     {:else}
       <!-- Suggested routes -->
-      <div class="text-[10px] text-slate-500 uppercase tracking-wider px-1 mb-1">
+      <div class="text-3xs text-text-subtle uppercase tracking-wider px-1 mb-1">
         Suggested routes
       </div>
 
-      {#if $discoveryError}
-        <div class="rounded-lg bg-red-950/80 border border-red-800 p-3 text-center space-y-2">
-          <div class="text-red-400 text-xs">{$discoveryError}</div>
-          <button onclick={retryLoad}
-            class="text-[10px] bg-red-800 hover:bg-red-700 text-red-100 px-3 py-1 rounded">
-            Retry
-          </button>
-        </div>
-      {:else if $discoveryLoading}
-        <div class="text-slate-500 text-xs text-center py-6">Loading...</div>
-      {:else if filteredRoutes.length === 0}
-        <div class="text-slate-500 text-xs text-center py-6">No routes in view</div>
-      {:else}
+      <AsyncBoundary
+        loading={$discoveryLoading}
+        error={$discoveryError}
+        empty={filteredRoutes.length === 0}
+        loadingMessage="Loading..."
+        emptyMessage="No routes in view"
+        onRetry={retryLoad}
+      >
         {#each filteredRoutes as route (route.id)}
           <RouteCard {route} conditions={conditionsCache.get(route.id) ?? []} />
         {/each}
-      {/if}
+      </AsyncBoundary>
     {/if}
   </div>
 </div>

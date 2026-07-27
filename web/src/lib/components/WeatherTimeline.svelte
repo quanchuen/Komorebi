@@ -154,50 +154,64 @@
   }
 </script>
 
-<div class="shrink-0 border-t border-slate-800 bg-slate-900">
+<div class="shrink-0 border-t border-border bg-surface">
   <div class="overflow-hidden">
     <div class="flex items-center justify-between px-4 pt-2 pb-1">
-      <span class="text-[10px] text-slate-500 uppercase tracking-wider">Weather timeline</span>
+      <span class="text-3xs text-text-subtle uppercase tracking-wider">Weather timeline</span>
       {#if loading}
-        <span class="text-[10px] text-slate-500 animate-pulse">Loading...</span>
+        <span class="text-3xs text-text-subtle animate-pulse">Loading...</span>
       {:else if error}
-        <span class="text-[10px] text-amber-400">{error}</span>
+        <span class="text-3xs text-amber-400">{error}</span>
       {/if}
     </div>
 
-    <div bind:this={scrollContainer}
-         class="flex overflow-x-auto gap-0 px-2 pb-2 scrollbar-thin">
+    <div bind:this={scrollContainer} class="flex overflow-x-auto gap-0 px-2 pb-2 scrollbar-thin">
       {#each slots as slot (slot.hour)}
         <button
           onclick={() => selectHour(slot)}
           class="flex flex-col items-center shrink-0 w-14 py-1 rounded-lg transition-colors
                  {slot.isSelected
-            ? 'bg-sky-600/20 border border-sky-500/40'
-            : 'hover:bg-slate-800/50 border border-transparent'}"
+            ? 'bg-accent/20 border border-accent/40'
+            : 'hover:bg-surface-raised/50 border border-transparent'}"
         >
-          <span class="text-[10px] font-medium {slot.isSelected ? 'text-sky-300' : 'text-slate-400'}">
+          <span class="text-3xs font-medium {slot.isSelected ? 'text-accent' : 'text-text-muted'}">
             {slot.hour}
           </span>
 
           <div class="w-6 h-5 flex items-end justify-center my-0.5">
             {#if slot.precip > 0}
-              <div class="w-4 rounded-t-sm"
-                style="height: {Math.max(2, precipHeight(slot.precip))}%; background: {precipColor(slot.precip)};"></div>
+              <div
+                class="w-4 rounded-t-sm"
+                style="height: {Math.max(2, precipHeight(slot.precip))}%; background: {precipColor(
+                  slot.precip
+                )};"
+              ></div>
             {:else}
-              <div class="w-4 h-px bg-slate-700"></div>
+              <div class="w-4 h-px bg-surface-overlay"></div>
             {/if}
           </div>
 
-          <div class="text-[10px] h-4 flex items-center justify-center" title="Wind {slot.windSpeed}m/s">
+          <div
+            class="text-3xs h-4 flex items-center justify-center"
+            title="Wind {slot.windSpeed}m/s"
+          >
             {#if slot.windSpeed > 0.5}
-              <span style="transform: {windArrow(slot.windDir)}; display: inline-block;"
-                    class="{slot.windSpeed > 5 ? 'text-amber-400' : 'text-slate-400'}">↑</span>
+              <span
+                style="transform: {windArrow(slot.windDir)}; display: inline-block;"
+                class={slot.windSpeed > 5 ? 'text-amber-400' : 'text-text-muted'}>↑</span
+              >
             {:else}
-              <span class="text-slate-600">·</span>
+              <span class="text-text-subtle">·</span>
             {/if}
           </div>
 
-          <span class="text-[9px] {slot.temp > 30 ? 'text-red-400' : slot.temp < 10 ? 'text-blue-400' : 'text-slate-500'}">
+          <span
+            class="text-3xs {slot.temp > 30
+              ? 'text-red-400'
+              : slot.temp < 10
+                ? 'text-blue-400'
+                : 'text-text-subtle'}"
+          >
             {slot.temp > 0 ? slot.temp : '--'}°
           </span>
         </button>
@@ -207,7 +221,14 @@
 </div>
 
 <style>
-  .scrollbar-thin::-webkit-scrollbar { height: 4px; }
-  .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
-  .scrollbar-thin::-webkit-scrollbar-thumb { background: #334155; border-radius: 2px; }
+  .scrollbar-thin::-webkit-scrollbar {
+    height: 4px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: #334155;
+    border-radius: 2px;
+  }
 </style>

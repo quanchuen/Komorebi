@@ -22,9 +22,9 @@
     ]);
   }
 
-  let planGeometry = $derived($plannerResult?.geometry.coordinates.map(
-    (c) => [c[0], c[1]] as [number, number]
-  ) ?? null);
+  let planGeometry = $derived(
+    $plannerResult?.geometry.coordinates.map((c) => [c[0], c[1]] as [number, number]) ?? null
+  );
 
   let planConditions: RouteConditionSegment[] = $derived($plannerResult?.segments ?? []);
   let planDistanceM = $derived($plannerResult?.distanceM ?? 0);
@@ -34,7 +34,7 @@
   <title>Route Planner — Komorebi</title>
 </svelte:head>
 
-<div class="flex h-dvh w-screen overflow-hidden bg-slate-900">
+<div class="flex h-dvh w-screen overflow-hidden bg-surface">
   <PlannerPanel />
 
   <div class="flex-1 relative">
@@ -51,21 +51,27 @@
     </div>
 
     {#if $plannerResult}
-      <div class="absolute bottom-6 left-1/2 -translate-x-1/2 z-10
-                  bg-slate-900/90 border border-slate-700 rounded-full px-4 py-2
-                  text-xs text-slate-300 backdrop-blur-sm">
+      <div
+        class="absolute bottom-6 left-1/2 -translate-x-1/2 z-10
+                  bg-surface/90 border border-border rounded-full px-4 py-2
+                  text-xs text-text-muted backdrop-blur-sm"
+      >
         Click map to add more stops
       </div>
     {:else if $plannerStops.length === 0}
-      <div class="absolute bottom-6 left-1/2 -translate-x-1/2 z-10
-                  bg-slate-900/90 border border-slate-700 rounded-full px-4 py-2
-                  text-xs text-slate-300 backdrop-blur-sm">
+      <div
+        class="absolute bottom-6 left-1/2 -translate-x-1/2 z-10
+                  bg-surface/90 border border-border rounded-full px-4 py-2
+                  text-xs text-text-muted backdrop-blur-sm"
+      >
         Click map to set origin
       </div>
     {:else if $plannerStops.length === 1}
-      <div class="absolute bottom-6 left-1/2 -translate-x-1/2 z-10
-                  bg-slate-900/90 border border-slate-700 rounded-full px-4 py-2
-                  text-xs text-slate-300 backdrop-blur-sm">
+      <div
+        class="absolute bottom-6 left-1/2 -translate-x-1/2 z-10
+                  bg-surface/90 border border-border rounded-full px-4 py-2
+                  text-xs text-text-muted backdrop-blur-sm"
+      >
         Click map to set destination
       </div>
     {/if}

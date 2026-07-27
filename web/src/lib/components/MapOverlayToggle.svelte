@@ -18,10 +18,11 @@
   {#each overlays as ov}
     <button
       onclick={() => toggle(ov.id)}
+      aria-pressed={$activeOverlay === ov.id}
       class="px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors
              {$activeOverlay === ov.id
         ? ov.activeClass + ' border-transparent'
-        : 'bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700'}"
+        : 'bg-surface-raised text-text-muted border-border hover:bg-surface-overlay'}"
     >
       {ov.label}
     </button>

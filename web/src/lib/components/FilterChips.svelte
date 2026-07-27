@@ -27,10 +27,11 @@
   {#each difficulties as d}
     <button
       onclick={() => toggleDifficulty(d.value)}
+      aria-pressed={$discoveryFilters.difficulty === d.value}
       class="px-3 py-1 rounded-full text-xs font-semibold border transition-colors
              {$discoveryFilters.difficulty === d.value
-        ? 'bg-sky-600 text-white border-transparent'
-        : 'bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700'}"
+        ? 'bg-accent text-white border-transparent'
+        : 'bg-surface-raised text-text-muted border-border hover:bg-surface-overlay'}"
     >
       {d.label}
     </button>
@@ -38,20 +39,22 @@
 
   <button
     onclick={toggleShade}
+    aria-pressed={$discoveryFilters.shade}
     class="px-3 py-1 rounded-full text-xs font-semibold border transition-colors
            {$discoveryFilters.shade
       ? 'bg-blue-800 text-blue-100 border-transparent'
-      : 'bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700'}"
+      : 'bg-surface-raised text-text-muted border-border hover:bg-surface-overlay'}"
   >
     Shade
   </button>
 
   <button
     onclick={toggleGreenery}
+    aria-pressed={$discoveryFilters.greenery}
     class="px-3 py-1 rounded-full text-xs font-semibold border transition-colors
            {$discoveryFilters.greenery
       ? 'bg-green-800 text-green-100 border-transparent'
-      : 'bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700'}"
+      : 'bg-surface-raised text-text-muted border-border hover:bg-surface-overlay'}"
   >
     Greenery
   </button>

@@ -32,7 +32,8 @@
       return;
     }
 
-    routesApi.get(id)
+    routesApi
+      .get(id)
       .then((fullRoute) => {
         routeError = null;
         const coords = fullRoute.geometry;
@@ -61,12 +62,14 @@
 
 <svelte:head>
   <title>Komorebi — Discover Routes</title>
-  <meta name="description" content="Discover cycling routes with shade, wind, and rain forecasts." />
+  <meta
+    name="description"
+    content="Discover cycling routes with shade, wind, and rain forecasts."
+  />
 </svelte:head>
 
 <!-- Vertical flex: map area (grows) + timeline (fixed at bottom) -->
-<div class="flex flex-col h-full w-full overflow-hidden bg-slate-900">
-
+<div class="flex flex-col h-full w-full overflow-hidden bg-surface">
   <!-- Map area with floating nav panel -->
   <div class="flex-1 relative min-h-0">
     <Map
@@ -81,9 +84,11 @@
 
     <!-- Route error toast -->
     {#if routeError}
-      <div class="absolute top-4 left-1/2 -translate-x-1/2 z-20
-                  bg-red-950/90 border border-red-800 text-red-300 text-xs
-                  px-4 py-2 rounded-lg backdrop-blur">
+      <div
+        class="absolute top-4 left-1/2 -translate-x-1/2 z-20
+                  bg-danger-surface/90 border border-danger/40 text-danger text-xs
+                  px-4 py-2 rounded-lg backdrop-blur"
+      >
         {routeError}
       </div>
     {/if}

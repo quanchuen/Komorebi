@@ -16,10 +16,10 @@
   let geometry = $derived(route.geometry.coordinates.map((c) => [c[0], c[1]] as [number, number]));
 
   const difficultyColor: Record<string, string> = {
-    easy: 'text-green-400',
-    moderate: 'text-yellow-400',
-    hard: 'text-orange-400',
-    expert: 'text-red-400'
+    easy: 'text-easy',
+    moderate: 'text-moderate',
+    hard: 'text-hard',
+    expert: 'text-expert'
   };
 
   let planLoading = $state(false);
@@ -36,22 +36,29 @@
 
 <svelte:head>
   <title>{route.name} — Komorebi</title>
-  <meta name="description" content="{route.description || route.name} — {(route.distanceM / 1000).toFixed(1)} km cycling route." />
+  <meta
+    name="description"
+    content="{route.description || route.name} — {(route.distanceM / 1000).toFixed(
+      1
+    )} km cycling route."
+  />
 </svelte:head>
 
-<div class="flex h-dvh w-screen overflow-hidden bg-slate-900">
+<div class="flex h-dvh w-screen overflow-hidden bg-surface">
   <!-- Detail panel -->
-  <aside class="w-full md:w-96 h-full bg-slate-900 border-r border-slate-800 overflow-y-auto flex-shrink-0 z-10">
+  <aside
+    class="w-full md:w-96 h-full bg-surface border-r border-border overflow-y-auto flex-shrink-0 z-10"
+  >
     <div class="p-5 space-y-5">
       <!-- Back -->
-      <a href="/" class="inline-flex items-center gap-1 text-sm text-slate-400 hover:text-slate-100">
+      <a href="/" class="inline-flex items-center gap-1 text-sm text-text-muted hover:text-text">
         ← Back
       </a>
 
       <!-- Title + meta -->
       <div class="space-y-1">
-        <h1 class="text-xl font-bold text-slate-100">{route.name}</h1>
-        <div class="flex gap-3 text-sm text-slate-400">
+        <h1 class="text-xl font-bold text-text">{route.name}</h1>
+        <div class="flex gap-3 text-sm text-text-muted">
           <span>{(route.distanceM / 1000).toFixed(1)} km</span>
           <span>+{route.elevationGainM} m</span>
           <span class="capitalize {difficultyColor[route.difficulty]}">{route.difficulty}</span>
@@ -59,46 +66,50 @@
         {#if route.tags.length > 0}
           <div class="flex flex-wrap gap-1 mt-1">
             {#each route.tags as tag}
-              <span class="text-xs bg-slate-800 text-slate-400 rounded px-2 py-0.5">{tag}</span>
+              <span class="text-xs bg-surface-raised text-text-muted rounded px-2 py-0.5"
+                >{tag}</span
+              >
             {/each}
           </div>
         {/if}
       </div>
 
       {#if route.description}
-        <p class="text-sm text-slate-400 leading-relaxed">{route.description}</p>
+        <p class="text-sm text-text-muted leading-relaxed">{route.description}</p>
       {/if}
 
       <!-- Overlay toggle -->
       <div>
-        <div class="text-xs text-slate-500 mb-2 uppercase tracking-wide">Condition overlay</div>
+        <div class="text-xs text-text-subtle mb-2 uppercase tracking-wide">Condition overlay</div>
         <MapOverlayToggle />
       </div>
 
       <!-- Condition panel -->
       {#if conditions.length > 0}
-        <div class="bg-slate-800 rounded-xl p-4">
-          <h2 class="text-sm font-semibold text-slate-300 mb-3">Conditions at departure</h2>
+        <div class="bg-surface-raised rounded-xl p-4">
+          <h2 class="text-sm font-semibold text-text-muted mb-3">Conditions at departure</h2>
           <ConditionPanel segments={conditions} />
         </div>
       {/if}
 
       <!-- Elevation profile -->
-      <div class="bg-slate-800 rounded-xl p-4">
-        <h2 class="text-sm font-semibold text-slate-300 mb-3">Elevation</h2>
-        <ElevationProfile coordinates={route.geometry.coordinates as Array<[number, number, number?]>} />
+      <div class="bg-surface-raised rounded-xl p-4">
+        <h2 class="text-sm font-semibold text-text-muted mb-3">Elevation</h2>
+        <ElevationProfile
+          coordinates={route.geometry.coordinates as Array<[number, number, number?]>}
+        />
       </div>
 
       <!-- Waypoints -->
       {#if route.waypoints && route.waypoints.length > 0}
         <div>
-          <h2 class="text-sm font-semibold text-slate-300 mb-2">Stops</h2>
+          <h2 class="text-sm font-semibold text-text-muted mb-2">Stops</h2>
           <ul class="space-y-1">
             {#each route.waypoints.sort((a, b) => a.sortOrder - b.sortOrder) as wp}
-              <li class="flex items-center gap-2 text-sm text-slate-400">
-                <span class="w-2 h-2 rounded-full bg-sky-400 shrink-0"></span>
+              <li class="flex items-center gap-2 text-sm text-text-muted">
+                <span class="w-2 h-2 rounded-full bg-accent shrink-0"></span>
                 {wp.name}
-                <span class="text-xs text-slate-600 capitalize">({wp.type})</span>
+                <span class="text-xs text-text-subtle capitalize">({wp.type})</span>
               </li>
             {/each}
           </ul>
@@ -112,7 +123,7 @@
       <button
         onclick={planThisRide}
         disabled={planLoading}
-        class="w-full bg-sky-600 hover:bg-sky-500 disabled:opacity-50 text-white font-semibold
+        class="w-full bg-accent hover:bg-accent-strong disabled:opacity-50 text-white font-semibold
                rounded-xl py-3 text-sm transition-colors"
       >
         {planLoading ? 'Creating plan…' : 'Plan this ride'}
