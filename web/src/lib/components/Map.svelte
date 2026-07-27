@@ -3,7 +3,13 @@
   import { onMount, onDestroy } from 'svelte';
   import maplibregl from 'maplibre-gl';
   import 'maplibre-gl/dist/maplibre-gl.css';
-  import { mapInstance, mapBounds, activeOverlay, visibleLayers, routeDisplays } from '$lib/stores/map';
+  import {
+    mapInstance,
+    mapBounds,
+    activeOverlay,
+    visibleLayers,
+    routeDisplays
+  } from '$lib/stores/map';
   import { buildLineGradient } from '$lib/utils/conditionColors';
   import type { RouteConditionSegment } from '$lib/api/types';
 
@@ -64,7 +70,7 @@
       },
       layout: { visibility: 'none' as const }
     },
-    'landuse': {
+    landuse: {
       id: 'landuse-fill',
       type: 'fill' as const,
       source: 'martin-landuse',
@@ -75,7 +81,7 @@
       },
       layout: { visibility: 'none' as const }
     },
-    'venues': {
+    venues: {
       id: 'venue-circles',
       type: 'circle' as const,
       source: 'martin-venues',
@@ -107,27 +113,32 @@
               'https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png'
             ],
             tileSize: 256,
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>'
+            attribution:
+              '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>'
           },
           'martin-roads': {
             type: 'vector',
             tiles: [`${MARTIN_URL}/osm_roads/{z}/{x}/{y}`],
-            minzoom: 8, maxzoom: 18
+            minzoom: 8,
+            maxzoom: 18
           },
           'martin-landuse': {
             type: 'vector',
             tiles: [`${MARTIN_URL}/osm_landuse/{z}/{x}/{y}`],
-            minzoom: 10, maxzoom: 18
+            minzoom: 10,
+            maxzoom: 18
           },
           'martin-routes': {
             type: 'vector',
             tiles: [`${MARTIN_URL}/routes/{z}/{x}/{y}`],
-            minzoom: 8, maxzoom: 18
+            minzoom: 8,
+            maxzoom: 18
           },
           'martin-venues': {
             type: 'vector',
             tiles: [`${MARTIN_URL}/venues/{z}/{x}/{y}`],
-            minzoom: 12, maxzoom: 18
+            minzoom: 12,
+            maxzoom: 18
           }
         },
         layers: [
@@ -232,8 +243,10 @@
     map.on('moveend', () => {
       const bounds = map.getBounds();
       mapBounds.set({
-        minLon: bounds.getWest(), minLat: bounds.getSouth(),
-        maxLon: bounds.getEast(), maxLat: bounds.getNorth()
+        minLon: bounds.getWest(),
+        minLat: bounds.getSouth(),
+        maxLon: bounds.getEast(),
+        maxLat: bounds.getNorth()
       });
       onmoveend?.({ bounds });
     });
@@ -244,7 +257,10 @@
   });
 
   onDestroy(() => {
-    if (map) { mapInstance.set(null); map.remove(); }
+    if (map) {
+      mapInstance.set(null);
+      map.remove();
+    }
   });
 
   // Toggle optional layers based on store
@@ -253,8 +269,8 @@
     const layers = $visibleLayers;
     const layerMap: Record<string, string> = {
       'cycling-roads': 'cycling-roads',
-      'landuse': 'landuse-fill',
-      'venues': 'venue-circles'
+      landuse: 'landuse-fill',
+      venues: 'venue-circles'
     };
     for (const [key, layerId] of Object.entries(layerMap)) {
       const vis = layers.has(key as any) ? 'visible' : 'none';
@@ -290,7 +306,8 @@
   // Dim curated routes when routes are displayed
   $effect(() => {
     if (!map || !mapLoaded) return;
-    const hasHighlight = (highlightGeometry !== null && highlightGeometry.length > 0) || $routeDisplays.length > 0;
+    const hasHighlight =
+      (highlightGeometry !== null && highlightGeometry.length > 0) || $routeDisplays.length > 0;
     if (map.getLayer('curated-routes')) {
       map.setPaintProperty('curated-routes', 'line-opacity', hasHighlight ? 0.15 : 0.5);
     }
@@ -314,7 +331,11 @@
         properties: {}
       });
       if (overlay && segs.length > 0) {
-        map.setPaintProperty('highlight-route-line', 'line-gradient', buildLineGradient(segs, overlay, distM));
+        map.setPaintProperty(
+          'highlight-route-line',
+          'line-gradient',
+          buildLineGradient(segs, overlay, distM)
+        );
       } else {
         map.setPaintProperty('highlight-route-line', 'line-gradient', null);
         map.setPaintProperty('highlight-route-line', 'line-color', '#38BDF8');
@@ -329,11 +350,15 @@
   <div bind:this={container} class="w-full h-full"></div>
 
   {#if tileError}
-    <div class="absolute bottom-4 left-4 z-10
+    <div
+      class="absolute bottom-4 left-4 z-10
                 bg-amber-950/90 border border-amber-700 text-amber-300 text-xs
-                px-3 py-2 rounded-lg backdrop-blur flex items-center gap-2">
+                px-3 py-2 rounded-lg backdrop-blur flex items-center gap-2"
+    >
       <span>{tileError}</span>
-      <button onclick={() => tileError = null} class="text-amber-500 hover:text-amber-300">x</button>
+      <button onclick={() => (tileError = null)} class="text-amber-500 hover:text-amber-300"
+        >x</button
+      >
     </div>
   {/if}
 </div>

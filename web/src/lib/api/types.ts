@@ -66,7 +66,7 @@ export interface GreenWaveInfo {
 }
 
 export interface ConditionColors {
-  shade: string;  // hex
+  shade: string; // hex
   wind: string;
   rain: string;
 }
@@ -74,9 +74,9 @@ export interface ConditionColors {
 export interface RouteConditionSegment {
   km: number;
   eta: string;
-  shade: number;           // 0.0–1.0
-  wind_benefit: number;    // -1.0 (headwind) to 1.0 (tailwind)
-  precip: number;          // 0.0–1.0
+  shade: number; // 0.0–1.0
+  wind_benefit: number; // -1.0 (headwind) to 1.0 (tailwind)
+  precip: number; // 0.0–1.0
   green_wave: GreenWaveInfo | null;
   signals: number;
   colors: ConditionColors;
@@ -122,7 +122,7 @@ export function discoveryRouteToRoute(dr: DiscoveryRoute): Route {
     creatorId: '',
     tags: dr.tags ?? [],
     waypoints: [],
-    segments: [],
+    segments: []
   };
 }
 
@@ -160,9 +160,9 @@ export interface VenueStop {
 export type RoutingStop = ManualStop | VenueStop;
 
 export interface RoutingPreferences {
-  shade: number;    // 0.0–1.0
+  shade: number; // 0.0–1.0
   greenery: number; // 0.0–1.0
-  wind: number;     // 0.0–1.0
+  wind: number; // 0.0–1.0
 }
 
 export interface DirectionsRequest {
@@ -173,8 +173,8 @@ export interface DirectionsRequest {
 }
 
 export interface RouteAlternative {
-  profile: string;           // "suggested" | "fast" | "avoid_main_roads"
-  label: string;             // "Suggested" | "Fast" | "Avoid main roads"
+  profile: string; // "suggested" | "fast" | "avoid_main_roads"
+  label: string; // "Suggested" | "Fast" | "Avoid main roads"
   total_distance_km: number;
   total_duration_s: number;
   legs: { distance_km: number; duration_s: number; eta_at: string }[];

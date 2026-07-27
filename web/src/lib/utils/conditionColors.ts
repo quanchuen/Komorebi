@@ -21,7 +21,11 @@ export function conditionColor(overlay: OverlayType, value: number): string {
     return (
       '#' +
       [r, g, b]
-        .map((c) => Math.round(clamp(c, 0, 255)).toString(16).padStart(2, '0'))
+        .map((c) =>
+          Math.round(clamp(c, 0, 255))
+            .toString(16)
+            .padStart(2, '0')
+        )
         .join('')
     );
   }

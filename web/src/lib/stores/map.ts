@@ -12,7 +12,12 @@ export const visibleLayers = writable<Set<MapLayer>>(new Set());
 export const mapInstance = writable<MapLibreMap | null>(null);
 
 // Current map viewport
-export const mapBounds = writable<{ minLon: number; minLat: number; maxLon: number; maxLat: number } | null>(null);
+export const mapBounds = writable<{
+  minLon: number;
+  minLat: number;
+  maxLon: number;
+  maxLat: number;
+} | null>(null);
 
 // Active condition overlay
 export const activeOverlay = writable<OverlayType>(null);

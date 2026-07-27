@@ -46,22 +46,24 @@ async function post<T>(path: string, body: unknown): Promise<T> {
 // --- Routes ---
 
 export const routes = {
-  list: (params?: {
-    bbox?: string;
-    difficulty?: string;
-    tags?: string;
-    cursor?: string;
-  }) => get<RouteListResponse>('/routes', params as Record<string, string>),
+  list: (params?: { bbox?: string; difficulty?: string; tags?: string; cursor?: string }) =>
+    get<RouteListResponse>('/routes', params as Record<string, string>),
 
   get: (id: string) => get<Route>(`/routes/${id}`),
 
   conditions: (id: string, departureAt: string, speedModel = 'elevation') =>
-    get<RouteConditionsResponse>(`/routes/${id}/conditions`, { departure_at: departureAt, speed_model: speedModel })
+    get<RouteConditionsResponse>(`/routes/${id}/conditions`, {
+      departure_at: departureAt,
+      speed_model: speedModel
+    })
 };
 
 // --- Discovery ---
 
-async function getDiscoveryRoutes(path: string, params: Record<string, string | number>): Promise<RouteListResponse> {
+async function getDiscoveryRoutes(
+  path: string,
+  params: Record<string, string | number>
+): Promise<RouteListResponse> {
   const raw = await get<DiscoveryListResponse>(path, params);
   return { routes: (raw.routes ?? []).map(discoveryRouteToRoute), nextCursor: null };
 }
@@ -74,14 +76,17 @@ export const discovery = {
     getDiscoveryRoutes('/discover/viewport', { bbox: p.bbox }),
 
   suggested: (p: DiscoverSuggestedParams) =>
-    getDiscoveryRoutes('/discover/suggested', { lat: p.lat, lon: p.lon, departure_at: p.departureAt })
+    getDiscoveryRoutes('/discover/suggested', {
+      lat: p.lat,
+      lon: p.lon,
+      departure_at: p.departureAt
+    })
 };
 
 // --- Routing ---
 
 export const routing = {
-  directions: (req: DirectionsRequest) =>
-    post<DirectionsResponse>('/routing/directions', req),
+  directions: (req: DirectionsRequest) => post<DirectionsResponse>('/routing/directions', req),
 
   conditionsPreview: (bbox: string, departureAt: string) =>
     get<{ features: unknown[] }>('/routing/conditions/preview', { bbox, departure_at: departureAt })
@@ -91,7 +96,11 @@ export const routing = {
 
 export const venues = {
   alongRoute: (routeId: string, type?: string, bufferM = 200) =>
-    get<{ venues: Venue[] }>('/venues/along-route', { route_id: routeId, ...(type && { type }), buffer_m: bufferM }),
+    get<{ venues: Venue[] }>('/venues/along-route', {
+      route_id: routeId,
+      ...(type && { type }),
+      buffer_m: bufferM
+    }),
 
   tags: () => get<{ tags: VenueTag[] }>('/venues/tags')
 };
@@ -113,7 +122,12 @@ export const plans = {
     post<RoutePlan>(`/routes/${routeId}/plans`, { departure_at: departureAt }),
 
   create: (departureAt: string, shadeWeight: number, greeneryWeight: number, windWeight: number) =>
-    post<RoutePlan>('/plans', { departure_at: departureAt, shade_weight: shadeWeight, greenery_weight: greeneryWeight, wind_weight: windWeight }),
+    post<RoutePlan>('/plans', {
+      departure_at: departureAt,
+      shade_weight: shadeWeight,
+      greenery_weight: greeneryWeight,
+      wind_weight: windWeight
+    }),
 
   get: (id: string) => get<RoutePlan>(`/plans/${id}`),
 

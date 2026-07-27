@@ -1,0 +1,3 @@
+#!/usr/bin/env sh
+# Git runs hooks from the repo top-level; the web project lives in web/.
+cd web && npx lint-staged

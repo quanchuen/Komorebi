@@ -1,0 +1,67 @@
+name: web
+
+on:
+  pull_request:
+    paths:
+      - 'web/**'
+      - '.github/workflows/web.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'web/**'
+      - '.github/workflows/web.yml'
+
+defaults:
+  run:
+    working-directory: web
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Format check
+        run: npm run format:check
+
+      # The design gate this work is about — blocks on arbitrary values / inline hex.
+      - name: Design-token guard
+        run: npm run check:tokens
+
+      # a11y/compiler warnings fail here. Non-blocking for now: the repo has
+      # pre-existing svelte-check errors (API type mismatches) unrelated to the
+      # design system. Flip to blocking once those are resolved.
+      - name: Type check (a11y warnings = errors)
+        run: npm run check:ci
+        continue-on-error: true
+
+      - name: Build
+        run: npm run build
+
+  lighthouse:
+    runs-on: ubuntu-latest
+    needs: quality
+    # Non-blocking: runs against the static shell without the API/tiles backend,
+    # so it measures a11y / best-practices / bundle size, not data-dependent perf.
+    # Promote to a required check once stable.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - run: npm run build
+      - name: Lighthouse budget
+        run: npm run lighthouse

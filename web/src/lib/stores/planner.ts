@@ -10,7 +10,11 @@ export interface PlannerStop {
 }
 
 export const plannerStops = writable<PlannerStop[]>([]);
-export const plannerPreferences = writable<RoutingPreferences>({ shade: 0.5, greenery: 0.5, wind: 0.5 });
+export const plannerPreferences = writable<RoutingPreferences>({
+  shade: 0.5,
+  greenery: 0.5,
+  wind: 0.5
+});
 export const plannerResult = writable<DirectionsResponse | null>(null);
 export const plannerPlan = writable<RoutePlan | null>(null);
 export const plannerLoading = writable<boolean>(false);
