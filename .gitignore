@@ -19,6 +19,7 @@
 .env
 .env.*
 *.env
+.envrc
 
 # SvelteKit / web
 web/node_modules/
