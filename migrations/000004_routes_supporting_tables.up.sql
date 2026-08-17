@@ -1,5 +1,5 @@
 CREATE TABLE routes.waypoint (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     route_id UUID NOT NULL REFERENCES routes.route (id) ON DELETE CASCADE,
     geometry geometry(POINT, 4326) NOT NULL,
     name TEXT,
@@ -10,7 +10,7 @@ CREATE INDEX idx_waypoint_route_id ON routes.waypoint (route_id);
 CREATE INDEX idx_waypoint_geometry ON routes.waypoint USING GIST (geometry);
 
 CREATE TABLE routes.route_segment (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     route_id UUID NOT NULL REFERENCES routes.route (id) ON DELETE CASCADE,
     geometry geometry(LINESTRINGZ, 4326) NOT NULL,
     surface_type routes.surface_type NOT NULL DEFAULT 'paved',

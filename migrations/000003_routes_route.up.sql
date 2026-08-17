@@ -1,5 +1,5 @@
 CREATE TABLE routes.route (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
     description TEXT,
     geometry geometry(LINESTRINGZ, 4326) NOT NULL,

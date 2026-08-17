@@ -1,5 +1,5 @@
 CREATE TABLE environment.green_wave (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     osm_way_ids BIGINT[] NOT NULL,
     direction_bearing DOUBLE PRECISION NOT NULL CHECK (direction_bearing >= 0 AND direction_bearing < 360),
     target_speed_kmh DOUBLE PRECISION NOT NULL,
@@ -10,7 +10,7 @@ CREATE TABLE environment.green_wave (
 CREATE INDEX idx_green_wave_osm_way_ids ON environment.green_wave USING GIN (osm_way_ids);
 
 CREATE TABLE environment.venue (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     osm_id BIGINT UNIQUE,
     geometry geometry(POINT, 4326) NOT NULL,
     name TEXT NOT NULL,
