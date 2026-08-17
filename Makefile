@@ -8,8 +8,10 @@ OSM_DB      := $(MIGRATE_URL)
 DEV_JWT_SECRET := cyclist-map-dev-secret-do-not-use-in-production
 DATABASE_URL   ?= $(MIGRATE_URL)
 API_PORT       ?= 8080
+COMPOSE        ?= docker compose
 
-.PHONY: migrate-up migrate-down migrate-create osm-download osm-import osm-update osm-venues osm-all greenery plateau-shadow weather dev-run dev-api dev-martin dev-valhalla dev-web web-lint web-lighthouse help
+.PHONY: demo-routes
+.PHONY: migrate-up migrate-down migrate-create osm-download osm-import osm-update osm-venues osm-all greenery plateau-shadow weather support-up support-stop project-up project-stop stack-up stack-down compose-config dev-run dev-api dev-martin dev-valhalla dev-web test test-unit test-integration test-web test-all web-lint web-lighthouse help
 
 migrate-up:
 	migrate -path migrations -database "$(MIGRATE_URL)" up
@@ -20,6 +22,9 @@ migrate-down:
 migrate-create:
 	@read -p "Name: " name; \
 	migrate create -ext sql -dir migrations -seq -digits 6 $$name
+
+demo-routes:
+	DATABASE_URL="$(DATABASE_URL)" VALHALLA_URL="$${VALHALLA_URL:-http://localhost:8002}" go run ./cmd/reroute-demo
 
 ## Download Kanto PBF from Geofabrik
 osm-download:
@@ -65,17 +70,86 @@ weather:
 	DATABASE_URL="$(MIGRATE_URL)" go run ./pipelines/weather_fetch/
 
 ## Run PLATEAU shadow precompute pipeline (requires Docker; uses pipelines profile)
+WARDS ?= chiyoda,minato,shibuya
 plateau-shadow:
-	docker compose --profile pipelines run --rm plateau_shadow \
-	    --wards chiyoda,minato,shibuya \
+	$(COMPOSE) --profile pipelines run --rm --build plateau_shadow \
+	    --wards $(WARDS) \
 	    --months 1,4,7,10
 
-## Start all dev services (API + Martin + Valhalla + Web) — Ctrl-C stops all
-dev-run:
-	docker compose up valhalla -d
-	martin --config martin.yaml &
-	JWT_SECRET=$(DEV_JWT_SECRET) DATABASE_URL="$(DATABASE_URL)" PORT=$(API_PORT) go run ./cmd/api &
+## Start supporting services only (Martin + Valhalla)
+support-up:
+	$(COMPOSE) --profile support up -d martin valhalla
+
+## Stop supporting services without touching project containers or data
+support-stop:
+	$(COMPOSE) stop martin valhalla
+
+## Build and start project-owned containers only (API + Web)
+project-up:
+	$(COMPOSE) --profile project up -d --build api web
+
+## Stop project-owned containers without touching supporting services
+project-stop:
+	$(COMPOSE) stop api web
+
+## Build and start the complete container stack
+stack-up:
+	$(COMPOSE) --profile project --profile support up -d --build
+
+## Stop the complete stack; named data volumes are preserved
+stack-down:
+	$(COMPOSE) --profile project --profile support down
+
+## Validate all Compose profiles without starting containers
+compose-config:
+	$(COMPOSE) --profile project --profile support --profile pipelines config --quiet
+
+## Start support containers plus local API and Vite dev servers; Ctrl-C stops local processes
+dev-run: support-up
+	@set -eu; \
+	api_pid=''; web_pid=''; \
+	trap 'test -z "$$api_pid" || kill "$$api_pid" 2>/dev/null || true; test -z "$$web_pid" || kill "$$web_pid" 2>/dev/null || true' INT TERM EXIT; \
+	JWT_SECRET=$(DEV_JWT_SECRET) DATABASE_URL="$(DATABASE_URL)" PORT=$(API_PORT) go run ./cmd/api & api_pid=$$!; \
+	(cd web && npm run dev) & web_pid=$$!; \
+	wait
+
+## Start only the local Go API (support services optional)
+dev-api:
+	JWT_SECRET=$(DEV_JWT_SECRET) DATABASE_URL="$(DATABASE_URL)" PORT=$(API_PORT) go run ./cmd/api
+
+## Start only Vite; API-backed screens require make dev-api in another terminal
+dev-web:
+	@curl -fsS http://127.0.0.1:$(API_PORT)/api/v1/routes >/dev/null 2>&1 || \
+		echo 'warning: API is not reachable on :$(API_PORT); run "make dev-api" or use "make dev-run"'
 	cd web && npm run dev
+
+## Start only Martin through its support profile
+dev-martin:
+	$(COMPOSE) --profile support up martin
+
+## Start only Valhalla through its support profile
+dev-valhalla:
+	$(COMPOSE) --profile support up valhalla
+
+## Fast default: Go tests that do not require Postgres, Martin, or Valhalla processes
+test: test-unit
+
+test-unit:
+	go test ./cmd/... ./internal/domain/... ./internal/app/... ./internal/api/... \
+		./internal/infra/valhalla/... ./internal/infra/openmeteo/... \
+		./internal/infra/openweathermap/... ./internal/infra/tomorrowio/...
+
+## PostGIS repository tests; requires an explicit TEST_DB_DSN
+test-integration:
+	@test -n "$(TEST_DB_DSN)" || { echo 'TEST_DB_DSN is required'; exit 2; }
+	TEST_DB_DSN="$(TEST_DB_DSN)" go test -v ./internal/infra/postgres/...
+
+## Frontend type, lint, formatting, token, and production-build checks
+test-web:
+	cd web && npm run check && npm run lint && npm run format:check && npm run check:tokens && npm run build
+
+## Run unit, integration, and web checks
+test-all: test-unit test-integration test-web
 
 ## Lint + format-check + design-token guard for the web app
 web-lint:

@@ -121,13 +121,25 @@ def _project_shadow(footprint_4326: Polygon, height_m: float,
     if fp_6677.is_empty:
         return None
 
-    # Shift footprint by shadow offset.
-    fp_coords = list(fp_6677.exterior.coords)
-    shifted_coords = [(cx + dx, cy + dy) for cx, cy in fp_coords]
+    # Clipping footprints to the ward bbox can split one into a MultiPolygon
+    # (or leave degenerate slivers); cast a shadow per polygonal part.
+    if fp_6677.geom_type == "Polygon":
+        parts = [fp_6677]
+    elif fp_6677.geom_type == "MultiPolygon":
+        parts = list(fp_6677.geoms)
+    elif fp_6677.geom_type == "GeometryCollection":
+        parts = [g for g in fp_6677.geoms if g.geom_type == "Polygon"]
+    else:
+        return None  # points/lines cast no meaningful shadow
 
-    # Shadow polygon = convex hull of footprint + shifted footprint.
-    shifted = Polygon(shifted_coords)
-    shadow_6677 = fp_6677.union(shifted).convex_hull
+    if not parts:
+        return None
+
+    part_shadows = []
+    for part in parts:
+        shifted = Polygon([(cx + dx, cy + dy) for cx, cy in part.exterior.coords])
+        part_shadows.append(part.union(shifted).convex_hull)
+    shadow_6677 = unary_union(part_shadows)
 
     # Reproject back to 4326.
     shadow_4326 = transform(_from_6677.transform, shadow_6677)

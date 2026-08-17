@@ -15,24 +15,35 @@ def _polygon_to_wkt(poly: Polygon) -> str:
     return f"POLYGON(({pts}))"
 
 
-def load_to_db(grid: list[dict], month: int, db_url: str, batch_size: int = 500) -> None:
+def load_to_db(
+    grid: list[dict],
+    month: int,
+    db_url: str,
+    bbox: list[float],
+    batch_size: int = 500,
+) -> None:
     """
-    Upsert grid rows for the given month.
+    Upsert grid rows for the given month and ward bbox.
 
-    Deletes all existing rows for this month first (idempotent re-runs),
-    then inserts in batches.
+    Deletes existing rows for this month *within the ward's bbox* first
+    (idempotent re-runs), then inserts in batches. The delete must be
+    bbox-scoped: a global per-month delete would wipe every previously
+    loaded ward each time the next ward loads.
     """
     if not grid:
         return
 
     with psycopg.connect(db_url) as conn:
         with conn.cursor() as cur:
-            # Wipe existing data for this month to allow clean re-runs.
             cur.execute(
-                "DELETE FROM environment.shadow_grid WHERE month = %s",
-                (month,),
+                """
+                DELETE FROM environment.shadow_grid
+                WHERE month = %s
+                  AND cell_geometry && ST_MakeEnvelope(%s, %s, %s, %s, 4326)
+                """,
+                (month, bbox[0], bbox[1], bbox[2], bbox[3]),
             )
-            print(f"    Deleted existing rows for month={month}")
+            print(f"    Deleted existing rows for month={month} in ward bbox")
 
             batch = []
             total = 0

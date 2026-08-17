@@ -20,11 +20,14 @@ from parse_citygml import extract_buildings
 from shadow_compute import compute_shadow_grid
 from load_db import load_to_db
 
-# Bounding boxes [minlon, minlat, maxlon, maxlat] for initial wards.
+# Bounding boxes [minlon, minlat, maxlon, maxlat] for supported wards.
 WARD_BBOX = {
     "chiyoda": [139.7300, 35.6700, 139.7700, 35.7000],
     "minato":  [139.7300, 35.6400, 139.7600, 35.6800],
     "shibuya": [139.6800, 35.6500, 139.7200, 35.6900],
+    "toshima": [139.6750, 35.7100, 139.7450, 35.7500],
+    "kita":    [139.6900, 35.7300, 139.7700, 35.7950],
+    "adachi":  [139.7300, 35.7350, 139.8550, 35.8250],
 }
 
 DEFAULT_MONTHS = [1, 4, 7, 10]
@@ -75,7 +78,7 @@ def main():
                 ref_lon=REPRESENTATIVE_LON,
             )
             print(f"  Loading {len(grid)} grid cells to DB ...")
-            load_to_db(grid, month=month, db_url=db_url)
+            load_to_db(grid, month=month, db_url=db_url, bbox=bbox)
 
     print("Done.")
 

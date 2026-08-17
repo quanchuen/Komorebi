@@ -1,18 +1,21 @@
 services:
   api:
+    profiles: [project]
     build: .
     ports:
       - "8080:8080"
-
     env_file:
       - db.env
+      # Optional: WEATHER_PROVIDER / WEATHER_API_KEY / ANTHROPIC_API_KEY.
+      # See weather.env.example; without it the API uses open-meteo.
+      - path: weather.env
+        required: false
     environment:
       VALHALLA_URL: http://valhalla:8002
-    depends_on:
-      - valhalla
 
   martin:
-    image: ghcr.io/maplibre/martin:1.11.0
+    profiles: [support]
+    image: ghcr.io/maplibre/martin:1.13.0
     ports:
       - "3000:3000"
     env_file:
@@ -22,6 +25,7 @@ services:
     command: ["--config", "/usr/local/share/martin/martin.yaml"]
 
   valhalla:
+    profiles: [support]
     image: ghcr.io/gis-ops/docker-valhalla/valhalla:latest
     ports:
       - "8002:8002"
@@ -29,8 +33,12 @@ services:
       - valhalla_tiles:/custom_files
     environment:
       tile_urls: https://download.geofabrik.de/asia/japan/kanto-latest.osm.pbf
+      # Download SRTM elevation for the graph extent and rebuild tiles with it —
+      # required for /height (elevation profiles, gain/loss backfill).
+      build_elevation: "True"
 
   web:
+    profiles: [project]
     build:
       context: ./web
       dockerfile: Dockerfile
@@ -39,6 +47,7 @@ services:
     environment:
       - NODE_ENV=production
       - ORIGIN=http://localhost:3001
+      - API_URL=http://api:8080
     depends_on:
       - api
     restart: unless-stopped
@@ -51,6 +60,9 @@ services:
       - db.env
     profiles:
       - pipelines
+    volumes:
+      # Cache downloaded/extracted CityGML across runs (--rm containers).
+      - ./pipelines/plateau_shadow/data:/app/data
     # The image ENTRYPOINT is ["python", "pipeline.py"]; pass flags only.
     command: >
       --wards chiyoda,minato,shibuya

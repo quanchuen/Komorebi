@@ -2,7 +2,10 @@
 # Martin v1.x config format
 
 postgres:
-  connection_string: "postgres://osm_dev:osm_dev@localhost:5432/cyclist_map_dev?sslmode=disable"
+  # Env-substituted (must stay unquoted for Martin to expand it) so one file
+  # serves both the native binary (localhost default) and the compose service
+  # (DATABASE_URL from db.env, which points at host.docker.internal).
+  connection_string: ${DATABASE_URL:-postgres://osm_dev:osm_dev@localhost:5432/cyclist_map_dev?sslmode=disable}
   auto_publish: false
   tables:
     osm_roads:
