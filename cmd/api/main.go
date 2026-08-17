@@ -14,6 +14,7 @@ import (
 	"komorebi/internal/app"
 	"komorebi/internal/infra/postgres"
 	"komorebi/internal/infra/valhalla"
+	"komorebi/internal/infra/weatherprovider"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -56,11 +57,15 @@ func main() {
 	venueSvc := app.NewVenueService(venueRepo)
 
 	weatherRepo := postgres.NewWeatherRepo(pool)
-	weatherSvc := app.NewWeatherService(weatherRepo)
+	weatherFetcher, err := weatherprovider.FromEnv()
+	if err != nil {
+		log.Fatalf("weather provider: %v", err)
+	}
+	weatherSvc := app.NewWeatherService(weatherRepo, weatherFetcher)
 	weatherHandler := api.NewWeatherHandler(weatherSvc)
 
 	envRepo := postgres.NewEnvironmentRepo(pool)
-	envSvc := app.NewEnvironmentService(envRepo)
+	envSvc := app.NewEnvironmentService(app.NewEnvironmentQuerierWithLiveWeather(envRepo, weatherSvc))
 	conditionsHandler := api.NewConditionsHandler(routeRepo, envSvc)
 	previewHandler := api.NewPreviewHandler(envRepo)
 

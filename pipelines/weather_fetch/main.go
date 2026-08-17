@@ -1,17 +1,22 @@
 // pipelines/weather_fetch/main.go
 //
-// Weather Fetch Pipeline
+// # Weather Fetch Pipeline
 //
 // Fetches hourly forecasts for the Greater Tokyo grid and stores them in
 // environment.weather_grid. Designed to run hourly via cron:
 //
 //	0 * * * * DATABASE_URL=... /path/to/weather_fetch
 //
-// Provider selection via WEATHER_PROVIDER env var:
+// Provider selection:
 //
 //	open-meteo       (default, free, no API key)
 //	tomorrow-io      (requires WEATHER_API_KEY)
 //	openweathermap   (requires WEATHER_API_KEY)
+//
+// The bulk grid (~100 calls/run) always uses open-meteo unless
+// WEATHER_GRID_PROVIDER overrides it — rate-limited paid tiers cannot absorb
+// it hourly. The minutely nowcast (~12 calls/run) uses WEATHER_PROVIDER, so a
+// premium nowcast provider is applied where it fits its quota.
 package main
 
 import (
@@ -20,12 +25,10 @@ import (
 	"os"
 	"time"
 
-	"komorebi/internal/domain/environment"
-	"komorebi/internal/infra/openmeteo"
-	"komorebi/internal/infra/openweathermap"
-	"komorebi/internal/infra/postgres"
-	"komorebi/internal/infra/tomorrowio"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"komorebi/internal/domain/environment"
+	"komorebi/internal/infra/postgres"
+	"komorebi/internal/infra/weatherprovider"
 )
 
 const (
@@ -57,11 +60,12 @@ func main() {
 	}
 
 	weatherRepo := postgres.NewWeatherRepo(pool)
-	fetcher := newFetcher()
+	gridFetcher := newGridFetcher()
+	minutelyFetcher := newMinutelyFetcher()
 
-	log.Printf("fetching weather grid via %s...", fetcher.Name())
+	log.Printf("fetching weather grid via %s...", gridFetcher.Name())
 
-	cells, err := fetcher.FetchGrid(ctx, gridMinLat, gridMaxLat, gridMinLon, gridMaxLon, gridStepDeg)
+	cells, err := gridFetcher.FetchGrid(ctx, gridMinLat, gridMaxLat, gridMinLon, gridMaxLon, gridStepDeg)
 	if err != nil {
 		log.Fatalf("FetchGrid: %v", err)
 	}
@@ -72,12 +76,20 @@ func main() {
 		log.Fatalf("Upsert: %v", err)
 	}
 
-	// Fetch minutely precipitation for key grid points (sparser grid, center Tokyo)
-	log.Printf("fetching minutely precipitation via %s...", fetcher.Name())
+	// Fetch minutely precipitation for key grid points (sparser grid, center
+	// Tokyo). A rate-limited premium provider falls back to open-meteo per
+	// point so a 429 hour still produces a nowcast.
+	log.Printf("fetching minutely precipitation via %s...", minutelyFetcher.Name())
+	fallback := newMinutelyFallback(minutelyFetcher)
 	minutelyCount := 0
 	for lat := 35.60; lat <= 35.80+1e-9; lat += 0.10 {
 		for lon := 139.60; lon <= 139.90+1e-9; lon += 0.10 {
-			rows, err := fetcher.FetchMinutely(ctx, lat, lon)
+			rows, err := minutelyFetcher.FetchMinutely(ctx, lat, lon)
+			if err != nil && fallback != nil {
+				log.Printf("WARN: minutely %f,%f via %s: %v (falling back to %s)",
+					lat, lon, minutelyFetcher.Name(), err, fallback.Name())
+				rows, err = fallback.FetchMinutely(ctx, lat, lon)
+			}
 			if err != nil {
 				log.Printf("WARN: minutely %f,%f: %v (skipping)", lat, lon, err)
 				continue
@@ -105,29 +117,38 @@ func main() {
 	log.Println("weather_fetch: done")
 }
 
-func newFetcher() environment.WeatherFetcher {
-	provider := os.Getenv("WEATHER_PROVIDER")
-	apiKey := os.Getenv("WEATHER_API_KEY")
-	baseURL := os.Getenv("WEATHER_BASE_URL") // override for testing
+// newGridFetcher returns the provider for the bulk grid. It defaults to
+// open-meteo regardless of WEATHER_PROVIDER: the grid burns ~100 calls per
+// run, which free open-meteo absorbs and rate-limited paid tiers do not.
+func newGridFetcher() environment.WeatherFetcher {
+	provider := os.Getenv("WEATHER_GRID_PROVIDER")
+	if provider == "" {
+		provider = "open-meteo"
+	}
+	fetcher, err := weatherprovider.Named(provider)
+	if err != nil {
+		log.Fatalf("grid weather provider: %v", err)
+	}
+	return fetcher
+}
 
-	switch provider {
-	case "tomorrow-io":
-		if apiKey == "" {
-			log.Fatal("WEATHER_API_KEY is required for tomorrow-io")
-		}
-		return tomorrowio.NewClient(apiKey, baseURL)
+// newMinutelyFetcher returns the provider for the minutely nowcast (~12 calls
+// per run), which follows WEATHER_PROVIDER so a premium nowcast source is
+// used when configured.
+func newMinutelyFetcher() environment.WeatherFetcher {
+	fetcher, err := weatherprovider.FromEnv()
+	if err != nil {
+		log.Fatalf("minutely weather provider: %v", err)
+	}
+	return fetcher
+}
 
-	case "openweathermap":
-		if apiKey == "" {
-			log.Fatal("WEATHER_API_KEY is required for openweathermap")
-		}
-		return openweathermap.NewClient(apiKey, baseURL)
-
-	case "open-meteo", "":
-		return openmeteo.NewClient(baseURL)
-
-	default:
-		log.Fatalf("unknown WEATHER_PROVIDER: %q (supported: open-meteo, tomorrow-io, openweathermap)", provider)
+// newMinutelyFallback returns open-meteo as a per-point fallback when the
+// primary minutely provider is a different (rate-limitable) one, else nil.
+func newMinutelyFallback(primary environment.WeatherFetcher) environment.WeatherFetcher {
+	fallback, err := weatherprovider.Named("open-meteo")
+	if err != nil || fallback.Name() == primary.Name() {
 		return nil
 	}
+	return fallback
 }

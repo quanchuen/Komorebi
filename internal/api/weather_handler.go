@@ -45,7 +45,7 @@ func (h *WeatherHandler) AtPoint(w http.ResponseWriter, r *http.Request) {
 		t = t.UTC()
 	}
 
-	wg, err := h.svc.AtPoint(lat, lon, t)
+	wg, err := h.svc.AtPointContext(r.Context(), lat, lon, t)
 	if err != nil {
 		if errors.Is(err, environment.ErrNoWeather) {
 			http.Error(w, "no weather data for point/time", http.StatusNotFound)

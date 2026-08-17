@@ -41,7 +41,7 @@ func TestWeatherHandler_AtPoint_OK(t *testing.T) {
 		TemperatureC:       20.0,
 	}
 	repo := &fakeWeatherRepo{cell: stub}
-	svc := app.NewWeatherService(repo)
+	svc := app.NewWeatherService(repo, nil)
 	h := api.NewWeatherHandler(svc)
 
 	req := httptest.NewRequest(http.MethodGet,
@@ -63,7 +63,7 @@ func TestWeatherHandler_AtPoint_OK(t *testing.T) {
 
 func TestWeatherHandler_AtPoint_NotFound(t *testing.T) {
 	repo := &fakeWeatherRepo{err: environment.ErrNoWeather}
-	svc := app.NewWeatherService(repo)
+	svc := app.NewWeatherService(repo, nil)
 	h := api.NewWeatherHandler(svc)
 
 	req := httptest.NewRequest(http.MethodGet,
@@ -78,7 +78,7 @@ func TestWeatherHandler_AtPoint_NotFound(t *testing.T) {
 
 func TestWeatherHandler_AtPoint_MissingLat(t *testing.T) {
 	repo := &fakeWeatherRepo{}
-	svc := app.NewWeatherService(repo)
+	svc := app.NewWeatherService(repo, nil)
 	h := api.NewWeatherHandler(svc)
 
 	req := httptest.NewRequest(http.MethodGet,
