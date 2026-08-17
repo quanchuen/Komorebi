@@ -6,8 +6,8 @@ export default defineConfig({
   plugins: [tailwindcss(), sveltekit()],
   server: {
     proxy: {
-      '/api': 'http://localhost:8080',
-      '/tiles': 'http://localhost:3000',
+      '/api': process.env.API_PROXY_TARGET ?? 'http://127.0.0.1:8080',
+      '/tiles': process.env.TILES_PROXY_TARGET ?? 'http://127.0.0.1:3000',
       '/nominatim': {
         target: 'https://nominatim.openstreetmap.org',
         changeOrigin: true,

@@ -2,6 +2,7 @@
 import type { PageServerLoad } from './$types';
 import type { Route } from '$lib/api/types';
 import { discoveryRouteToRoute } from '$lib/api/types';
+import { env } from '$env/dynamic/private';
 
 export const load: PageServerLoad = async ({ fetch }) => {
   const DEFAULT_LAT = 35.6895;
@@ -11,8 +12,9 @@ export const load: PageServerLoad = async ({ fetch }) => {
   const departureAt = now.toISOString();
 
   try {
+    const apiURL = env.API_URL ?? 'http://127.0.0.1:8080';
     const res = await fetch(
-      `http://localhost:8080/api/v1/discover/suggested?lat=${DEFAULT_LAT}&lon=${DEFAULT_LON}&departure_at=${encodeURIComponent(departureAt)}`
+      `${apiURL}/api/v1/discover/suggested?lat=${DEFAULT_LAT}&lon=${DEFAULT_LON}&departure_at=${encodeURIComponent(departureAt)}`
     );
     if (res.ok) {
       const data = await res.json();
