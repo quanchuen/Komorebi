@@ -49,6 +49,10 @@ func (r *DiscoveryRepo) Nearby(params discovery.NearbyParams) ([]discovery.Disco
 			) AS dist_m
 		FROM routes.route r
 		WHERE r.status = 'published'
+		  AND NOT EXISTS (
+				SELECT 1 FROM routes.route_tag rt
+				WHERE rt.route_id = r.id AND rt.tag = 'demo'
+		  )
 		  AND ST_DWithin(
 				r.geometry::geography,
 				ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography,
@@ -101,6 +105,10 @@ func (r *DiscoveryRepo) Viewport(params discovery.ViewportParams) ([]discovery.D
 			0.0 AS dist_m
 		FROM routes.route r
 		WHERE r.status = 'published'
+		  AND NOT EXISTS (
+				SELECT 1 FROM routes.route_tag rt
+				WHERE rt.route_id = r.id AND rt.tag = 'demo'
+		  )
 		  AND ST_Intersects(
 				r.geometry,
 				ST_MakeEnvelope($1, $2, $3, $4, 4326)
