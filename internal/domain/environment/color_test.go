@@ -7,9 +7,9 @@ func TestShadeColor(t *testing.T) {
 		shade float64
 		want  string
 	}{
-		{0, "#eab308"},  // full sun → yellow
+		{0, "#ffd700"},  // full sun → gold
 		{1, "#1e3a8a"},  // full shade → deep blue
-		{-1, "#eab308"}, // clamp below 0 → yellow
+		{-1, "#ffd700"}, // clamp below 0 → gold
 		{2, "#1e3a8a"},  // clamp above 1 → deep blue
 	}
 	for _, tc := range tests {
@@ -29,13 +29,19 @@ func TestWindColor(t *testing.T) {
 	if got := WindColor(-1); got != "#ef4444" {
 		t.Errorf("WindColor(-1) = %q, want #ef4444", got)
 	}
+	// wind_benefit = 0 → calm/crosswind → neutral slate midpoint,
+	// matching the diverging scale in web/src/lib/utils/conditionColors.ts
+	if got := WindColor(0); got != "#94a3b8" {
+		t.Errorf("WindColor(0) = %q, want #94a3b8", got)
+	}
 }
 
 func TestRainColor(t *testing.T) {
-	if got := RainColor(0); got != "#f8fafc" {
-		t.Errorf("RainColor(0) = %q, want #f8fafc", got)
+	// dry → cyan (not white: dry segments must stay visible on the pale basemap)
+	if got := RainColor(0); got != "#0891b2" {
+		t.Errorf("RainColor(0) = %q, want #0891b2", got)
 	}
-	if got := RainColor(1); got != "#7c3aed" {
-		t.Errorf("RainColor(1) = %q, want #7c3aed", got)
+	if got := RainColor(1); got != "#581b87" {
+		t.Errorf("RainColor(1) = %q, want #581b87", got)
 	}
 }

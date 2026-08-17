@@ -51,8 +51,8 @@ export function conditionColor(overlay: OverlayType, value: number): string {
 
   if (overlay === 'rain') {
     const t = clamp(value, 0, 1);
-    // white [248,250,252] → dark purple [76,29,149]
-    return toHex(lerp(248, 76, t), lerp(250, 29, t), lerp(252, 149, t));
+    // cyan → deep purple; dry segments must remain visible on a pale basemap.
+    return toHex(lerp(8, 88, t), lerp(145, 28, t), lerp(178, 135, t));
   }
 
   return '#94A3B8'; // slate-400 fallback

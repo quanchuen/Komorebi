@@ -20,21 +20,27 @@ func NewEnvironmentRepo(pool *pgxpool.Pool) *EnvironmentRepo {
 	return &EnvironmentRepo{pool: pool}
 }
 
+// shadowGridZone matches the timezone the plateau_shadow pipeline uses when
+// it computes solar positions: hour_slot values are JST hours.
+var shadowGridZone = time.FixedZone("JST", 9*60*60)
+
 // ShadeForPoint returns shade_coverage (0–1) for the cell that contains
 // (lon, lat) at the given time. Returns 0 when no cell covers the point.
 //
-// The environment.shadow_grid stores precomputed data per hour_slot (0-23)
-// and month (1-12). We match on the arrival time's UTC hour and month.
+// The environment.shadow_grid stores precomputed data per hour_slot (0-23,
+// JST) for a set of representative months (e.g. 1/4/7/10), so the lookup
+// matches the JST hour exactly and takes the cyclically nearest month that
+// has data.
 func (r *EnvironmentRepo) ShadeForPoint(ctx context.Context, lon, lat float64, at time.Time) float64 {
 	var shade float64
 	row := r.pool.QueryRow(ctx, `
 		SELECT shade_coverage
 		FROM environment.shadow_grid
 		WHERE hour_slot = $1
-		  AND month     = $2
 		  AND ST_Contains(cell_geometry, ST_SetSRID(ST_MakePoint($3, $4), 4326))
+		ORDER BY LEAST(ABS(month - $2), 12 - ABS(month - $2)) ASC
 		LIMIT 1
-	`, at.UTC().Hour(), int(at.UTC().Month()), lon, lat)
+	`, at.In(shadowGridZone).Hour(), int(at.In(shadowGridZone).Month()), lon, lat)
 	_ = row.Scan(&shade) // ignore ErrNoRows — shade stays 0
 	return shade
 }
