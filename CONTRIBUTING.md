@@ -32,10 +32,14 @@ See [`README.md`](README.md) for bootstrap and [`CLAUDE.md`](CLAUDE.md) for
 architecture and conventions.
 
 ```bash
-go test ./...                 # Go tests
-cd web && npm run check       # Svelte type checking
+make test                     # Fast tests without external services
+make test-web                 # Frontend checks and production build
+TEST_DB_DSN="$DATABASE_URL" make test-integration
 go build ./cmd/api && (cd web && npm run build)
 ```
+
+Use `make support-up` for Martin and Valhalla, `make project-up` for the
+repository-owned containers, or `make stack-up` for both Compose profiles.
 
 Follow the existing patterns: hexagonal layering, hand-written test stubs (no
 mocking library), table-driven tests, TDD for domain logic.

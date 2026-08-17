@@ -27,6 +27,61 @@ Supporting services (all self-hosted via docker-compose):
 
 ## Bounded Contexts (DDD)
 
+### Context map
+
+Route Planning is the core domain for personalized route construction. It owns the
+meaning of a route request, combines constraints, asks supporting contexts for
+facts, invokes the routing engine through a port, and accepts or rejects returned
+candidates. Valhalla is an infrastructure adapter, not a bounded context and not
+the owner of product policy.
+
+| Context | Type | Owns | Does not own |
+|---|---|---|---|
+| Route Planning (`plan`) | Core | Route intent, ordered stops, routing constraints, detour budgets, candidate scoring and selection | OSM ingestion, weather, explored-road history, natural-language parsing |
+| Routes (`route`) | Core/supporting | Published route aggregates, authored waypoints and route segments | Ad-hoc route calculation |
+| Environment (`environment`) | Supporting | Time-dependent and edge-level signals such as shade, greenery, wind, grade-derived annotations and river proximity | Final route choice |
+| Place Catalog (currently under `environment`) | Supporting | Searchable venues, brands, categories, opening metadata and OSM tag mappings | Deciding which stop best satisfies a plan |
+| Exploration (`exploration`, proposed) | Supporting | Imported tracks, map-matched explored edges, coverage projections and freshness | Route geometry or routing-engine identifiers as durable identity |
+| Discovery (`discovery`) | Supporting | Search and ranking of published routes | Point-to-point planning |
+| Community (`community`) | Supporting | Users, contributions, reviews and ride logs | Interpretation of uploaded exploration files |
+
+Dependencies point toward Route Planning through explicit ports:
+
+```text
+Natural-language adapter ──> Route Planning <── HTTP/UI
+                                  │
+                   ┌──────────────┼──────────────┐
+                   v              v              v
+              Place Catalog   Environment    Exploration
+                   │              │              │
+                   └──────────────┼──────────────┘
+                                  v
+                         RoutingEngine port
+                                  │
+                                  v
+                       Valhalla HTTP adapter
+```
+
+The natural-language adapter may translate user text into a versioned
+`RouteIntent`, but it cannot create coordinates, select a venue, draw geometry,
+or waive safety and detour constraints. Those operations remain deterministic
+application/domain behavior.
+
+### Anonymous rider profile
+
+Before account synchronization is required, the web client owns a versioned,
+browser-local `RiderProfile`. It stores low-risk routing defaults such as shade,
+greenery, wind, hill tolerance, detour allowance, surfaces, units, and navigation
+cue settings. Route Planning receives these values with each request and remains
+responsible for validating them.
+
+The local profile is a delivery concern, not a new bounded context. Components
+read it through one storage-backed application store. Raw exploration uploads,
+continuous location history, and large offline route/map data are excluded from
+`localStorage`; those require IndexedDB or server-side storage with explicit
+privacy and retention rules. A future authenticated profile may import and sync
+the local values only with user consent.
+
 ### 1. Routes
 
 The core domain. Manages curated and user-contributed cycling routes.
@@ -123,34 +178,136 @@ The primary ride planning object. Users build plans with ordered stops and tasks
 
 **Curated routes as templates:** Browsing a curated route → "Plan this ride" creates a RoutePlan pre-populated with the route's stops.
 
+#### Personalized routing policy
+
+`RouteIntent` is the input contract for personalized planning. It contains
+ordered stops and independently composable constraints rather than a named,
+opaque profile:
+
+```json
+{
+  "stops": [{"lat": 35.68, "lon": 139.76}, {"lat": 35.71, "lon": 139.81}],
+  "preferences": {
+    "river_proximity": 0.8,
+    "use_hills": 0.0,
+    "avoid_explored": 0.9
+  },
+  "constraints": {
+    "max_detour_m": 2000,
+    "max_grade_percent": 12
+  },
+  "requested_stops": [
+    {"category": "konbini", "position": "anywhere", "max_detour_m": 1000}
+  ]
+}
+```
+
+Preferences are soft objectives; constraints are acceptance tests. A strict
+constraint must never silently degrade into a preference. When no candidate can
+satisfy every constraint, the planner returns an explicit conflict and may offer
+relaxations for the user to approve.
+
+Candidate selection follows a deterministic generate-and-rank workflow:
+
+1. Calculate a baseline bicycle route and distance.
+2. Ask supporting contexts for relevant venues, environmental edge signals, and
+   explored edges within the search corridor.
+3. Generate candidates using Valhalla bicycle costing, intermediate stops, and
+   request-scoped linear edge cost factors.
+4. Validate route access, detour budget, directional grade, and requested stops.
+5. Rank valid candidates by the normalized user objectives and return score
+   components with the route.
+
+For a requested venue stop, Place Catalog returns a bounded candidate set. Route
+Planning uses a time-distance matrix to estimate insertion cost, fully routes the
+best candidates as ordered stops, and selects a valid result. Nearest Euclidean
+distance to the current line is only a discovery heuristic, not the final
+selection rule.
+
+For river routing, Environment derives graph-aligned road segments and a river
+proximity score from the same OSM snapshot used to build Valhalla tiles. “Follow
+the river until this bridge” is represented as a bridge waypoint plus a
+river-preference scope ending at that waypoint.
+
+For flexible climbing, `use_hills` and steep-edge cost factors generate flatter
+candidates. `max_detour_m` is enforced by Route Planning against the baseline;
+Valhalla does not own that invariant. Directional grade is validated after
+routing. A hard maximum-grade guarantee requires the routing adapter to prove
+that no accepted edge exceeds the limit; a future custom Valhalla costing may be
+used when soft penalties cannot provide that guarantee.
+
 ### Cross-context communication
 
 In-process domain event bus (Go channels). Examples:
 - Contribution approved → Route created (Community → Routes)
 - RideLog with GPS track saved → Green wave inference triggered (Community → Environment)
+- Exploration file accepted → explored network projection updated (Exploration)
+- RideLog recorded → optional exploration import requested (Community → Exploration)
 
 No external message broker needed at this scale.
+
+### 6. Exploration
+
+Exploration models where a user has already ridden so that a new plan can favor
+unexplored roads without making the network unroutable.
+
+- `ExplorationImport` — source file metadata, format (`kml`, `gpx`, `geojson`,
+  supported Fog of World export), state and parsing diagnostics
+- `ExploredTrace` — normalized WGS84 trace with source and observed-at time
+- `ExploredEdge` — stable source-network identity plus canonical geometry,
+  first/last explored time and confidence
+- `CoverageSnapshot` — derived metrics for an area or route corridor
+
+Upload parsing and map matching are anti-corruption adapters. Imported traces are
+map-matched to the routing graph, but Valhalla graph edge IDs are cached adapter
+references only because tile rebuilds can change them. Durable identity uses the
+source OSM snapshot, OSM way identity where available, direction, and canonical
+geometry.
+
+Explorer routing penalizes explored edges within the request corridor rather
+than placing hard exclusion polygons around tracks. The planner may permit
+explored connector distance near the origin and destination, reports the
+unexplored percentage, and explains unavoidable reuse.
 
 ## Routing Engine
 
 **Valhalla** (open source, Docker-friendly, reads OSM PBF directly).
 
 - Dedicated bicycle costing model with surface/grade awareness
-- Custom costing plugins for environment overlays
+- Request-scoped bicycle options and graph-aligned linear cost factors for
+  environment overlays
 - Supports multi-stop via-points for RoutePlan stops
 - Runs as a sidecar container
 
 **Routing request flow:**
 1. RoutePlan provides ordered stops + departure time + preference weights
-2. Environment context produces cost overlay for the departure time window:
+2. Supporting contexts produce graph-aligned request inputs for the departure
+   time window and route corridor:
    - Shade map (from ShadowGrid at projected arrival times)
    - Greenery scores (from GreeneryIndex)
    - Wind penalty/bonus (from WeatherGrid, relative to route bearing)
    - Green wave bonus (from detected corridors)
    - Signal density penalty
-3. Go API sends overlay + stops to Valhalla as custom costing weights
-4. Valhalla returns optimized multi-leg route
-5. Go API annotates result with time-projected conditions per segment
+   - River proximity bonus
+   - Explored-road penalty
+   - Directional steep-grade penalty where available
+3. Go API sends stops, bicycle costing options, and request-scoped linear edge
+   cost factors to Valhalla
+4. Valhalla returns one or more multi-leg route candidates
+5. Route Planning validates hard constraints and ranks valid candidates
+6. Go API annotates results with time-projected conditions per segment
+
+Request-scoped linear costs are preferred over a Valhalla fork for arbitrary
+user and environmental preferences. Input lines must align with the Valhalla
+graph, must be derived from the same pinned OSM snapshot, and must be restricted
+to the request corridor to stay within service limits. Factors below `1` favor
+an edge and factors above `1` discourage it; combined factors are normalized and
+clamped by routing policy.
+
+The Valhalla container image and OSM data snapshot are pinned and treated as a
+versioned routing dataset. A custom Valhalla build is reserved for invariants
+that cannot be validated outside graph traversal, initially strict directional
+maximum-grade exclusion.
 
 **User-tunable preference weights** (all 0.0–1.0):
 - `shade` — how much to prefer shaded segments
@@ -230,6 +387,12 @@ Rendered as MapLibre line-gradient on GeoJSON with interpolated color properties
 - `route_plan` — id (UUID), user_id, departure_at, speed_model (enum), shade_weight, greenery_weight, wind_weight, created_at
 - `stop_point` — id, plan_id (FK), geometry (POINT), type (manual/venue_resolved/waypoint), sort_order, venue_id (FK nullable), resolved_name
 - `plan_task` — id, plan_id (FK), description, hashtag (nullable), status (unresolved/matched/completed), resolved_venue_id (FK nullable)
+
+### `exploration` schema (proposed)
+- `exploration_import` — id, user_id, source_format, source_hash, status, diagnostics, created_at
+- `explored_trace` — id, import_id, geometry (LINESTRING Z), observed_at, confidence
+- `explored_edge` — user_id, source_dataset_id, osm_way_id (nullable), direction, canonical_geometry, first_explored_at, last_explored_at, confidence
+- `coverage_snapshot` — id, user_id, area_geometry, explored_length_m, total_length_m, generated_at
 
 ### `osm` schema
 - Managed by osm2pgsql — `planet_osm_line`, `planet_osm_point`, `planet_osm_polygon`
@@ -315,6 +478,19 @@ All responses JSON. All geometries GeoJSON. Cursor-based pagination on list endp
 ### iOS — SwiftUI + MapKit/MapLibre Native
 
 Same four screens, consuming the identical Go API. Native map experience.
+
+### iOS Home Screen web app — foreground navigation milestone
+
+The SvelteKit client is installed through a web app manifest and supports
+foreground navigation using browser geolocation. While visible, it can show live
+position and accuracy, route progress, the next maneuver, off-route detection,
+rerouting, and optional spoken cues. The service worker caches the application
+shell and the active route/instructions needed for transient network loss.
+
+iOS may suspend a Home Screen web app after it leaves the foreground. Therefore
+the web milestone does not promise locked-screen location tracking, background
+rerouting, continuous ride recording, or reliable spoken cues with the screen
+off. Those requirements trigger the native iOS application using Core Location.
 
 ## Data Pipelines
 

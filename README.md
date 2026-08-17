@@ -54,7 +54,9 @@ Initial coverage is the Kanto / Tokyo region (OSM data + PLATEAU 3D building sha
 | `pipelines/plateau_shadow/` | PLATEAU 3D shadow precompute (Python, Docker) |
 | `docs/specs/` | Design documents |
 
-Hexagonal DDD with five bounded contexts: `route`, `community`, `environment`, `plan`, `discovery`. See [`CLAUDE.md`](CLAUDE.md) for architecture notes.
+Hexagonal DDD with five implemented bounded contexts (`route`, `community`,
+`environment`, `plan`, `discovery`) and a proposed `exploration` context. See
+[`CLAUDE.md`](CLAUDE.md) and the [ADRs](docs/adr/) for architecture notes.
 
 ## Prerequisites
 
@@ -88,6 +90,10 @@ The default connection string used everywhere is `postgres://osm_dev:osm_dev@loc
 ```bash
 cp db.env.example db.env
 ```
+
+Optionally, `cp weather.env.example weather.env` to point the containerised API
+at a paid weather provider or enable route intent; the file is optional and
+defaults to open-meteo when absent.
 
 **2. Apply migrations**
 
@@ -127,13 +133,16 @@ make plateau-shadow   # PLATEAU CityGML → shadow masks for chiyoda/minato/shib
 cd web && npm install && cd ..
 ```
 
-**8. Run the full dev stack**
+**8. Run the development stack**
 
 ```bash
 make dev-run
 ```
 
-This starts Valhalla via `docker compose`, then `martin`, the Go API, and `vite dev` in the foreground. Ctrl-C tears them all down.
+This starts the supporting containers (Valhalla and Martin), then runs the
+project-owned Go API and Vite server from source. Ctrl-C stops the local API and
+web processes; the supporting containers remain warm for the next run. Stop them
+with `make support-stop`.
 
 | Service | URL |
 |---------|-----|
@@ -157,25 +166,70 @@ This starts Valhalla via `docker compose`, then `martin`, the Go API, and `vite 
 
 ## Running services individually
 
+Compose services are separated by operational ownership:
+
+| Profile | Services | Purpose |
+|---|---|---|
+| `project` | `api`, `web` | Code built and maintained in this repository |
+| `support` | `valhalla`, `martin` | Replaceable external routing and tile adapters |
+| `pipelines` | `plateau_shadow` | One-shot or scheduled data processing |
+
+Common workflows:
+
+```bash
+make support-up       # Martin + Valhalla only; useful for local source development
+make project-up       # Containerized API + Web only; adapters may be unavailable
+make stack-up         # Project + support profiles
+make stack-down       # Stop the complete stack, preserving named volumes
+make compose-config   # Validate every profile without starting anything
+```
+
+The `project` profile intentionally has no Compose dependency on `support`.
+Missing adapters must surface as normal API/service errors; this keeps project
+containers and most tests independently runnable. For a complete application,
+enable both profiles with `make stack-up`.
+
+Individual local processes and containers:
+
 ```bash
 JWT_SECRET=cyclist-map-dev-secret-do-not-use-in-production \
   DATABASE_URL="postgres://osm_dev:osm_dev@localhost:5432/cyclist_map_dev?sslmode=disable" \
   go run ./cmd/api                          # API on :8080
 
-martin --config martin.yaml                 # Vector tiles on :3000
-docker compose up valhalla                  # Routing on :8002
+make dev-martin                             # Martin support container on :3000
+make dev-valhalla                           # Valhalla support container on :8002
 cd web && npm run dev                       # SvelteKit on :5173
+```
+
+`make dev-web` starts only Vite. The page shell works independently, but
+API-backed discovery and routing requests will show connection errors unless an
+API is already running on port 8080. Use `make dev-run` for the normal integrated
+source-development workflow, or run these in separate terminals:
+
+```bash
+make support-up
+make dev-api
+make dev-web
 ```
 
 ## Testing
 
 ```bash
-go test ./...                               # All Go tests
-go test -v ./internal/infra/postgres        # Postgres integration tests
-cd web && npm run check                     # Svelte type checking
+make test                                   # Fast Go tests; no external processes
+make test-unit                              # Same explicit unit/adapter-test boundary
+TEST_DB_DSN="$DATABASE_URL" make test-integration  # Real PostGIS repositories
+make test-web                               # Type, lint, format, token, and build checks
+TEST_DB_DSN="$DATABASE_URL" make test-all  # Everything
 ```
 
-The `internal/infra/postgres` integration tests connect to the real DB via `TEST_DB_DSN` (falling back to the default DSN) and skip gracefully when no database is reachable. Test stubs are hand-written — no mocking library.
+`test-unit` includes domain, application, HTTP, and HTTP-client adapter tests; it
+does not start or require Postgres, Martin, or Valhalla. Valhalla client tests use
+an in-process HTTP test server.
+
+`test-integration` is intentionally explicit and fails immediately when
+`TEST_DB_DSN` is absent, avoiding a misleading green run in which every database
+test was skipped. Repository tests still skip gracefully when invoked directly
+without a reachable database. Test stubs are hand-written—no mocking library.
 
 ## Build
 
@@ -187,6 +241,7 @@ cd web && npm run build
 ## Further reading
 
 - [`docs/specs/2026-04-10-cyclist-map-design.md`](docs/specs/2026-04-10-cyclist-map-design.md) — full design: bounded contexts, data model, API surface, speed model, environment-aware routing, frontend architecture
+- [`docs/adr/`](docs/adr/) — architecture decisions for personalized routing, LLM intent handling, flex routes, and explorer mode
 - [`CLAUDE.md`](CLAUDE.md) — architecture summary and conventions
 - [`web/README.md`](web/README.md) — SvelteKit defaults
 
