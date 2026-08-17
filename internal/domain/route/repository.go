@@ -23,6 +23,10 @@ type Repository interface {
 	Create(r *Route) error
 	GetByID(id string) (*Route, error)
 	Update(r *Route) error
+	// UpdateElevation persists only derived elevation data (geometry z values
+	// plus gain/loss) for an existing route, leaving every user-authored field
+	// untouched. It is safe to call from read paths concurrently with edits.
+	UpdateElevation(id string, geometry [][3]float64, elevGainM, elevLossM float64) error
 	List(params ListParams) (ListResult, error)
 	Delete(id string) error
 }

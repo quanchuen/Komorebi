@@ -172,6 +172,24 @@ func (r *RouteRepo) Update(rt *route.Route) error {
 }
 
 // List returns a filtered, paginated list of routes.
+// UpdateElevation writes only the elevation-derived columns. Unlike Update it
+// never rewrites name/status/tags/waypoints/segments, so a read-path backfill
+// cannot clobber a concurrent edit, and concurrent backfills are idempotent.
+func (r *RouteRepo) UpdateElevation(id string, geometry [][3]float64, elevGainM, elevLossM float64) error {
+	ctx := context.Background()
+	_, err := r.pool.Exec(ctx, `
+		UPDATE routes.route SET
+			geometry = ST_GeomFromText($2, 4326),
+			elevation_gain_m = $3,
+			elevation_loss_m = $4
+		WHERE id = $1::uuid
+	`, id, coordsToWKT(geometry), elevGainM, elevLossM)
+	if err != nil {
+		return fmt.Errorf("update route elevation: %w", err)
+	}
+	return nil
+}
+
 func (r *RouteRepo) List(params route.ListParams) (route.ListResult, error) {
 	ctx := context.Background()
 	limit := params.Limit

@@ -55,6 +55,9 @@ type alternativeJSON struct {
 	Label           string                `json:"label"`
 	TotalDistanceKm float64               `json:"total_distance_km"`
 	TotalDurationS  float64               `json:"total_duration_s"`
+	ElevationGainM  float64               `json:"elevation_gain_m"`
+	ElevationLossM  float64               `json:"elevation_loss_m"`
+	Elevation       []app.ElevationPoint  `json:"elevation_profile"`
 	Legs            []legJSON             `json:"legs"`
 	Geometry        app.GeoJSONLineString `json:"geometry"`
 }
@@ -136,6 +139,9 @@ func (h *RoutingHandler) Directions(w http.ResponseWriter, r *http.Request) {
 			Label:           a.Label,
 			TotalDistanceKm: a.TotalDistanceKm,
 			TotalDurationS:  a.TotalDurationS,
+			ElevationGainM:  a.ElevationGainM,
+			ElevationLossM:  a.ElevationLossM,
+			Elevation:       a.Elevation,
 			Legs:            legs,
 			Geometry:        a.GeoJSON,
 		}

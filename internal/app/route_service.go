@@ -6,12 +6,15 @@ import (
 
 // RouteService provides application-level operations on Routes.
 type RouteService struct {
-	repo route.Repository
+	repo       route.Repository
+	elevations ElevationSampler
 }
 
 // NewRouteService creates a RouteService backed by the given repository.
-func NewRouteService(repo route.Repository) *RouteService {
-	return &RouteService{repo: repo}
+// elevations may be nil; when set, routes stored without elevation are
+// backfilled on read (see backfillElevation).
+func NewRouteService(repo route.Repository, elevations ElevationSampler) *RouteService {
+	return &RouteService{repo: repo, elevations: elevations}
 }
 
 // CreateRoute builds a new Route aggregate and persists it.
@@ -47,9 +50,15 @@ func (s *RouteService) CreateRoute(
 	return rt, nil
 }
 
-// GetRoute retrieves a route by ID.
+// GetRoute retrieves a route by ID, backfilling elevation for routes that
+// were stored without it.
 func (s *RouteService) GetRoute(id string) (*route.Route, error) {
-	return s.repo.GetByID(id)
+	rt, err := s.repo.GetByID(id)
+	if err != nil {
+		return nil, err
+	}
+	s.backfillElevation(rt)
+	return rt, nil
 }
 
 // UpdateRoute replaces name, description, difficulty, and tags on an existing route.

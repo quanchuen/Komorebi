@@ -40,12 +40,20 @@ type GeoJSONLineString struct {
 	Coordinates [][2]float64 `json:"coordinates"`
 }
 
+type ElevationPoint struct {
+	DistanceM  float64 `json:"distance_m"`
+	ElevationM float64 `json:"elevation_m"`
+}
+
 // DirectionsResult is the structured output of a single route alternative.
 type DirectionsResult struct {
-	Profile         string  `json:"profile"`
-	Label           string  `json:"label"`
-	TotalDistanceKm float64 `json:"total_distance_km"`
-	TotalDurationS  float64 `json:"total_duration_s"`
+	Profile         string           `json:"profile"`
+	Label           string           `json:"label"`
+	TotalDistanceKm float64          `json:"total_distance_km"`
+	TotalDurationS  float64          `json:"total_duration_s"`
+	ElevationGainM  float64          `json:"elevation_gain_m"`
+	ElevationLossM  float64          `json:"elevation_loss_m"`
+	Elevation       []ElevationPoint `json:"elevation_profile"`
 	Legs            []LegResult
 	GeoJSON         GeoJSONLineString `json:"geometry"`
 }
@@ -199,12 +207,19 @@ func buildDirectionsResult(raw *valhalla.RouteResult, departure time.Time, profi
 			merged = append(merged, l.Shape[1:]...)
 		}
 	}
+	elevation := make([]ElevationPoint, len(raw.Elevation))
+	for i, point := range raw.Elevation {
+		elevation[i] = ElevationPoint{DistanceM: point.DistanceM, ElevationM: point.ElevationM}
+	}
 
 	return &DirectionsResult{
 		Profile:         profile,
 		Label:           label,
 		TotalDistanceKm: raw.TotalDistanceKm,
 		TotalDurationS:  raw.TotalDurationS,
+		ElevationGainM:  raw.ElevationGainM,
+		ElevationLossM:  raw.ElevationLossM,
+		Elevation:       elevation,
 		Legs:            legs,
 		GeoJSON: GeoJSONLineString{
 			Type:        "LineString",

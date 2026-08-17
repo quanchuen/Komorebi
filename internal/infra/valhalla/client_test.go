@@ -26,6 +26,10 @@ func minimalValhallaResponse() string {
 
 func TestClient_Route_Success(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/height" {
+			_, _ = w.Write([]byte(`{"range_height":[[0,12],[100,18],[200,15]]}`))
+			return
+		}
 		if r.URL.Path != "/route" {
 			t.Errorf("unexpected path: %s", r.URL.Path)
 		}
@@ -72,6 +76,10 @@ func TestClient_Route_Success(t *testing.T) {
 
 func TestClient_Route_MultiStop(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/height" {
+			_, _ = w.Write([]byte(`{"range_height":[[0,12],[100,18],[200,15]]}`))
+			return
+		}
 		var body map[string]any
 		_ = json.NewDecoder(r.Body).Decode(&body)
 

@@ -47,8 +47,14 @@ func main() {
 	log.Println("connected to database")
 
 	// Wire up dependencies
+	valhallaURL := os.Getenv("VALHALLA_URL")
+	if valhallaURL == "" {
+		valhallaURL = "http://localhost:8002"
+	}
+	valhallaClient := valhalla.NewClient(valhallaURL)
+
 	routeRepo := postgres.NewRouteRepo(pool)
-	routeSvc := app.NewRouteService(routeRepo)
+	routeSvc := app.NewRouteService(routeRepo, valhallaClient)
 
 	discoveryRepo := postgres.NewDiscoveryRepo(pool)
 	discoverySvc := app.NewDiscoveryService(discoveryRepo)
@@ -69,11 +75,6 @@ func main() {
 	conditionsHandler := api.NewConditionsHandler(routeRepo, envSvc)
 	previewHandler := api.NewPreviewHandler(envRepo)
 
-	valhallaURL := os.Getenv("VALHALLA_URL")
-	if valhallaURL == "" {
-		valhallaURL = "http://localhost:8002"
-	}
-	valhallaClient := valhalla.NewClient(valhallaURL)
 	routingSvc := app.NewRoutingService(valhallaClient)
 	routingHandler := api.NewRoutingHandler(routingSvc)
 

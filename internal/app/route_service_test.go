@@ -10,7 +10,8 @@ import (
 
 // fakeRepo is an in-memory implementation of route.Repository for unit tests.
 type fakeRepo struct {
-	routes map[string]*route.Route
+	routes      map[string]*route.Route
+	updateCalls int // full-aggregate Update calls (read paths must not use it)
 }
 
 func newFakeRepo() *fakeRepo {
@@ -37,11 +38,23 @@ func (f *fakeRepo) GetByID(id string) (*route.Route, error) {
 }
 
 func (f *fakeRepo) Update(r *route.Route) error {
+	f.updateCalls++
 	if _, ok := f.routes[r.ID]; !ok {
 		return errors.New("not found")
 	}
 	cp := *r
 	f.routes[r.ID] = &cp
+	return nil
+}
+
+func (f *fakeRepo) UpdateElevation(id string, geometry [][3]float64, elevGainM, elevLossM float64) error {
+	r, ok := f.routes[id]
+	if !ok {
+		return errors.New("not found")
+	}
+	r.Geometry = geometry
+	r.ElevationGainM = elevGainM
+	r.ElevationLossM = elevLossM
 	return nil
 }
 
@@ -60,7 +73,7 @@ func (f *fakeRepo) Delete(id string) error {
 }
 
 func TestRouteService_CreateRoute_DraftStatus(t *testing.T) {
-	svc := app.NewRouteService(newFakeRepo())
+	svc := app.NewRouteService(newFakeRepo(), nil)
 
 	rt, err := svc.CreateRoute(
 		"My Route", "desc", route.DifficultyEasy, "creator-1",
@@ -83,7 +96,7 @@ func TestRouteService_CreateRoute_DraftStatus(t *testing.T) {
 }
 
 func TestRouteService_CreateRoute_EmptyName(t *testing.T) {
-	svc := app.NewRouteService(newFakeRepo())
+	svc := app.NewRouteService(newFakeRepo(), nil)
 	_, err := svc.CreateRoute("", "desc", route.DifficultyEasy, "", nil, 0, 0, 0, nil, nil, nil)
 	if err == nil {
 		t.Fatal("expected error for empty name")
@@ -92,7 +105,7 @@ func TestRouteService_CreateRoute_EmptyName(t *testing.T) {
 
 func TestRouteService_GetRoute(t *testing.T) {
 	repo := newFakeRepo()
-	svc := app.NewRouteService(repo)
+	svc := app.NewRouteService(repo, nil)
 
 	rt, _ := svc.CreateRoute("Route A", "", route.DifficultyHard, "", nil, 0, 0, 0, nil, nil, nil)
 
@@ -106,7 +119,7 @@ func TestRouteService_GetRoute(t *testing.T) {
 }
 
 func TestRouteService_UpdateRoute(t *testing.T) {
-	svc := app.NewRouteService(newFakeRepo())
+	svc := app.NewRouteService(newFakeRepo(), nil)
 	rt, _ := svc.CreateRoute("Old Name", "", route.DifficultyEasy, "", nil, 0, 0, 0, nil, nil, nil)
 
 	updated, err := svc.UpdateRoute(rt.ID, "New Name", "new desc", route.DifficultyHard, []string{"tag1"})
@@ -123,7 +136,7 @@ func TestRouteService_UpdateRoute(t *testing.T) {
 
 func TestRouteService_ArchiveRoute_PublishedToArchived(t *testing.T) {
 	repo := newFakeRepo()
-	svc := app.NewRouteService(repo)
+	svc := app.NewRouteService(repo, nil)
 
 	// Create and manually publish via repo to bypass service
 	rt, _ := svc.CreateRoute("Route X", "", route.DifficultyEasy, "", nil, 0, 0, 0, nil, nil, nil)
@@ -143,7 +156,7 @@ func TestRouteService_ArchiveRoute_PublishedToArchived(t *testing.T) {
 }
 
 func TestRouteService_ArchiveRoute_DraftFails(t *testing.T) {
-	svc := app.NewRouteService(newFakeRepo())
+	svc := app.NewRouteService(newFakeRepo(), nil)
 	rt, _ := svc.CreateRoute("Route Y", "", route.DifficultyEasy, "", nil, 0, 0, 0, nil, nil, nil)
 
 	_, err := svc.ArchiveRoute(rt.ID)
@@ -156,7 +169,7 @@ func TestRouteService_ArchiveRoute_DraftFails(t *testing.T) {
 }
 
 func TestRouteService_ListRoutes(t *testing.T) {
-	svc := app.NewRouteService(newFakeRepo())
+	svc := app.NewRouteService(newFakeRepo(), nil)
 	svc.CreateRoute("R1", "", route.DifficultyEasy, "", nil, 0, 0, 0, nil, nil, nil)
 	svc.CreateRoute("R2", "", route.DifficultyHard, "", nil, 0, 0, 0, nil, nil, nil)
 

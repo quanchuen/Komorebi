@@ -48,6 +48,7 @@ func NewRouter(
 
 		// Routing
 		r.Post("/routing/directions", routingH.Directions)
+		r.Post("/routing/conditions", conditionsH.RoutingConditions)
 		r.Get("/routing/conditions/preview", previewH.ConditionsPreview)
 
 		// Weather

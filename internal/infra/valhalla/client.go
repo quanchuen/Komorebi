@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"math"
 	"net/http"
 	"time"
@@ -32,7 +33,15 @@ type RouteResult struct {
 	Profile         RouteProfile
 	TotalDistanceKm float64
 	TotalDurationS  float64
+	ElevationGainM  float64
+	ElevationLossM  float64
+	Elevation       []ElevationPoint
 	Legs            []Leg
+}
+
+type ElevationPoint struct {
+	DistanceM  float64
+	ElevationM float64
 }
 
 // Client is an HTTP client for the Valhalla routing engine.
@@ -173,7 +182,113 @@ func (c *Client) Route(stops []Location, profile RouteProfile) (*RouteResult, er
 			Shape:      decodePolyline6(l.Shape),
 		}
 	}
+
+	var shape [][2]float64
+	for i, leg := range result.Legs {
+		if i == 0 {
+			shape = append(shape, leg.Shape...)
+		} else if len(leg.Shape) > 0 {
+			shape = append(shape, leg.Shape[1:]...)
+		}
+	}
+	if elevation, err := c.ElevationProfile(shape); err != nil {
+		// Elevation is enrichment, not a hard dependency — keep the route but
+		// make the missing profile visible in logs instead of silently empty.
+		log.Printf("valhalla: elevation profile unavailable: %v", err)
+	} else {
+		result.Elevation = elevation
+		for i := 1; i < len(elevation); i++ {
+			delta := elevation[i].ElevationM - elevation[i-1].ElevationM
+			if delta > 0 {
+				result.ElevationGainM += delta
+			} else {
+				result.ElevationLossM -= delta
+			}
+		}
+	}
 	return result, nil
+}
+
+// ElevationProfile returns a distance/elevation profile for the shape,
+// resampled every 100 m by Valhalla's /height endpoint.
+func (c *Client) ElevationProfile(shape [][2]float64) ([]ElevationPoint, error) {
+	if len(shape) < 2 {
+		return nil, nil
+	}
+	locations := make([]map[string]float64, len(shape))
+	for i, coordinate := range shape {
+		locations[i] = map[string]float64{"lon": coordinate[0], "lat": coordinate[1]}
+	}
+	body, err := json.Marshal(map[string]any{
+		"shape": locations, "range": true, "resample_distance": 100, "height_precision": 1,
+	})
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.httpClient.Post(c.baseURL+"/height", "application/json", bytes.NewReader(body))
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("valhalla height: http %d", resp.StatusCode)
+	}
+	var raw struct {
+		RangeHeight [][]*float64 `json:"range_height"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&raw); err != nil {
+		return nil, err
+	}
+	points := make([]ElevationPoint, 0, len(raw.RangeHeight))
+	for _, pair := range raw.RangeHeight {
+		if len(pair) != 2 || pair[0] == nil || pair[1] == nil {
+			continue
+		}
+		points = append(points, ElevationPoint{DistanceM: *pair[0], ElevationM: *pair[1]})
+	}
+	return points, nil
+}
+
+// Heights returns one elevation per input point (no resampling), aligned with
+// shape. Points Valhalla has no data for come back as 0.
+func (c *Client) Heights(shape [][2]float64) ([]float64, error) {
+	if len(shape) == 0 {
+		return nil, nil
+	}
+	locations := make([]map[string]float64, len(shape))
+	for i, coordinate := range shape {
+		locations[i] = map[string]float64{"lon": coordinate[0], "lat": coordinate[1]}
+	}
+	body, err := json.Marshal(map[string]any{
+		"shape": locations, "height_precision": 1,
+	})
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.httpClient.Post(c.baseURL+"/height", "application/json", bytes.NewReader(body))
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("valhalla height: http %d", resp.StatusCode)
+	}
+	var raw struct {
+		Height []*float64 `json:"height"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&raw); err != nil {
+		return nil, err
+	}
+	if len(raw.Height) != len(shape) {
+		return nil, fmt.Errorf("valhalla height: got %d heights for %d points", len(raw.Height), len(shape))
+	}
+	heights := make([]float64, len(raw.Height))
+	for i, h := range raw.Height {
+		if h != nil {
+			heights[i] = *h
+		}
+	}
+	return heights, nil
 }
 
 // decodePolyline6 decodes a Valhalla polyline6-encoded string into [lon, lat] pairs.

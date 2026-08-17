@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -125,6 +126,77 @@ func (h *ConditionsHandler) RouteConditions(w http.ResponseWriter, r *http.Reque
 		RouteID:  id,
 		Segments: segs,
 	})
+}
+
+// --- Ad-hoc routing conditions ---
+
+type routingConditionsRequest struct {
+	Geometry    app.GeoJSONLineString `json:"geometry"`
+	Elevation   []app.ElevationPoint  `json:"elevation_profile"`
+	DepartureAt string                `json:"departure_at"`
+	SpeedModel  string                `json:"speed_model"`
+}
+
+// RoutingConditions handles POST /api/v1/routing/conditions. It computes the
+// same segment conditions as GET /routes/:id/conditions but for an unsaved
+// route geometry — e.g. a freshly generated routing alternative.
+func (h *ConditionsHandler) RoutingConditions(w http.ResponseWriter, r *http.Request) {
+	var req routingConditionsRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if len(req.Geometry.Coordinates) < 2 {
+		writeError(w, http.StatusBadRequest, "geometry must contain at least 2 coordinates")
+		return
+	}
+
+	departureAt := time.Now()
+	if req.DepartureAt != "" {
+		parsed, err := time.Parse(time.RFC3339, req.DepartureAt)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "departure_at must be RFC3339 format")
+			return
+		}
+		departureAt = parsed
+	}
+
+	speedModel := plan.SpeedModelElevation
+	if req.SpeedModel == string(plan.SpeedModelFlat) {
+		speedModel = plan.SpeedModelFlat
+	}
+
+	adhoc := app.BuildAdHocConditionRoute(req.Geometry.Coordinates, req.Elevation)
+	conditions, err := h.env.GetRouteConditions(r.Context(), app.RouteConditionsRequest{
+		Route:       adhoc,
+		DepartureAt: departureAt,
+		SpeedModel:  speedModel,
+	})
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to compute conditions")
+		return
+	}
+
+	segs := make([]segmentConditionJSON, len(conditions))
+	for i, c := range conditions {
+		sj := segmentConditionJSON{
+			Km:          c.Km,
+			ETA:         c.ETA.Format("15:04"),
+			Shade:       c.Shade,
+			WindBenefit: c.WindBenefit,
+			Precip:      c.Precip,
+			Signals:     c.SignalCount,
+		}
+		sj.Colors.Shade = c.ShadeColor
+		sj.Colors.Wind = c.WindColor
+		sj.Colors.Rain = c.RainColor
+		if c.GreenWave != nil {
+			sj.GreenWave = &greenWaveJSON{SpeedKmh: c.GreenWave.TargetSpeedKmh}
+		}
+		segs[i] = sj
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{"segments": segs})
 }
 
 // --- Preview handler ---
