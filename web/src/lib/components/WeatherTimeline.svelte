@@ -1,7 +1,30 @@
 <!-- web/src/lib/components/WeatherTimeline.svelte -->
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { browser } from '$app/environment';
   import { departureAt, mapBounds } from '$lib/stores/map';
+
+  const COLLAPSED_KEY = 'komorebi:weather-timeline-collapsed:v1';
+
+  function loadCollapsed(): boolean {
+    if (!browser) return false;
+    try {
+      return localStorage.getItem(COLLAPSED_KEY) === '1';
+    } catch {
+      return false;
+    }
+  }
+
+  let collapsed = $state(loadCollapsed());
+
+  function toggleCollapsed() {
+    collapsed = !collapsed;
+    try {
+      localStorage.setItem(COLLAPSED_KEY, collapsed ? '1' : '0');
+    } catch {
+      // Storage may be disabled or full; the toggle still works this session.
+    }
+  }
 
   interface HourSlot {
     hour: string;
@@ -157,15 +180,33 @@
 <div class="shrink-0 border-t border-border bg-surface">
   <div class="overflow-hidden">
     <div class="flex items-center justify-between px-4 pt-2 pb-1">
-      <span class="text-3xs text-text-subtle uppercase tracking-wider">Weather timeline</span>
-      {#if loading}
-        <span class="text-3xs text-text-subtle animate-pulse">Loading...</span>
-      {:else if error}
-        <span class="text-3xs text-amber-400">{error}</span>
+      <button
+        onclick={toggleCollapsed}
+        aria-expanded={!collapsed}
+        aria-controls="weather-timeline-hours"
+        class="flex items-center gap-1.5 text-3xs text-text-subtle uppercase tracking-wider
+               hover:text-text-muted transition-colors py-1 -my-1"
+      >
+        <span
+          class="inline-block transition-transform {collapsed ? '-rotate-90' : ''}"
+          aria-hidden="true">▾</span
+        >
+        Weather timeline
+      </button>
+      {#if !collapsed}
+        {#if loading}
+          <span class="text-3xs text-text-subtle animate-pulse">Loading...</span>
+        {:else if error}
+          <span class="text-3xs text-amber-400">{error}</span>
+        {/if}
       {/if}
     </div>
 
-    <div bind:this={scrollContainer} class="flex overflow-x-auto gap-0 px-2 pb-2 scrollbar-thin">
+    <div
+      id="weather-timeline-hours"
+      bind:this={scrollContainer}
+      class="flex overflow-x-auto gap-0 px-2 pb-2 scrollbar-thin {collapsed ? 'hidden' : ''}"
+    >
       {#each slots as slot (slot.hour)}
         <button
           onclick={() => selectHour(slot)}

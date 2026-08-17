@@ -1,5 +1,10 @@
 <!-- web/src/lib/components/NavigationPanel.svelte -->
 <script lang="ts">
+  import { onDestroy, onMount } from 'svelte';
+  import { SvelteMap } from 'svelte/reactivity';
+  import { replaceState } from '$app/navigation';
+  import { resolve } from '$app/paths';
+  import { browser } from '$app/environment';
   import { routing, discovery, routes as routesApi } from '$lib/api/client';
   import { buildLineGradient } from '$lib/utils/conditionColors';
   import {
@@ -10,11 +15,21 @@
     routeDisplays,
     selectedRouteGeometry,
     selectedRouteDistanceM,
-    activeOverlay
+    activeOverlay,
+    liveNavigationPosition
   } from '$lib/stores/map';
   import { discoveryRoutes, discoveryLoading, discoveryError } from '$lib/stores/discovery';
-  import type { Route, RouteConditionSegment } from '$lib/api/types';
+  import { plannerPreferences } from '$lib/stores/planner';
+  import {
+    foregroundNavigation,
+    setNavigationRoute,
+    startForegroundNavigation,
+    stopForegroundNavigation
+  } from '$lib/stores/navigation';
+  import type { Route, RouteConditionSegment, RouteIntentResponse } from '$lib/api/types';
   import RouteCard from './RouteCard.svelte';
+  import ConditionSparkline from './ConditionSparkline.svelte';
+  import ElevationSparkline from './ElevationSparkline.svelte';
   import MapLayerControl from './MapLayerControl.svelte';
   import AsyncBoundary from './ui/AsyncBoundary.svelte';
 
@@ -32,7 +47,7 @@
   ]);
 
   let conditionsCache = $state(new Map<string, RouteConditionSegment[]>());
-  let routeGeometryCache = $state(new Map<string, number[][]>());
+  let routeDetailsCache = $state(new Map<string, Route>());
 
   // Address lookup
   let activeInputIndex = $state<number | null>(null);
@@ -165,8 +180,94 @@
     }
   }
 
+  // --- Shareable path URL (?from=lat,lon,label&via=…&to=…) ---
+  // Only the path (stops) is encoded, not the computed route geometry, so a
+  // shared link re-routes with the recipient's own preferences.
+
+  const MAX_URL_VIAS = 8;
+
+  function stopToParam(s: Stop): string {
+    const base = `${s.lat!.toFixed(5)},${s.lon!.toFixed(5)}`;
+    const label = s.label.trim();
+    // Coordinate-style labels (from map clicks) carry no extra information.
+    return label && !/^-?\d+\.\d+,\s*-?\d+\.\d+$/.test(label) ? `${base},${label}` : base;
+  }
+
+  function parseStopParam(value: string): Stop | null {
+    const parts = value.split(',');
+    if (parts.length < 2) return null;
+    const lat = Number(parts[0]);
+    const lon = Number(parts[1]);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+    if (lat < -90 || lat > 90 || lon < -180 || lon > 180) return null;
+    const label = parts.slice(2).join(',').trim() || `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+    return { id: crypto.randomUUID(), lat, lon, label, query: label };
+  }
+
+  function syncStopsToUrl() {
+    const url = new URL(window.location.href);
+    url.searchParams.delete('from');
+    url.searchParams.delete('via');
+    url.searchParams.delete('to');
+
+    const first = stops[0];
+    const last = stops[stops.length - 1];
+    if (first?.lat !== null && last?.lat !== null && stops.length >= 2) {
+      url.searchParams.set('from', stopToParam(first));
+      for (const via of stops.slice(1, -1)) {
+        if (via.lat !== null) url.searchParams.append('via', stopToParam(via));
+      }
+      url.searchParams.set('to', stopToParam(last));
+    }
+    if (url.href !== window.location.href) {
+      const query = url.searchParams.toString();
+      if (query) {
+        // The rule only recognizes a bare resolve() argument; it cannot
+        // express a resolved path plus query string, which is what a
+        // shareable stop URL needs. The path itself still comes from resolve.
+        // eslint-disable-next-line svelte/no-navigation-without-resolve
+        replaceState(resolve('/') + '?' + query, {});
+      } else {
+        replaceState(resolve('/'), {});
+      }
+    }
+  }
+
+  let urlSyncTimeout: ReturnType<typeof setTimeout>;
+  $effect(() => {
+    // Register a dependency on every stop's coordinates and label.
+    stops.forEach((s) => [s.lat, s.lon, s.label]);
+    if (!browser) return;
+    clearTimeout(urlSyncTimeout);
+    urlSyncTimeout = setTimeout(syncStopsToUrl, 300);
+  });
+
+  function restoreStopsFromUrl(): boolean {
+    const params = new URLSearchParams(window.location.search);
+    const from = params.get('from');
+    const to = params.get('to');
+    if (!from || !to) return false;
+    const fromStop = parseStopParam(from);
+    const toStop = parseStopParam(to);
+    if (!fromStop || !toStop) return false;
+    const vias = params
+      .getAll('via')
+      .slice(0, MAX_URL_VIAS)
+      .map(parseStopParam)
+      .filter((s): s is Stop => s !== null);
+    stops = [fromStop, ...vias, toStop];
+    return true;
+  }
+
+  onMount(() => {
+    if (restoreStopsFromUrl()) doRoute();
+  });
+
   let canRoute = $derived(stops.filter((s) => s.lat !== null).length >= 2);
   let hasAllStops = $derived(stops.every((s) => s.lat !== null));
+  // With only start + end the wide layout is a single horizontal row; via
+  // stops switch the card back to the vertical list so each gets a full row.
+  let hasVias = $derived(stops.length > 2);
 
   // Routing state
   import type { RouteAlternative } from '$lib/api/types';
@@ -200,7 +301,8 @@
           coords,
           selected: alt.profile === selectedProfile,
           profile: alt.profile,
-          color: profileColors[alt.profile] ?? '#64748b'
+          color: profileColors[alt.profile] ?? '#64748b',
+          distanceM: alt.total_distance_km * 1000
         };
       })
     );
@@ -214,21 +316,28 @@
     routeError = null;
     alternatives = [];
     selectedProfile = null;
+    conditionsRequestSeq += 1;
 
     try {
       const res = await routing.directions({
         stops: validStops.map((s) => ({ type: 'manual' as const, lat: s.lat!, lon: s.lon! })),
         departure_at: $departureAt,
         speed_model: 'elevation',
-        preferences: { shade: 0.5, greenery: 0.5, wind: 0.5 }
+        preferences: $plannerPreferences
       });
 
       alternatives = res.alternatives ?? [];
+      altConditions.clear();
       if (alternatives.length > 0) {
         selectAlternative(alternatives[0].profile);
+        void fetchAlternativeConditions(alternatives);
       }
       updateRouteDisplays();
     } catch (e) {
+      // Release the map state a previous run may have set, or the curated
+      // routes stay dimmed behind alternatives that no longer exist.
+      routeDisplays.set([]);
+      selectedRouteGeometry.set(null);
       const msg = e instanceof Error ? e.message : String(e);
       if (msg.includes('Failed to fetch')) {
         routeError = 'Cannot connect to API';
@@ -242,49 +351,97 @@
     }
   }
 
-  // Conditions for the selected route
-  let selectedConditions = $state<RouteConditionSegment[]>([]);
+  // Natural-language route intent (ADR 0003). The LLM only interprets text;
+  // interpreted constraints are shown and applied only on explicit confirm.
+  let intentText = $state('');
+  let intentLoading = $state(false);
+  let intentResult = $state<RouteIntentResponse | null>(null);
+  let intentError = $state<string | null>(null);
+  let intentApplied = $state(false);
 
-  async function fetchRouteConditions(coords: [number, number][], distKm: number) {
-    // Build pseudo-conditions from weather at sampled points along the route
-    const numSamples = Math.min(10, coords.length);
-    const step = Math.max(1, Math.floor(coords.length / numSamples));
-    const departure = new Date($departureAt);
-    const speedKmh = 15;
-    const segments: RouteConditionSegment[] = [];
+  const unsupportedLabels: Record<string, string> = {
+    max_detour_m: 'detour budget',
+    max_grade_percent: 'max grade limit'
+  };
 
-    for (let i = 0; i < coords.length; i += step) {
-      const [lon, lat] = coords[i];
-      const km = (i / coords.length) * distKm;
-      const etaMinutes = (km / speedKmh) * 60;
-      const etaTime = new Date(departure.getTime() + etaMinutes * 60000);
-
-      try {
-        const res = await fetch(
-          `/api/v1/weather/point?lat=${lat}&lon=${lon}&at=${etaTime.toISOString()}`
-        );
-        if (res.ok) {
-          const w = await res.json();
-          segments.push({
-            km,
-            eta: etaTime.toISOString(),
-            shade: 0, // no shade data from weather endpoint
-            wind_benefit:
-              (w.wind_speed_ms ?? 0) > 0.5
-                ? Math.cos(((w.wind_bearing_deg ?? 0) * Math.PI) / 180) *
-                  Math.min(1, (w.wind_speed_ms ?? 0) / 10)
-                : 0,
-            precip: Math.min(1, (w.precip_intensity_mmh ?? 0) / 5),
-            green_wave: null,
-            signals: 0,
-            colors: { shade: '#eab308', wind: '#94a3b8', rain: '#f8fafc' }
-          });
-        }
-      } catch {
-        /* skip */
+  async function interpretIntent(e: Event) {
+    e.preventDefault();
+    const text = intentText.trim();
+    if (!text || intentLoading) return;
+    intentLoading = true;
+    intentError = null;
+    intentResult = null;
+    intentApplied = false;
+    try {
+      intentResult = await routing.interpretIntent(text, $plannerPreferences);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('503')) {
+        intentError = 'Natural-language routing is not configured on this server';
+      } else if (msg.includes('Failed to fetch')) {
+        intentError = 'Cannot connect to API';
+      } else {
+        intentError = 'Could not interpret that request';
       }
+    } finally {
+      intentLoading = false;
     }
-    return segments;
+  }
+
+  function applyIntent() {
+    if (!intentResult) return;
+    plannerPreferences.set(intentResult.preferences);
+    intentApplied = true;
+    if (canRoute) doRoute();
+  }
+
+  // Real environment conditions per alternative, computed by the backend from
+  // the generated geometry (same data the curated route cards show).
+  const altConditions = new SvelteMap<string, RouteConditionSegment[]>();
+  // Bumped whenever altConditions is reset for a new routing run so a slow
+  // response from an earlier run can never overwrite the current route's data.
+  let conditionsRequestSeq = 0;
+  let selectedConditions = $derived(
+    (selectedProfile ? altConditions.get(selectedProfile) : undefined) ?? []
+  );
+
+  async function fetchAlternativeConditions(alts: RouteAlternative[]) {
+    const departure = $departureAt;
+    const seq = conditionsRequestSeq;
+    await Promise.allSettled(
+      alts.map(async (alt) => {
+        try {
+          const res = await routing.conditions(alt.geometry, alt.elevation_profile, departure);
+          if (seq !== conditionsRequestSeq) return; // stale: a newer route replaced this one
+          altConditions.set(alt.profile, res.segments ?? []);
+        } catch {
+          /* conditions are enrichment; the alternative stays usable without them */
+        }
+      })
+    );
+  }
+
+  function conditionsSummary(segs: RouteConditionSegment[]) {
+    if (segs.length === 0) return null;
+    return {
+      avgShade: segs.reduce((s, c) => s + c.shade, 0) / segs.length,
+      avgWind: segs.reduce((s, c) => s + c.wind_benefit, 0) / segs.length,
+      maxPrecip: Math.max(...segs.map((c) => c.precip)),
+      signals: segs.reduce((s, c) => s + c.signals, 0)
+    };
+  }
+
+  function windLabel(v: number): string {
+    if (v > 0.3) return 'Tailwind';
+    if (v < -0.3) return 'Headwind';
+    return 'Crosswind';
+  }
+
+  function precipLabel(v: number): string {
+    if (v <= 0) return 'Dry';
+    if (v < 0.3) return 'Light rain';
+    if (v < 0.6) return 'Moderate rain';
+    return 'Heavy rain';
   }
 
   function selectAlternative(profile: string) {
@@ -302,23 +459,12 @@
     highlightedRouteId.set(null);
     selectedRouteGeometry.set(coords);
     selectedRouteDistanceM.set(alt.total_distance_km * 1000);
-
-    // Fetch weather conditions for the route and store them
-    fetchRouteConditions(coords, alt.total_distance_km).then((segs) => {
-      selectedConditions = segs;
-    });
+    setNavigationRoute(coords);
 
     const mapInst = $mapInstance;
     if (mapInst && coords.length > 0) {
-      const src = mapInst.getSource('highlight-route') as any;
-      if (src) {
-        src.setData({
-          type: 'Feature',
-          geometry: { type: 'LineString', coordinates: coords },
-          properties: {}
-        });
-      }
-      // Default to profile color — overlay will replace via $effect
+      // Geometry is drawn by the Map component from selectedRouteGeometry;
+      // only paint (profile color) is set here — overlay replaces via $effect.
       mapInst.setPaintProperty('highlight-route-line', 'line-gradient', null);
       mapInst.setPaintProperty(
         'highlight-route-line',
@@ -361,6 +507,17 @@
     mapInst.setPaintProperty('highlight-route-line', 'line-gradient', gradient);
   });
 
+  $effect(() => {
+    liveNavigationPosition.set($foregroundNavigation.position);
+  });
+
+  onDestroy(() => {
+    clearTimeout(loadDebounce);
+    routeLoadSequence += 1;
+    stopForegroundNavigation();
+    liveNavigationPosition.set(null);
+  });
+
   // Close suggestions when clicking outside
   function handleBlur() {
     setTimeout(() => {
@@ -369,15 +526,39 @@
   }
 
   // Load routes in viewport
+  let routeLoadSequence = 0;
+
   async function loadRoutes(bbox: string | null, departure: string) {
     if (!bbox) return;
-    discoveryLoading.set(true);
+    const sequence = ++routeLoadSequence;
+    // Keep the current cards visible while refreshing an already populated
+    // viewport. Conditions are enrichment and must not block route rendering.
+    if ($discoveryRoutes.length === 0) discoveryLoading.set(true);
     discoveryError.set(null);
     try {
       const res = await discovery.viewport({ bbox });
+      if (sequence !== routeLoadSequence) return;
       discoveryRoutes.set(res.routes);
-      // Prefetch conditions for first 3 routes only (avoid flooding API)
-      await Promise.allSettled(
+      // A highlight pointing at a route that left the viewport has no card
+      // left to clear it — release it so the map doesn't stay dimmed forever.
+      if ($highlightedRouteId && !res.routes.some((r) => r.id === $highlightedRouteId)) {
+        highlightedRouteId.set(null);
+      }
+      // Route geometry carries the elevation samples used by every card.
+      void Promise.allSettled(
+        res.routes.map(async (r) => {
+          if (!routeDetailsCache.has(r.id)) {
+            try {
+              const detail = await routesApi.get(r.id);
+              routeDetailsCache = new Map(routeDetailsCache).set(r.id, detail);
+            } catch {
+              /* keep discovery summary */
+            }
+          }
+        })
+      );
+      // Prefetch weather for the first 3 routes only (avoid flooding API).
+      void Promise.allSettled(
         res.routes.slice(0, 3).map(async (r) => {
           if (!conditionsCache.has(r.id)) {
             try {
@@ -390,6 +571,7 @@
         })
       );
     } catch (e) {
+      if (sequence !== routeLoadSequence) return;
       const msg = e instanceof Error ? e.message : String(e);
       discoveryError.set(
         msg.includes('Failed to fetch')
@@ -397,7 +579,7 @@
           : `Error: ${msg}`
       );
     } finally {
-      discoveryLoading.set(false);
+      if (sequence === routeLoadSequence) discoveryLoading.set(false);
     }
   }
 
@@ -414,52 +596,31 @@
     loadRoutes($bboxString, $departureAt);
   }
 
-  // Highlight route: fetch full geometry
-  $effect(() => {
-    const id = $highlightedRouteId;
-    if (!id) return;
-    if (!routeGeometryCache.has(id)) {
-      routesApi
-        .get(id)
-        .then((r) => {
-          if (Array.isArray(r.geometry)) {
-            routeGeometryCache = new Map(routeGeometryCache).set(id, r.geometry);
-            const mapInst = $mapInstance;
-            if (mapInst && r.geometry.length > 0) {
-              const lons = r.geometry.map((c: number[]) => c[0]);
-              const lats = r.geometry.map((c: number[]) => c[1]);
-              mapInst.fitBounds(
-                [
-                  [Math.min(...lons), Math.min(...lats)],
-                  [Math.max(...lons), Math.max(...lats)]
-                ],
-                { padding: 80, duration: 800 }
-              );
-            }
-          }
-        })
-        .catch(() => {});
-    }
-  });
-
   let filteredRoutes = $derived($discoveryRoutes);
 </script>
 
-<!-- Floating panel -->
+<!-- Floating panel. On wide screens the address card detaches from the left
+     column and centers at the top; the results list stays on the left edge so
+     it never covers the map center where routes render. -->
 <div
   class="absolute top-4 left-4 bottom-4 z-10 w-80
-            flex flex-col gap-3 pointer-events-none"
+            flex flex-col gap-3 pointer-events-none
+            xl:right-4 xl:w-auto"
 >
-  <!-- Navigation card -->
+  <!-- Navigation card. Wide screens: a horizontal Start → End bar centered at
+       the top; it only expands into the vertical stop list when via stops
+       exist. Narrow screens: always the vertical list. -->
   <div
-    class="bg-surface/90 backdrop-blur-lg border border-border/50
-              rounded-2xl shadow-2xl p-4 pointer-events-auto"
+    class="relative z-20 bg-surface/90 backdrop-blur-lg border border-border/50
+              rounded-2xl shadow-2xl p-4 pointer-events-auto
+              xl:absolute xl:top-0 xl:left-1/2 xl:-translate-x-1/2
+              {hasVias ? 'xl:w-96' : 'xl:w-2xl'}"
   >
     <!-- Stop inputs with icon rail -->
-    <div class="flex flex-col gap-0">
+    <div class="flex flex-col gap-0 {hasVias ? '' : 'xl:flex-row xl:items-center xl:gap-2'}">
       {#each stops as stop, i (stop.id)}
         <!-- Stop row -->
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-2 {hasVias ? '' : 'xl:flex-1 xl:min-w-0'}">
           <!-- Icon -->
           <div class="w-5 shrink-0 flex items-center justify-center text-sm">
             {#if i === 0}
@@ -531,7 +692,23 @@
 
         <!-- Connector + add-stop button between each pair -->
         {#if i < stops.length - 1}
-          <div class="flex items-center gap-2 my-2">
+          {#if !hasVias}
+            <!-- Compact horizontal connector for the wide Start → End bar -->
+            <div class="hidden xl:flex items-center gap-1 shrink-0">
+              <div class="w-3 border-t border-dashed border-border"></div>
+              <button
+                onclick={() => addStopAfter(i)}
+                class="text-3xs text-text-subtle hover:text-amber-400
+                       bg-surface-raised hover:bg-surface-overlay border border-border
+                       hover:border-amber-500/50
+                       rounded-full w-5 h-5 flex items-center justify-center
+                       transition-colors"
+                aria-label="Add stop">+</button
+              >
+              <div class="w-3 border-t border-dashed border-border"></div>
+            </div>
+          {/if}
+          <div class="flex items-center gap-2 my-2 {hasVias ? '' : 'xl:hidden'}">
             <!-- Vertical dash line under icon column -->
             <div class="w-5 shrink-0 flex justify-center">
               <div class="w-px h-4 border-l border-dashed border-border-strong"></div>
@@ -576,6 +753,148 @@
       </div>
     {/if}
 
+    <!-- Natural-language routing -->
+    <div class="mt-3 pt-3 border-t border-border/50">
+      <form class="flex items-center gap-2" onsubmit={interpretIntent}>
+        <input
+          type="text"
+          bind:value={intentText}
+          maxlength="500"
+          placeholder="Describe your ride — e.g. max shade, out of the wind"
+          aria-label="Describe your ride"
+          class="flex-1 min-w-0 bg-surface-raised/80 border border-border text-text text-xs
+                 rounded-lg px-3 py-2 transition-colors hover:border-border-strong
+                 focus:outline-none focus:border-accent placeholder:text-text-subtle"
+        />
+        <button
+          type="submit"
+          disabled={intentLoading || !intentText.trim()}
+          aria-label="Interpret ride description"
+          class="shrink-0 px-2.5 py-2 rounded-lg text-xs transition-colors border
+                 {intentLoading
+            ? 'bg-surface-raised text-text-subtle border-border cursor-wait'
+            : 'bg-surface-raised hover:bg-surface-overlay text-text-muted hover:text-text border-border hover:border-border-strong'}"
+        >
+          {intentLoading ? '…' : '✨'}
+        </button>
+      </form>
+
+      {#if intentError}
+        <div class="mt-2 text-3xs text-danger bg-danger-surface/50 rounded-lg px-3 py-1.5">
+          {intentError}
+        </div>
+      {/if}
+
+      {#if intentResult}
+        <div
+          class="mt-2 bg-surface-raised/60 border border-border/50 rounded-lg px-3 py-2 space-y-1.5"
+        >
+          <div class="text-2xs text-text">{intentResult.intent.summary}</div>
+
+          {#if intentResult.applied.length > 0}
+            <div class="flex flex-wrap gap-1">
+              {#each intentResult.applied as key (key)}
+                <span
+                  class="text-3xs px-1.5 py-0.5 rounded-full bg-accent/15 text-accent border border-accent/30"
+                >
+                  {key}
+                  {intentResult.preferences[key as 'shade' | 'greenery' | 'wind'].toFixed(1)}
+                </span>
+              {/each}
+            </div>
+          {/if}
+
+          {#if intentResult.unsupported.length > 0}
+            <div class="text-3xs text-amber-300">
+              Not supported yet: {intentResult.unsupported
+                .map((k) => unsupportedLabels[k] ?? k)
+                .join(', ')}
+            </div>
+          {/if}
+
+          {#if intentResult.intent.unresolved_terms.length > 0}
+            <div class="text-3xs text-text-subtle">
+              Couldn't interpret: {intentResult.intent.unresolved_terms.join(' · ')}
+            </div>
+          {/if}
+
+          {#if intentResult.applied.length > 0}
+            <button
+              onclick={applyIntent}
+              disabled={intentApplied}
+              class="w-full mt-1 py-1.5 rounded-lg text-3xs font-semibold transition-colors
+                     {intentApplied
+                ? 'bg-surface-overlay text-text-subtle cursor-default'
+                : 'bg-accent hover:bg-accent-strong text-white'}"
+            >
+              {intentApplied
+                ? 'Applied to preferences ✓'
+                : canRoute
+                  ? 'Apply & route'
+                  : 'Apply to preferences'}
+            </button>
+          {:else}
+            <div class="text-3xs text-text-subtle">No routing preferences to apply.</div>
+          {/if}
+        </div>
+      {/if}
+    </div>
+
+    <!-- Keep the status/Stop controls visible while navigation is running even
+         if a re-route cleared the alternatives, so the GPS watch and wake lock
+         can always be stopped from the UI. -->
+    {#if selectedAlt || $foregroundNavigation.status !== 'idle'}
+      <div class="mt-3 pt-3 border-t border-border/50">
+        {#if $foregroundNavigation.status === 'idle'}
+          <button
+            onclick={startForegroundNavigation}
+            class="w-full py-2 rounded-lg text-xs font-semibold bg-emerald-600
+                   hover:bg-emerald-500 text-white transition-colors"
+          >
+            Start foreground navigation
+          </button>
+        {:else}
+          <div class="flex items-center justify-between gap-3">
+            <div class="min-w-0">
+              <div class="text-xs font-medium text-text">
+                {$foregroundNavigation.status === 'requesting'
+                  ? 'Waiting for GPS…'
+                  : $foregroundNavigation.status === 'paused'
+                    ? 'Guidance paused in background'
+                    : $foregroundNavigation.status === 'error'
+                      ? 'Navigation unavailable'
+                      : $foregroundNavigation.offRoute
+                        ? 'Off route'
+                        : 'Foreground guidance active'}
+              </div>
+              <div class="text-3xs text-text-subtle mt-0.5">
+                {#if $foregroundNavigation.error}
+                  {$foregroundNavigation.error}
+                {:else if $foregroundNavigation.remainingDistanceM !== null}
+                  {($foregroundNavigation.remainingDistanceM / 1000).toFixed(1)} km remaining · GPS ±{Math.round(
+                    $foregroundNavigation.position?.accuracy ?? 0
+                  )} m
+                {:else}
+                  Keep Komorebi visible for continuous guidance
+                {/if}
+              </div>
+            </div>
+            <button
+              onclick={stopForegroundNavigation}
+              class="shrink-0 px-2.5 py-1.5 rounded-lg text-3xs text-text-muted
+                     border border-border hover:text-text hover:bg-surface-raised">Stop</button
+            >
+          </div>
+          {#if $foregroundNavigation.offRoute}
+            <div class="mt-2 text-3xs text-amber-300 bg-amber-950/50 rounded-lg px-2 py-1.5">
+              About {Math.round($foregroundNavigation.distanceFromRouteM ?? 0)} m from this route. Recalculate
+              when it is safe to stop.
+            </div>
+          {/if}
+        {/if}
+      </div>
+    {/if}
+
     <!-- Layer control -->
     <div class="mt-3 pt-3 border-t border-border/50 flex items-center justify-end">
       <MapLayerControl />
@@ -586,17 +905,19 @@
   <div
     class="flex-1 min-h-0 overflow-y-auto pointer-events-auto
               bg-surface/80 backdrop-blur-lg border border-border/50
-              rounded-2xl shadow-2xl p-3 space-y-2"
+              rounded-2xl shadow-2xl p-3 space-y-2
+              xl:absolute xl:top-0 xl:bottom-0 xl:left-0 xl:w-80"
   >
     {#if alternatives.length > 0}
       <!-- Route alternatives -->
       <div class="text-3xs text-text-subtle uppercase tracking-wider px-1 mb-1">Routes found</div>
       <div class="flex flex-col gap-1.5">
         {#each alternatives as alt (alt.profile)}
+          {@const segs = altConditions.get(alt.profile) ?? []}
+          {@const summary = conditionsSummary(segs)}
           <button
             onclick={() => selectAlternative(alt.profile)}
-            class="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-left
-                   transition-colors border
+            class="w-full px-3 py-2.5 rounded-lg text-left transition-colors border
                    {selectedProfile === alt.profile
               ? 'border-accent/40 text-text'
               : 'bg-surface-raised/50 border-border/50 text-text-muted hover:bg-surface-raised hover:text-text'}"
@@ -604,19 +925,83 @@
               ? `background: ${profileColors[alt.profile]}15; border-color: ${profileColors[alt.profile]}66`
               : ''}
           >
-            <!-- Color dot matching map line -->
-            <div
-              class="w-3 h-3 rounded-full shrink-0"
-              style="background: {profileColors[alt.profile] ??
-                '#64748b'}; opacity: {selectedProfile === alt.profile ? 1 : 0.4}"
-            ></div>
-            <span class="text-sm shrink-0">{profileIcons[alt.profile] ?? '🚲'}</span>
-            <div class="flex-1 min-w-0">
-              <div class="text-2xs font-medium">{alt.label}</div>
-              <div class="text-3xs text-text-subtle">
-                {alt.total_distance_km.toFixed(1)} km · {Math.round(alt.total_duration_s / 60)} min
+            <div class="flex items-center gap-2.5">
+              <!-- Color dot matching map line -->
+              <div
+                class="w-3 h-3 rounded-full shrink-0"
+                style="background: {profileColors[alt.profile] ??
+                  '#64748b'}; opacity: {selectedProfile === alt.profile ? 1 : 0.4}"
+              ></div>
+              <span class="text-sm shrink-0">{profileIcons[alt.profile] ?? '🚲'}</span>
+              <div class="flex-1 min-w-0">
+                <div class="text-2xs font-medium">{alt.label}</div>
+                <div class="text-3xs text-text-subtle">
+                  {alt.total_distance_km.toFixed(1)} km · {Math.round(alt.total_duration_s / 60)} min
+                  · ↗ {Math.round(alt.elevation_gain_m ?? 0)} m · ↘ {Math.round(
+                    alt.elevation_loss_m ?? 0
+                  )} m
+                </div>
               </div>
             </div>
+
+            <!-- Conditions summary, matching the curated route cards -->
+            {#if summary}
+              <div class="flex gap-3 text-3xs mt-1.5">
+                <span class="text-blue-400" title="Shade coverage">
+                  ☀ {Math.round(summary.avgShade * 100)}% shade
+                </span>
+                <span
+                  class={summary.avgWind > 0.1
+                    ? 'text-green-400'
+                    : summary.avgWind < -0.1
+                      ? 'text-red-400'
+                      : 'text-text-muted'}
+                >
+                  💨 {windLabel(summary.avgWind)}
+                </span>
+                <span class={summary.maxPrecip > 0 ? 'text-purple-400' : 'text-text-subtle'}>
+                  🌧 {precipLabel(summary.maxPrecip)}
+                </span>
+              </div>
+            {/if}
+
+            <!-- Expanded detail for the selected alternative -->
+            {#if selectedProfile === alt.profile}
+              {#if alt.elevation_profile?.length > 1}
+                <div class="mt-2">
+                  <div class="text-3xs text-text-subtle mb-0.5">Elevation</div>
+                  <ElevationSparkline
+                    samples={alt.elevation_profile.map((point) => ({
+                      distanceM: point.distance_m,
+                      elevationM: point.elevation_m
+                    }))}
+                  />
+                </div>
+              {/if}
+              {#if segs.length > 0}
+                <div class="flex gap-3 mt-2">
+                  <div class="flex-1">
+                    <div class="text-3xs text-text-subtle mb-0.5">Shade</div>
+                    <ConditionSparkline segments={segs} overlay="shade" />
+                  </div>
+                  <div class="flex-1">
+                    <div class="text-3xs text-text-subtle mb-0.5">Wind</div>
+                    <ConditionSparkline segments={segs} overlay="wind" />
+                  </div>
+                  <div class="flex-1">
+                    <div class="text-3xs text-text-subtle mb-0.5">Rain</div>
+                    <ConditionSparkline segments={segs} overlay="rain" />
+                  </div>
+                </div>
+                {#if summary && summary.signals > 0}
+                  <div class="text-3xs text-text-subtle mt-1.5">
+                    🚦 {summary.signals} signals along route
+                  </div>
+                {/if}
+              {:else}
+                <div class="text-3xs text-text-subtle italic mt-1.5">Loading conditions…</div>
+              {/if}
+            {/if}
           </button>
         {/each}
       </div>
@@ -635,7 +1020,10 @@
         onRetry={retryLoad}
       >
         {#each filteredRoutes as route (route.id)}
-          <RouteCard {route} conditions={conditionsCache.get(route.id) ?? []} />
+          <RouteCard
+            route={routeDetailsCache.get(route.id) ?? route}
+            conditions={conditionsCache.get(route.id) ?? []}
+          />
         {/each}
       </AsyncBoundary>
     {/if}

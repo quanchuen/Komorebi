@@ -23,11 +23,13 @@
   }
 
   let planGeometry = $derived(
-    $plannerResult?.geometry.coordinates.map((c) => [c[0], c[1]] as [number, number]) ?? null
+    $plannerResult?.geometry.coordinates.map((c: number[]) => [c[0], c[1]] as [number, number]) ??
+      null
   );
 
-  let planConditions: RouteConditionSegment[] = $derived($plannerResult?.segments ?? []);
-  let planDistanceM = $derived($plannerResult?.distanceM ?? 0);
+  // Directions alternatives carry no per-segment conditions; the overlay stays off here.
+  let planConditions: RouteConditionSegment[] = $derived([] as RouteConditionSegment[]);
+  let planDistanceM = $derived(($plannerResult?.total_distance_km ?? 0) * 1000);
 </script>
 
 <svelte:head>

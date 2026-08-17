@@ -8,7 +8,9 @@
     mapBounds,
     activeOverlay,
     visibleLayers,
-    routeDisplays
+    routeDisplays,
+    selectedRouteGeometry,
+    liveNavigationPosition
   } from '$lib/stores/map';
   import { buildLineGradient } from '$lib/utils/conditionColors';
   import type { RouteConditionSegment } from '$lib/api/types';
@@ -105,12 +107,12 @@
         version: 8,
         glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
         sources: {
-          'carto-dark': {
+          'carto-light': {
             type: 'raster',
             tiles: [
-              'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png',
-              'https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png',
-              'https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png'
+              'https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png',
+              'https://b.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png',
+              'https://c.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png'
             ],
             tileSize: 256,
             attribution:
@@ -146,8 +148,8 @@
           {
             id: 'basemap',
             type: 'raster',
-            source: 'carto-dark',
-            paint: { 'raster-opacity': 0.85 }
+            source: 'carto-light',
+            paint: { 'raster-opacity': 1 }
           },
           // 2. Curated routes — subtle, always visible
           {
@@ -212,6 +214,13 @@
         data: { type: 'FeatureCollection', features: [] }
       });
       map.addLayer({
+        id: 'highlight-route-casing',
+        type: 'line',
+        source: 'highlight-route',
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: { 'line-width': 9, 'line-color': '#172033', 'line-opacity': 0.78 }
+      });
+      map.addLayer({
         id: 'highlight-route-line',
         type: 'line',
         source: 'highlight-route',
@@ -236,6 +245,34 @@
         }
       });
 
+      // Foreground navigation position. Browser location is never persisted.
+      map.addSource('live-navigation-position', {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] }
+      });
+      map.addLayer({
+        id: 'live-navigation-accuracy',
+        type: 'circle',
+        source: 'live-navigation-position',
+        paint: {
+          'circle-radius': 18,
+          'circle-color': '#38bdf8',
+          'circle-opacity': 0.14,
+          'circle-stroke-width': 0
+        }
+      });
+      map.addLayer({
+        id: 'live-navigation-dot',
+        type: 'circle',
+        source: 'live-navigation-position',
+        paint: {
+          'circle-radius': 7,
+          'circle-color': '#38bdf8',
+          'circle-stroke-color': '#f8fafc',
+          'circle-stroke-width': 3
+        }
+      });
+
       mapLoaded = true;
       mapInstance.set(map);
     });
@@ -254,6 +291,22 @@
     map.on('click', (e) => {
       onclick?.({ lng: e.lngLat.lng, lat: e.lngLat.lat });
     });
+  });
+
+  $effect(() => {
+    if (!map || !mapLoaded) return;
+    const position = $liveNavigationPosition;
+    const source = map.getSource('live-navigation-position') as maplibregl.GeoJSONSource;
+    if (!source) return;
+    source.setData(
+      position
+        ? {
+            type: 'Feature',
+            geometry: { type: 'Point', coordinates: [position.longitude, position.latitude] },
+            properties: { accuracy: position.accuracy }
+          }
+        : { type: 'FeatureCollection', features: [] }
+    );
   });
 
   onDestroy(() => {
@@ -303,20 +356,27 @@
     }
   });
 
-  // Dim curated routes when routes are displayed
+  // Dim curated routes when routes are displayed. Read every input
+  // unconditionally so the effect never drops a dependency behind a
+  // short-circuit and gets stuck dimmed.
   $effect(() => {
     if (!map || !mapLoaded) return;
-    const hasHighlight =
-      (highlightGeometry !== null && highlightGeometry.length > 0) || $routeDisplays.length > 0;
+    const alts = $routeDisplays;
+    const highlighted = highlightGeometry !== null && highlightGeometry.length > 0;
+    const hasHighlight = highlighted || alts.length > 0;
     if (map.getLayer('curated-routes')) {
       map.setPaintProperty('curated-routes', 'line-opacity', hasHighlight ? 0.15 : 0.5);
     }
   });
 
-  // Update highlight route geometry and condition overlay
+  // Update highlight route geometry and condition overlay. This effect is the
+  // single writer for the highlight-route source: it draws the highlighted
+  // discovery route when one is set, otherwise the selected planner route, so
+  // clearing a highlight can never wipe a planner line that is still active.
   $effect(() => {
     if (!map || !mapLoaded) return;
-    const geom = highlightGeometry;
+    const highlighted = highlightGeometry;
+    const planner = $selectedRouteGeometry;
     const segs = conditionSegments;
     const distM = conditionRouteDistanceM;
     const overlay = $activeOverlay;
@@ -324,22 +384,27 @@
     const src = map.getSource('highlight-route') as maplibregl.GeoJSONSource;
     if (!src) return;
 
+    const geom = highlighted !== null && highlighted.length > 0 ? highlighted : planner;
     if (geom !== null && geom.length > 0) {
       src.setData({
         type: 'Feature',
         geometry: { type: 'LineString', coordinates: geom },
         properties: {}
       });
-      if (overlay && segs.length > 0) {
-        map.setPaintProperty(
-          'highlight-route-line',
-          'line-gradient',
-          buildLineGradient(segs, overlay, distM)
-        );
-      } else {
-        map.setPaintProperty('highlight-route-line', 'line-gradient', null);
-        map.setPaintProperty('highlight-route-line', 'line-color', '#38BDF8');
+      if (geom === highlighted) {
+        if (overlay && segs.length > 0) {
+          map.setPaintProperty(
+            'highlight-route-line',
+            'line-gradient',
+            buildLineGradient(segs, overlay, distM)
+          );
+        } else {
+          map.setPaintProperty('highlight-route-line', 'line-gradient', null);
+          map.setPaintProperty('highlight-route-line', 'line-color', '#38BDF8');
+        }
       }
+      // Planner geometry keeps the paint set by NavigationPanel (profile
+      // color, overlay gradient) untouched.
     } else {
       src.setData({ type: 'FeatureCollection', features: [] });
     }

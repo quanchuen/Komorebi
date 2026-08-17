@@ -2,6 +2,7 @@
 <script lang="ts">
   import type { Route, RouteConditionSegment } from '$lib/api/types';
   import ConditionSparkline from './ConditionSparkline.svelte';
+  import ElevationSparkline from './ElevationSparkline.svelte';
   import Badge from './ui/Badge.svelte';
   import { highlightedRouteId } from '$lib/stores/map';
 
@@ -29,6 +30,24 @@
     conditions.length > 0 ? Math.max(...conditions.map((c) => c.precip)) : 0
   );
   let totalSignals = $derived(conditions.reduce((s, c) => s + c.signals, 0));
+  function distanceBetween(a: number[], b: number[]): number {
+    const radians = Math.PI / 180;
+    const lat1 = a[1] * radians;
+    const lat2 = b[1] * radians;
+    const deltaLat = (b[1] - a[1]) * radians;
+    const deltaLon = (b[0] - a[0]) * radians;
+    const h =
+      Math.sin(deltaLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(deltaLon / 2) ** 2;
+    return 6371000 * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
+  }
+
+  let elevationSamples = $derived.by(() => {
+    let distanceM = 0;
+    return route.geometry.coordinates.flatMap((coordinate, index, coordinates) => {
+      if (index > 0) distanceM += distanceBetween(coordinates[index - 1], coordinate);
+      return coordinate[2] === undefined ? [] : [{ distanceM, elevationM: coordinate[2] }];
+    });
+  });
 
   function windLabel(v: number): string {
     if (v > 0.3) return 'Tailwind';
@@ -78,11 +97,19 @@
 
   <div class="flex gap-3 text-xs text-text-muted mb-2">
     <span>{distanceLabel(route.distanceM)}</span>
-    <span>+{route.elevationGainM}m</span>
+    <span title="Estimated climbing">↗ {Math.round(route.elevationGainM)} m</span>
+    <span title="Estimated descent">↘ {Math.round(route.elevationLossM)} m</span>
     {#if route.tags && route.tags.length > 0}
       <span class="text-text-subtle">{route.tags.slice(0, 2).join(' · ')}</span>
     {/if}
   </div>
+
+  {#if elevationSamples.length > 1}
+    <div class="mb-2">
+      <div class="text-3xs text-text-subtle">Elevation · area / effort · line</div>
+      <ElevationSparkline samples={elevationSamples} />
+    </div>
+  {/if}
 
   <!-- Weather / conditions summary -->
   {#if conditions.length > 0}

@@ -13,7 +13,7 @@
     segments.length > 0 ? segments.reduce((s, r) => s + r.shade, 0) / segments.length : null
   );
   let avgWind = $derived(
-    segments.length > 0 ? segments.reduce((s, r) => s + r.windBenefit, 0) / segments.length : null
+    segments.length > 0 ? segments.reduce((s, r) => s + r.wind_benefit, 0) / segments.length : null
   );
   let avgPrecip = $derived(
     segments.length > 0 ? segments.reduce((s, r) => s + r.precip, 0) / segments.length : null

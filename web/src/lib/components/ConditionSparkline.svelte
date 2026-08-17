@@ -28,8 +28,8 @@
 
   // Check if all values are effectively zero (no data)
   function isFlat(vals: number[]): boolean {
-    const threshold = overlay === 'wind' ? 0.45 : 0.02; // wind is centered at 0.5
-    const center = overlay === 'wind' ? 0.5 : 0;
+    const threshold = 0.02;
+    const center = overlay === 'wind' ? 0.5 : 0; // wind is centered at 0.5
     return vals.every((v) => Math.abs(v - center) < threshold);
   }
 

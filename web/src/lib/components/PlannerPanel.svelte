@@ -32,12 +32,13 @@
     try {
       const req: DirectionsRequest = {
         stops: $plannerStops.map((s) => ({ type: 'manual', lat: s.lat, lon: s.lon })),
-        departureAt: $departureAt,
-        speedModel: 'elevation',
+        departure_at: $departureAt,
+        speed_model: 'elevation',
         preferences: $plannerPreferences
       };
       const res = await routing.directions(req);
-      plannerResult.set(res);
+      plannerResult.set(res.alternatives?.[0] ?? null);
+      if (!res.alternatives?.length) plannerError.set('No route found between these stops');
     } catch (e) {
       plannerError.set(e instanceof Error ? e.message : 'Routing failed');
     } finally {
@@ -57,10 +58,10 @@
   });
 
   let distanceLabel = $derived(
-    $plannerResult ? `${($plannerResult.distanceM / 1000).toFixed(1)} km` : null
+    $plannerResult ? `${$plannerResult.total_distance_km.toFixed(1)} km` : null
   );
   let durationLabel = $derived(
-    $plannerResult ? `${Math.round($plannerResult.durationS / 60)} min` : null
+    $plannerResult ? `${Math.round($plannerResult.total_duration_s / 60)} min` : null
   );
 
   async function savePlan() {

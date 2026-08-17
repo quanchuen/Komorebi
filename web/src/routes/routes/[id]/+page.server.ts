@@ -1,7 +1,7 @@
 // web/src/routes/routes/[id]/+page.server.ts
 import type { PageServerLoad } from './$types';
 import { error } from '@sveltejs/kit';
-import type { Route, RouteConditionsResponse } from '$lib/api/types';
+import { apiRouteToRoute, type ApiRoute, type RouteConditionsResponse } from '$lib/api/types';
 
 export const load: PageServerLoad = async ({ params, fetch, url }) => {
   const now = new Date();
@@ -19,7 +19,9 @@ export const load: PageServerLoad = async ({ params, fetch, url }) => {
     error(404, 'Route not found');
   }
 
-  const route = (await (routeRes as PromiseFulfilledResult<Response>).value.json()) as Route;
+  const route = apiRouteToRoute(
+    (await (routeRes as PromiseFulfilledResult<Response>).value.json()) as ApiRoute
+  );
 
   let conditions: RouteConditionsResponse | null = null;
   if (condRes.status === 'fulfilled' && condRes.value.ok) {

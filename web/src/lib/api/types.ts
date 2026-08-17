@@ -58,6 +58,71 @@ export interface RouteListResponse {
   nextCursor: string | null;
 }
 
+// Wire shape returned by the Go routes API. Unlike routing alternatives, saved
+// routes use plain coordinate arrays and snake_case fields.
+export interface ApiRoute {
+  id: string;
+  name: string;
+  description: string;
+  geometry: Array<[number, number] | [number, number, number]>;
+  distance_m: number;
+  elevation_gain_m: number;
+  elevation_loss_m: number;
+  difficulty: Difficulty;
+  status: RouteStatus;
+  creator_id: string;
+  tags: string[];
+  waypoints?: Array<{
+    name: string;
+    type: WaypointType;
+    lat: number;
+    lon: number;
+    sort_order: number;
+  }>;
+  segments?: Array<{
+    geometry: Array<[number, number] | [number, number, number]>;
+    surface_type: SurfaceType;
+    grade_percent: number;
+    segment_order: number;
+  }>;
+  created_at: string;
+  updated_at: string;
+}
+
+export function apiRouteToRoute(route: ApiRoute): Route {
+  return {
+    id: route.id,
+    name: route.name,
+    description: route.description,
+    geometry: { type: 'LineString', coordinates: route.geometry ?? [] },
+    distanceM: route.distance_m,
+    elevationGainM: route.elevation_gain_m,
+    elevationLossM: route.elevation_loss_m,
+    difficulty: route.difficulty,
+    status: route.status,
+    creatorId: route.creator_id,
+    tags: route.tags ?? [],
+    waypoints: (route.waypoints ?? []).map((waypoint, index) => ({
+      id: `${route.id}-waypoint-${index}`,
+      routeId: route.id,
+      geometry: { type: 'Point', coordinates: [waypoint.lon, waypoint.lat] },
+      name: waypoint.name,
+      type: waypoint.type,
+      sortOrder: waypoint.sort_order
+    })),
+    segments: (route.segments ?? []).map((segment, index) => ({
+      id: `${route.id}-segment-${index}`,
+      routeId: route.id,
+      geometry: { type: 'LineString', coordinates: segment.geometry ?? [] },
+      surfaceType: segment.surface_type,
+      gradePercent: segment.grade_percent,
+      segmentOrder: segment.segment_order
+    })),
+    createdAt: route.created_at,
+    updatedAt: route.updated_at
+  };
+}
+
 // --- Conditions ---
 
 export interface GreenWaveInfo {
@@ -122,7 +187,9 @@ export function discoveryRouteToRoute(dr: DiscoveryRoute): Route {
     creatorId: '',
     tags: dr.tags ?? [],
     waypoints: [],
-    segments: []
+    segments: [],
+    createdAt: '',
+    updatedAt: ''
   };
 }
 
@@ -177,12 +244,42 @@ export interface RouteAlternative {
   label: string; // "Suggested" | "Fast" | "Avoid main roads"
   total_distance_km: number;
   total_duration_s: number;
+  elevation_gain_m: number;
+  elevation_loss_m: number;
+  elevation_profile: Array<{ distance_m: number; elevation_m: number }>;
   legs: { distance_km: number; duration_s: number; eta_at: string }[];
   geometry: GeoLineString;
 }
 
 export interface DirectionsResponse {
   alternatives: RouteAlternative[];
+}
+
+// Natural-language route intent (ADR 0003). The LLM only interprets text into
+// this schema; the client displays it and applies preferences deterministically.
+export interface RouteIntent {
+  schema_version: string;
+  summary: string;
+  original_text: string;
+  preferences: {
+    shade: number | null;
+    greenery: number | null;
+    wind: number | null;
+  };
+  constraints: {
+    max_detour_m: number | null;
+    max_grade_percent: number | null;
+  };
+  unresolved_terms: string[];
+  model: string;
+  prompt_version: string;
+}
+
+export interface RouteIntentResponse {
+  intent: RouteIntent;
+  preferences: RoutingPreferences;
+  applied: string[];
+  unsupported: string[];
 }
 
 // --- Venues ---

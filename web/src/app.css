@@ -8,18 +8,18 @@
  * by scripts/check-design-tokens.mjs.
  */
 @theme {
-  /* Surfaces (dark, muted base so route/condition data carries the color) */
-  --color-surface: #0f172a; /* slate-900 — app background */
-  --color-surface-raised: #1e293b; /* slate-800 — cards, panels */
-  --color-surface-overlay: #334155; /* slate-700 — hover / selected */
+  /* Surfaces (light by default so street and terrain context stays legible) */
+  --color-surface: #f8fafc; /* slate-50 — app background */
+  --color-surface-raised: #ffffff; /* cards, panels */
+  --color-surface-overlay: #e2e8f0; /* slate-200 — hover / selected */
 
   /* Borders */
-  --color-border: #334155; /* slate-700 */
-  --color-border-strong: #475569; /* slate-600 — hover emphasis */
+  --color-border: #cbd5e1; /* slate-300 */
+  --color-border-strong: #94a3b8; /* slate-400 — hover emphasis */
 
   /* Text hierarchy */
-  --color-text: #f1f5f9; /* slate-100 — primary */
-  --color-text-muted: #94a3b8; /* slate-400 — secondary */
+  --color-text: #0f172a; /* slate-900 — primary */
+  --color-text-muted: #475569; /* slate-600 — secondary */
   --color-text-subtle: #64748b; /* slate-500 — tertiary / placeholder */
 
   /* Accent / focus — the existing focus:ring-sky-500 convention as a token */
@@ -33,8 +33,9 @@
   --color-expert: #f87171; /* red-400 */
 
   /* Status */
-  --color-danger: #f87171; /* red-400 */
-  --color-danger-surface: #450a0a; /* red-950 */
+  --color-danger: #b91c1c; /* red-700 */
+  --color-danger-surface: #fee2e2; /* red-100 */
+  --color-warning: #f59e0b; /* amber-500 — effort/grade traces, caution accents */
 
   /* Micro type scale — replaces arbitrary text-[9px]/[10px]/[11px] usages.
      (9px labels are bumped to 3xs/10px on migration — negligible visually,
@@ -46,7 +47,7 @@
 }
 
 :root {
-  color-scheme: dark;
+  color-scheme: light;
 }
 
 body {

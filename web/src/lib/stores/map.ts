@@ -20,7 +20,7 @@ export const mapBounds = writable<{
 } | null>(null);
 
 // Active condition overlay
-export const activeOverlay = writable<OverlayType>(null);
+export const activeOverlay = writable<OverlayType>('rain');
 
 // The route ID currently highlighted on the map
 export const highlightedRouteId = writable<string | null>(null);
@@ -46,6 +46,9 @@ export const routeDisplays = writable<RouteDisplayInfo[]>([]);
 // The selected route's geometry (for the highlight line + condition gradient)
 export const selectedRouteGeometry = writable<[number, number][] | null>(null);
 export const selectedRouteDistanceM = writable<number>(0);
+
+// Current foreground-navigation fix. It is deliberately not persisted.
+export const liveNavigationPosition = writable<GeolocationCoordinates | null>(null);
 
 // Derived bbox string for API calls
 export const bboxString = derived(mapBounds, ($b) =>

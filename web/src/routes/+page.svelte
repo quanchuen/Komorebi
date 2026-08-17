@@ -4,7 +4,7 @@
   import Map from '$lib/components/Map.svelte';
   import NavigationPanel from '$lib/components/NavigationPanel.svelte';
   import WeatherTimeline from '$lib/components/WeatherTimeline.svelte';
-  import { highlightedRouteId, departureAt } from '$lib/stores/map';
+  import { highlightedRouteId, departureAt, mapInstance } from '$lib/stores/map';
   import { routes as routesApi } from '$lib/api/client';
   import type { RouteConditionSegment } from '$lib/api/types';
 
@@ -24,41 +24,77 @@
 
   $effect(() => {
     const id = $highlightedRouteId;
+    const selectedDepartureAt = $departureAt;
+    let stale = false;
     if (!id) {
       highlightedGeometry = null;
       highlightedConditions = [];
       highlightedDistanceM = 0;
       routeError = null;
-      return;
+      return () => {
+        stale = true;
+      };
     }
 
     routesApi
       .get(id)
       .then((fullRoute) => {
+        if (stale) return null;
         routeError = null;
-        const coords = fullRoute.geometry;
-        if (Array.isArray(coords) && coords.length > 0) {
-          highlightedGeometry = coords.map((c: number[]) => [c[0], c[1]] as [number, number]);
+        const coords = fullRoute.geometry.coordinates;
+        if (coords.length > 0) {
+          highlightedGeometry = coords.map((c) => [c[0], c[1]] as [number, number]);
+          // Frame the highlighted route so a card click always brings it into view.
+          const mapInst = $mapInstance;
+          if (mapInst) {
+            const lons = coords.map((c) => c[0]);
+            const lats = coords.map((c) => c[1]);
+            mapInst.fitBounds(
+              [
+                [Math.min(...lons), Math.min(...lats)],
+                [Math.max(...lons), Math.max(...lats)]
+              ],
+              { padding: 80, duration: 800 }
+            );
+          }
         } else {
           highlightedGeometry = null;
         }
-        highlightedDistanceM = fullRoute.distance_m ?? fullRoute.distanceM ?? 0;
-        return routesApi.conditions(id, $departureAt);
+        highlightedDistanceM = fullRoute.distanceM;
+        return routesApi.conditions(id, selectedDepartureAt);
       })
       .then((c) => {
+        if (stale || !c) return;
         highlightedConditions = c.segments ?? [];
       })
       .catch((e) => {
+        if (stale) return;
+        // Clear all highlight state, not just conditions — a stale geometry
+        // would keep the curated routes dimmed under a failed highlight.
         highlightedConditions = [];
+        highlightedGeometry = null;
+        highlightedDistanceM = 0;
         const msg = e instanceof Error ? e.message : String(e);
         if (msg.includes('Failed to fetch')) routeError = 'Cannot connect to API';
       });
+
+    return () => {
+      stale = true;
+    };
   });
 
   function handleMapClick(detail: { lng: number; lat: number }) {
     navPanel?.handleMapClick(detail.lat, detail.lng);
   }
+
+  // Escape hatch: no matter what state the highlight latched into, Esc
+  // always returns the map to the undimmed all-routes view.
+  function handleKeydown(e: KeyboardEvent) {
+    if (e.key === 'Escape') highlightedRouteId.set(null);
+  }
 </script>
+
+<svelte:window onkeydown={handleKeydown} />
 
 <svelte:head>
   <title>Komorebi — Discover Routes</title>

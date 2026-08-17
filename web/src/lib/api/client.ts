@@ -1,10 +1,13 @@
 // web/src/lib/api/client.ts
 import type {
-  Route,
+  ApiRoute,
   RouteListResponse,
   RouteConditionsResponse,
   DirectionsRequest,
   DirectionsResponse,
+  GeoLineString,
+  RouteIntentResponse,
+  RoutingPreferences,
   ReviewListResponse,
   Review,
   RoutePlan,
@@ -17,7 +20,7 @@ import type {
   DiscoverSuggestedParams,
   DiscoveryListResponse
 } from './types';
-import { discoveryRouteToRoute } from './types';
+import { apiRouteToRoute, discoveryRouteToRoute } from './types';
 
 const BASE = '/api/v1';
 
@@ -47,9 +50,15 @@ async function post<T>(path: string, body: unknown): Promise<T> {
 
 export const routes = {
   list: (params?: { bbox?: string; difficulty?: string; tags?: string; cursor?: string }) =>
-    get<RouteListResponse>('/routes', params as Record<string, string>),
+    get<{ routes: ApiRoute[]; next_cursor?: string }>(
+      '/routes',
+      params as Record<string, string>
+    ).then((raw) => ({
+      routes: (raw.routes ?? []).map(apiRouteToRoute),
+      nextCursor: raw.next_cursor ?? null
+    })),
 
-  get: (id: string) => get<Route>(`/routes/${id}`),
+  get: (id: string) => get<ApiRoute>(`/routes/${id}`).then(apiRouteToRoute),
 
   conditions: (id: string, departureAt: string, speedModel = 'elevation') =>
     get<RouteConditionsResponse>(`/routes/${id}/conditions`, {
@@ -87,6 +96,21 @@ export const discovery = {
 
 export const routing = {
   directions: (req: DirectionsRequest) => post<DirectionsResponse>('/routing/directions', req),
+
+  interpretIntent: (text: string, preferences: RoutingPreferences) =>
+    post<RouteIntentResponse>('/routing/intent', { text, preferences }),
+
+  conditions: (
+    geometry: GeoLineString,
+    elevationProfile: Array<{ distance_m: number; elevation_m: number }>,
+    departureAt: string
+  ) =>
+    post<RouteConditionsResponse>('/routing/conditions', {
+      geometry,
+      elevation_profile: elevationProfile,
+      departure_at: departureAt,
+      speed_model: 'elevation'
+    }),
 
   conditionsPreview: (bbox: string, departureAt: string) =>
     get<{ features: unknown[] }>('/routing/conditions/preview', { bbox, departure_at: departureAt })
