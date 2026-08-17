@@ -12,6 +12,7 @@ func NewRouter(
 	discoverySvc *app.DiscoveryService,
 	venueSvc *app.VenueService,
 	routingH *RoutingHandler,
+	routingIntentH *RoutingIntentHandler,
 	weatherH *WeatherHandler,
 	conditionsH *ConditionsHandler,
 	previewH *PreviewHandler,
@@ -48,6 +49,7 @@ func NewRouter(
 
 		// Routing
 		r.Post("/routing/directions", routingH.Directions)
+		r.Post("/routing/intent", routingIntentH.Interpret)
 		r.Post("/routing/conditions", conditionsH.RoutingConditions)
 		r.Get("/routing/conditions/preview", previewH.ConditionsPreview)
 

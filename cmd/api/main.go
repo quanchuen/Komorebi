@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"log"
 	"net/http"
@@ -10,15 +11,34 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"komorebi/internal/api"
 	"komorebi/internal/app"
+	"komorebi/internal/infra/anthropic"
 	"komorebi/internal/infra/postgres"
 	"komorebi/internal/infra/valhalla"
 	"komorebi/internal/infra/weatherprovider"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func main() {
+	flag.Usage = func() {
+		out := flag.CommandLine.Output()
+		fmt.Fprintf(out, "Usage: %s [options]\n\n", os.Args[0])
+		fmt.Fprintln(out, "Komorebi HTTP API server.")
+		fmt.Fprintln(out, "Configuration is supplied through environment variables:")
+		fmt.Fprintln(out, "  DATABASE_URL      PostgreSQL/PostGIS connection string (required)")
+		fmt.Fprintln(out, "  JWT_SECRET        JWT signing secret (required)")
+		fmt.Fprintln(out, "  PORT              HTTP listen port (default: 8080)")
+		fmt.Fprintln(out, "  VALHALLA_URL      Routing service URL (default: http://localhost:8002)")
+		fmt.Fprintln(out, "  WEATHER_PROVIDER  open-meteo, tomorrow-io, or openweathermap")
+		fmt.Fprintln(out, "  WEATHER_API_KEY   Required by paid weather providers")
+		fmt.Fprintln(out, "  ANTHROPIC_API_KEY Enables natural-language route intent (optional)")
+		fmt.Fprintln(out, "  INTENT_MODEL      Claude model for route intent (default: claude-opus-5)")
+		fmt.Fprintln(out, "\nOptions:")
+		flag.PrintDefaults()
+	}
+	flag.Parse()
+
 	databaseURL := os.Getenv("DATABASE_URL")
 	if databaseURL == "" {
 		log.Fatal("DATABASE_URL environment variable is required")
@@ -78,6 +98,17 @@ func main() {
 	routingSvc := app.NewRoutingService(valhallaClient)
 	routingHandler := api.NewRoutingHandler(routingSvc)
 
+	// Natural-language route intent (ADR 0003). Optional: without an API key
+	// the endpoint reports 503 and structured routing is unaffected.
+	var intentAdapter app.IntentAdapter
+	if key := os.Getenv("ANTHROPIC_API_KEY"); key != "" {
+		intentAdapter = anthropic.NewIntentAdapter(key, os.Getenv("INTENT_MODEL"))
+		log.Println("route intent adapter enabled")
+	} else {
+		log.Println("ANTHROPIC_API_KEY not set; POST /routing/intent will return 503")
+	}
+	routingIntentHandler := api.NewRoutingIntentHandler(app.NewRouteIntentService(intentAdapter))
+
 	// Plan dependencies
 	planRepo := postgres.NewPlanRepo(pool)
 	venueResolutionSvc := app.NewVenueResolutionService(venueRepo, venueRepo)
@@ -102,7 +133,7 @@ func main() {
 	communitySvc := app.NewCommunityService(contribRepo, reviewRepo, rideLogRepo)
 	communityHandler := api.NewCommunityHandler(communitySvc)
 
-	router := api.NewRouter(routeSvc, discoverySvc, venueSvc, routingHandler, weatherHandler, conditionsHandler, previewHandler, planHandler, authSvc, communityHandler)
+	router := api.NewRouter(routeSvc, discoverySvc, venueSvc, routingHandler, routingIntentHandler, weatherHandler, conditionsHandler, previewHandler, planHandler, authSvc, communityHandler)
 
 	// Start HTTP server
 	srv := &http.Server{
