@@ -1,0 +1,35 @@
+# gitleaks configuration — https://github.com/gitleaks/gitleaks
+#
+# Used by the pre-commit hook (web/.husky/pre-commit) to scan staged changes,
+# by `make secrets-audit` to scan the full history, and by anyone running
+# `gitleaks git .` at the repository root.
+#
+# The default ruleset is extended, not replaced. Only add allowlist entries for
+# values that are provably not secrets (documented dev placeholders, test
+# fixtures). Never allowlist a real credential — rotate it instead.
+
+title = "Komorebi secret scanning"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Documented, non-secret development placeholders"
+regexTarget = "match"
+regexes = [
+  # Local-only JWT signing key used by Makefile / db.env / docs; not valid anywhere real.
+  '''cyclist-map-dev-secret-do-not-use-in-production''',
+  # Fixture constant in internal/app/auth_service_test.go and its design plan.
+  '''test-secret-key-at-least-32-chars-long''',
+  # Placeholder used in docs/plans examples.
+  '''dev-secret-32-chars-padding-here''',
+]
+paths = [
+  # Vendored / generated web assets are never a place to look for our secrets.
+  '''web/node_modules/''',
+  '''web/\.svelte-kit/''',
+  '''web/build/''',
+  # Lockfiles contain integrity hashes that trip entropy rules.
+  '''(^|/)package-lock\.json$''',
+  '''(^|/)go\.sum$''',
+]

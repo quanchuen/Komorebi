@@ -1,3 +1,43 @@
 #!/usr/bin/env sh
 # Git runs hooks from the repo top-level; the web project lives in web/.
+#
+# 1. Secret scan (repo-wide, fails closed). Runs first so a leaked credential
+#    is rejected before any formatter touches the tree.
+# 2. Frontend lint-staged.
+
+# --- 1. Secret scanning -----------------------------------------------------
+if [ "${SKIP_GITLEAKS:-0}" = "1" ]; then
+  echo "pre-commit: SKIP_GITLEAKS=1 set — secret scan skipped." >&2
+else
+  GITLEAKS_BIN="$(command -v gitleaks 2>/dev/null || true)"
+  if [ -z "$GITLEAKS_BIN" ] && [ -x "${GOPATH:-$HOME/go}/bin/gitleaks" ]; then
+    GITLEAKS_BIN="${GOPATH:-$HOME/go}/bin/gitleaks"
+  fi
+  if [ -z "$GITLEAKS_BIN" ]; then
+    cat >&2 <<'MSG'
+pre-commit: gitleaks is not installed, refusing to commit unscanned changes.
+
+  Install (source build, verified by sum.golang.org):  make hooks
+  or:  go install github.com/zricethezav/gitleaks/v8@v8.30.1
+  or:  brew install gitleaks
+
+  Bypass once (not recommended):  SKIP_GITLEAKS=1 git commit ...
+MSG
+    exit 1
+  fi
+  if ! "$GITLEAKS_BIN" git --pre-commit --staged --redact --no-banner --verbose \
+        --config .gitleaks.toml; then
+    cat >&2 <<'MSG'
+
+pre-commit: gitleaks found what looks like a secret in the staged changes.
+  - Real credential?  Unstage it, rotate it, and keep it out of the repo
+    (use .envrc / *.env, which are gitignored).
+  - False positive?   Add a narrowly scoped allowlist entry to .gitleaks.toml
+    (never allowlist a real credential) or a fingerprint to .gitleaksignore.
+MSG
+    exit 1
+  fi
+fi
+
+# --- 2. Frontend lint-staged -----------------------------------------------
 cd web && npx lint-staged

@@ -44,6 +44,17 @@ repository-owned containers, or `make stack-up` for both Compose profiles.
 Follow the existing patterns: hexagonal layering, hand-written test stubs (no
 mocking library), table-driven tests, TDD for domain logic.
 
+## Secrets
+
+Run `make hooks` once after cloning. It installs
+[gitleaks](https://github.com/gitleaks/gitleaks) (pinned, built from source and
+verified against `sum.golang.org`) and points `core.hooksPath` at
+`web/.husky`, whose `pre-commit` hook scans every staged change and refuses the
+commit if it finds a credential. Real keys belong in `.envrc` or `*.env`
+(gitignored), never in the tree. False positives get a narrowly scoped entry in
+`.gitleaks.toml`; real leaks get rotated, not allowlisted. `make secrets-audit`
+scans the whole history.
+
 ## Pull requests
 
 - One logical change per PR.

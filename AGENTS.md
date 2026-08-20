@@ -44,7 +44,14 @@ make test-web                               # Frontend checks + build
 go test ./internal/app -run TestAuth        # Single test pattern
 go test -v ./internal/infra/postgres        # Verbose, one package
 cd web && npm run check                     # Svelte type checking
+make hooks                                  # Install pre-commit hook (gitleaks secret scan + lint-staged)
+make secrets-audit                          # gitleaks over the full git history
 ```
+
+Secret scanning: `.gitleaks.toml` extends the gitleaks default rules; the
+pre-commit hook fails closed if gitleaks is missing (`make hooks` installs it).
+Never allowlist a real credential — rotate it. Real keys live in `.envrc` /
+`*.env`, which are gitignored.
 
 Integration tests in `infra/postgres/` connect to the real database. They use `TEST_DB_DSN` or the default connection string and skip gracefully if unreachable. Test stubs are hand-written (no mocking library) — see `testutil_test.go` files for patterns.
 

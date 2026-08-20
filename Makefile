@@ -10,7 +10,14 @@ DATABASE_URL   ?= $(MIGRATE_URL)
 API_PORT       ?= 8080
 COMPOSE        ?= docker compose
 
+# Secret scanner used by the pre-commit hook and `make secrets-audit`.
+# Pinned; bump deliberately. `go install` verifies the source against
+# sum.golang.org, so no opaque release binary is trusted.
+GITLEAKS_VERSION := v8.30.1
+GITLEAKS         ?= $(shell command -v gitleaks 2>/dev/null || echo $${GOPATH:-$$HOME/go}/bin/gitleaks)
+
 .PHONY: demo-routes
+.PHONY: hooks gitleaks-install secrets-audit
 .PHONY: migrate-up migrate-down migrate-create osm-download osm-import osm-update osm-venues osm-all greenery plateau-shadow weather support-up support-stop project-up project-stop stack-up stack-down compose-config dev-run dev-api dev-martin dev-valhalla dev-web test test-unit test-integration test-web test-all web-lint web-lighthouse help
 
 migrate-up:
@@ -158,6 +165,21 @@ web-lint:
 ## Run Lighthouse budget against a production preview of the web app
 web-lighthouse:
 	cd web && npm run build && npm run lighthouse
+
+## Install the pre-commit hook (secret scan + web lint-staged) and gitleaks
+hooks: gitleaks-install
+	git config core.hooksPath web/.husky
+	@echo "core.hooksPath -> web/.husky (pre-commit: gitleaks + lint-staged)"
+
+## Build gitleaks $(GITLEAKS_VERSION) from source if it is not already on PATH
+gitleaks-install:
+	@if [ -x "$(GITLEAKS)" ]; then echo "gitleaks present: $(GITLEAKS)"; \
+	else echo "installing gitleaks $(GITLEAKS_VERSION) via go install"; \
+	     go install github.com/zricethezav/gitleaks/v8@$(GITLEAKS_VERSION); fi
+
+## Scan the entire git history for secrets (all refs), using .gitleaks.toml
+secrets-audit: gitleaks-install
+	"$(GITLEAKS)" git . --config .gitleaks.toml --redact --no-banner
 
 help:
 	@grep -E '^## ' Makefile | sed 's/^## //'
