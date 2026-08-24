@@ -22,9 +22,11 @@
     if (data.routes.length > 0) dr.set(data.routes);
   });
 
+  // Geometry follows the highlighted route id only; conditions follow the id
+  // plus departureAt in a separate debounced effect below, so scrubbing the
+  // time slider never refetches geometry or re-frames the camera.
   $effect(() => {
     const id = $highlightedRouteId;
-    const selectedDepartureAt = $departureAt;
     let stale = false;
     if (!id) {
       highlightedGeometry = null;
@@ -39,7 +41,7 @@
     routesApi
       .get(id)
       .then((fullRoute) => {
-        if (stale) return null;
+        if (stale) return;
         routeError = null;
         const coords = fullRoute.geometry.coordinates;
         if (coords.length > 0) {
@@ -61,11 +63,6 @@
           highlightedGeometry = null;
         }
         highlightedDistanceM = fullRoute.distanceM;
-        return routesApi.conditions(id, selectedDepartureAt);
-      })
-      .then((c) => {
-        if (stale || !c) return;
-        highlightedConditions = c.segments ?? [];
       })
       .catch((e) => {
         if (stale) return;
@@ -80,6 +77,29 @@
 
     return () => {
       stale = true;
+    };
+  });
+
+  let conditionsTimer: ReturnType<typeof setTimeout>;
+  $effect(() => {
+    const id = $highlightedRouteId;
+    const selectedDepartureAt = $departureAt;
+    if (!id) return;
+    let stale = false;
+    clearTimeout(conditionsTimer);
+    conditionsTimer = setTimeout(() => {
+      routesApi
+        .conditions(id, selectedDepartureAt)
+        .then((c) => {
+          if (!stale) highlightedConditions = c.segments ?? [];
+        })
+        .catch(() => {
+          if (!stale) highlightedConditions = [];
+        });
+    }, 250);
+    return () => {
+      stale = true;
+      clearTimeout(conditionsTimer);
     };
   });
 

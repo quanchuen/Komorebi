@@ -110,6 +110,101 @@ func (r *WeatherRepo) AlongRoute(segments []environment.WeatherSegmentQuery) ([]
 	return results, nil
 }
 
+// GridInBBox returns cells intersecting bbox (minLon, minLat, maxLon, maxLat)
+// at the single nearest distinct valid_at within +/-1 hour of at. The result
+// is empty (nil error) when no snapshot falls in the window or no cell
+// intersects the bbox. CellGeometry is rebuilt as an axis-aligned ring from
+// the cell bounds (cells are 0.05 degree squares).
+func (r *WeatherRepo) GridInBBox(ctx context.Context, bbox [4]float64, at time.Time) ([]environment.WeatherGrid, error) {
+	rows, err := r.pool.Query(ctx, `
+		WITH snap AS (
+			SELECT valid_at
+			FROM (SELECT DISTINCT valid_at
+			      FROM environment.weather_grid
+			      WHERE valid_at BETWEEN $5::timestamptz - interval '1 hour'
+			                         AND $5::timestamptz + interval '1 hour') t
+			ORDER BY ABS(EXTRACT(EPOCH FROM (valid_at - $5))) ASC
+			LIMIT 1
+		)
+		SELECT
+			g.id::text,
+			ST_XMin(g.cell_geometry), ST_YMin(g.cell_geometry),
+			ST_XMax(g.cell_geometry), ST_YMax(g.cell_geometry),
+			g.valid_at,
+			g.wind_speed_ms,
+			g.wind_bearing_deg,
+			g.precip_intensity_mmh,
+			g.temperature_c,
+			g.uv_index
+		FROM environment.weather_grid g
+		JOIN snap ON g.valid_at = snap.valid_at
+		WHERE g.cell_geometry && ST_MakeEnvelope($1, $2, $3, $4, 4326)
+		ORDER BY ST_YMin(g.cell_geometry), ST_XMin(g.cell_geometry)
+	`, bbox[0], bbox[1], bbox[2], bbox[3], at)
+	if err != nil {
+		return nil, fmt.Errorf("weather.GridInBBox: %w", err)
+	}
+	defer rows.Close()
+
+	var result []environment.WeatherGrid
+	for rows.Next() {
+		var wg environment.WeatherGrid
+		var minLon, minLat, maxLon, maxLat float64
+		if err := rows.Scan(
+			&wg.ID,
+			&minLon, &minLat, &maxLon, &maxLat,
+			&wg.ValidAt,
+			&wg.WindSpeedMS,
+			&wg.WindBearingDeg,
+			&wg.PrecipIntensityMMH,
+			&wg.TemperatureC,
+			&wg.UVIndex,
+		); err != nil {
+			return nil, fmt.Errorf("weather.GridInBBox scan: %w", err)
+		}
+		wg.CellGeometry = [][2]float64{
+			{minLon, minLat}, {maxLon, minLat},
+			{maxLon, maxLat}, {minLon, maxLat},
+			{minLon, minLat},
+		}
+		result = append(result, wg)
+	}
+	return result, rows.Err()
+}
+
+// MinutelySnapshot returns all nowcast points at the nearest distinct At
+// within +/-5 minutes of at. Empty (nil error) when no minute qualifies.
+func (r *WeatherRepo) MinutelySnapshot(ctx context.Context, at time.Time) ([]environment.MinutelyPrecip, error) {
+	rows, err := r.pool.Query(ctx, `
+		WITH snap AS (
+			SELECT at
+			FROM (SELECT DISTINCT at
+			      FROM environment.minutely_precip
+			      WHERE at BETWEEN $1::timestamptz - interval '5 minutes'
+			                   AND $1::timestamptz + interval '5 minutes') t
+			ORDER BY ABS(EXTRACT(EPOCH FROM (at - $1))) ASC
+			LIMIT 1
+		)
+		SELECT m.id::text, m.lat, m.lon, m.at, m.intensity_mmh, m.fetched_at
+		FROM environment.minutely_precip m
+		JOIN snap ON m.at = snap.at
+	`, at)
+	if err != nil {
+		return nil, fmt.Errorf("weather.MinutelySnapshot: %w", err)
+	}
+	defer rows.Close()
+
+	var result []environment.MinutelyPrecip
+	for rows.Next() {
+		var m environment.MinutelyPrecip
+		if err := rows.Scan(&m.ID, &m.Lat, &m.Lon, &m.At, &m.IntensityMMH, &m.FetchedAt); err != nil {
+			return nil, fmt.Errorf("weather.MinutelySnapshot scan: %w", err)
+		}
+		result = append(result, m)
+	}
+	return result, rows.Err()
+}
+
 // DeleteBefore removes rows with valid_at < cutoff. Used by the pipeline to prune
 // stale forecasts (retain ~48 hours rolling window).
 func (r *WeatherRepo) DeleteBefore(cutoff time.Time) error {

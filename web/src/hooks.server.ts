@@ -12,11 +12,23 @@ const hopByHopHeaders = new Set([
   'upgrade'
 ]);
 
-export const handle: Handle = async ({ event, resolve }) => {
-  if (!event.url.pathname.startsWith('/api/')) return resolve(event);
+// Same-origin proxies so the browser never needs to know where the API or the
+// tile server live. Mirrors the Vite dev proxy in vite.config.ts:
+//   /api/*   -> API_URL   (path kept as-is)
+//   /tiles/* -> TILES_URL (the /tiles prefix is stripped)
+const proxies: Array<{ prefix: string; target: () => string; strip: boolean }> = [
+  { prefix: '/api/', target: () => env.API_URL ?? 'http://127.0.0.1:8080', strip: false },
+  { prefix: '/tiles/', target: () => env.TILES_URL ?? 'http://127.0.0.1:3000', strip: true }
+];
 
-  const apiURL = env.API_URL ?? 'http://127.0.0.1:8080';
-  const upstream = new URL(`${event.url.pathname}${event.url.search}`, apiURL);
+export const handle: Handle = async ({ event, resolve }) => {
+  const proxy = proxies.find((p) => event.url.pathname.startsWith(p.prefix));
+  if (!proxy) return resolve(event);
+
+  const pathname = proxy.strip
+    ? event.url.pathname.slice(proxy.prefix.length - 1)
+    : event.url.pathname;
+  const upstream = new URL(`${pathname}${event.url.search}`, proxy.target());
   const requestHeaders = new Headers(event.request.headers);
   requestHeaders.delete('host');
 

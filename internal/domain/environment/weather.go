@@ -93,6 +93,15 @@ type WeatherRepository interface {
 	// with At times within the range [from, to].
 	MinutelyAt(lat, lon float64, from, to time.Time) ([]MinutelyPrecip, error)
 
+	// GridInBBox returns the cells intersecting bbox (minLon, minLat, maxLon,
+	// maxLat) at the single nearest distinct valid_at within +/-1 hour of at.
+	// Returns an empty slice (nil error) when no snapshot or cell qualifies.
+	GridInBBox(ctx context.Context, bbox [4]float64, at time.Time) ([]WeatherGrid, error)
+
+	// MinutelySnapshot returns all nowcast points at the nearest distinct At
+	// within +/-5 minutes of at, or an empty slice when none exists.
+	MinutelySnapshot(ctx context.Context, at time.Time) ([]MinutelyPrecip, error)
+
 	// DeleteMinutelyBefore prunes stale minutely rows.
 	DeleteMinutelyBefore(cutoff time.Time) error
 }

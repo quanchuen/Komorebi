@@ -152,6 +152,26 @@ export interface RouteConditionsResponse {
   segments: RouteConditionSegment[];
 }
 
+// --- Weather grid (map rain layer) ---
+
+export interface WeatherGridCell {
+  min_lon: number;
+  min_lat: number;
+  max_lon: number;
+  max_lat: number;
+  precip_intensity_mmh: number;
+  wind_speed_ms: number;
+  wind_bearing_deg: number;
+  temperature_c: number;
+  uv_index: number;
+  precip_source: 'hourly' | 'minutely';
+}
+
+export interface WeatherGridResponse {
+  valid_at: string;
+  cells: WeatherGridCell[];
+}
+
 // --- Discovery ---
 
 // The discovery API returns a different shape than the full Route object

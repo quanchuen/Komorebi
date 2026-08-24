@@ -55,6 +55,7 @@ func NewRouter(
 
 		// Weather
 		r.Get("/weather/point", weatherH.AtPoint)
+		r.Get("/weather/grid", weatherH.Grid)
 
 		// Plans
 		r.Post("/plans", planH.CreatePlan)

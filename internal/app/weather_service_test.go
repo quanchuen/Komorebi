@@ -14,8 +14,10 @@ import (
 // stubWeatherRepo implements environment.WeatherRepository. AtPoint returns
 // grid when set, otherwise ErrNoWeather.
 type stubWeatherRepo struct {
-	grid *environment.WeatherGrid
-	err  error
+	grid      *environment.WeatherGrid
+	gridCells []environment.WeatherGrid
+	minutely  []environment.MinutelyPrecip
+	err       error
 }
 
 func (s *stubWeatherRepo) Upsert(_ []environment.WeatherGrid) error { return nil }
@@ -43,6 +45,12 @@ func (s *stubWeatherRepo) MinutelyAt(_, _ float64, _, _ time.Time) ([]environmen
 	return nil, nil
 }
 func (s *stubWeatherRepo) DeleteMinutelyBefore(_ time.Time) error { return nil }
+func (s *stubWeatherRepo) GridInBBox(_ context.Context, _ [4]float64, _ time.Time) ([]environment.WeatherGrid, error) {
+	return s.gridCells, nil
+}
+func (s *stubWeatherRepo) MinutelySnapshot(_ context.Context, _ time.Time) ([]environment.MinutelyPrecip, error) {
+	return s.minutely, nil
+}
 
 // stubFetcher implements environment.WeatherFetcher, counting FetchPoint calls.
 type stubFetcher struct {
@@ -231,6 +239,114 @@ func TestConcurrentMissesCoalesceToOneFetch(t *testing.T) {
 	}
 	if got := fetcher.calls.Load(); got != 1 {
 		t.Errorf("expected concurrent misses to coalesce into 1 fetch, got %d", got)
+	}
+}
+
+// squareCell builds a 0.05 degree cell whose south-west corner is (lat, lon).
+func squareCell(lat, lon float64, validAt time.Time, precip float64) environment.WeatherGrid {
+	return environment.WeatherGrid{
+		CellGeometry: [][2]float64{
+			{lon, lat}, {lon + 0.05, lat},
+			{lon + 0.05, lat + 0.05}, {lon, lat + 0.05},
+			{lon, lat},
+		},
+		ValidAt:            validAt,
+		PrecipIntensityMMH: precip,
+		WindSpeedMS:        3,
+		TemperatureC:       28,
+	}
+}
+
+func TestGridSnapshotMinutelyOverrideWithinRadius(t *testing.T) {
+	validAt := time.Date(2026, 8, 20, 5, 0, 0, 0, time.UTC)
+	// Cell centroid (35.625, 139.625); nowcast point 0.025 degrees away.
+	repo := &stubWeatherRepo{
+		gridCells: []environment.WeatherGrid{squareCell(35.60, 139.60, validAt, 0.1)},
+		minutely: []environment.MinutelyPrecip{
+			{Lat: 35.65, Lon: 139.60, At: validAt, IntensityMMH: 2.5},
+		},
+	}
+	svc := NewWeatherService(repo, nil)
+
+	snap, err := svc.GridSnapshot(context.Background(), [4]float64{139.60, 35.60, 139.85, 35.75}, validAt)
+	if err != nil {
+		t.Fatalf("GridSnapshot: %v", err)
+	}
+	if !snap.ValidAt.Equal(validAt) {
+		t.Errorf("ValidAt: want %v, got %v", validAt, snap.ValidAt)
+	}
+	if len(snap.Cells) != 1 {
+		t.Fatalf("cells: want 1, got %d", len(snap.Cells))
+	}
+	c := snap.Cells[0]
+	if c.PrecipSource != PrecipSourceMinutely {
+		t.Errorf("PrecipSource: want minutely, got %q", c.PrecipSource)
+	}
+	if c.PrecipIntensityMMH != 2.5 {
+		t.Errorf("PrecipIntensityMMH: want minutely override 2.5, got %v", c.PrecipIntensityMMH)
+	}
+	if c.MinLon != 139.60 || c.MinLat != 35.60 || c.MaxLon != 139.65 || c.MaxLat != 35.65 {
+		t.Errorf("bounds: got (%v,%v,%v,%v)", c.MinLon, c.MinLat, c.MaxLon, c.MaxLat)
+	}
+}
+
+func TestGridSnapshotMinutelyOutsideRadiusStaysHourly(t *testing.T) {
+	validAt := time.Date(2026, 8, 20, 5, 0, 0, 0, time.UTC)
+	// Nowcast point 0.125 degrees north of the centroid: beyond the 0.08 radius.
+	repo := &stubWeatherRepo{
+		gridCells: []environment.WeatherGrid{squareCell(35.60, 139.60, validAt, 0.1)},
+		minutely: []environment.MinutelyPrecip{
+			{Lat: 35.75, Lon: 139.625, At: validAt, IntensityMMH: 2.5},
+		},
+	}
+	svc := NewWeatherService(repo, nil)
+
+	snap, err := svc.GridSnapshot(context.Background(), [4]float64{139.60, 35.60, 139.85, 35.75}, validAt)
+	if err != nil {
+		t.Fatalf("GridSnapshot: %v", err)
+	}
+	c := snap.Cells[0]
+	if c.PrecipSource != PrecipSourceHourly {
+		t.Errorf("PrecipSource: want hourly, got %q", c.PrecipSource)
+	}
+	if c.PrecipIntensityMMH != 0.1 {
+		t.Errorf("PrecipIntensityMMH: want hourly value 0.1, got %v", c.PrecipIntensityMMH)
+	}
+}
+
+func TestGridSnapshotPicksNearestMinutelyPoint(t *testing.T) {
+	validAt := time.Date(2026, 8, 20, 5, 0, 0, 0, time.UTC)
+	repo := &stubWeatherRepo{
+		gridCells: []environment.WeatherGrid{squareCell(35.60, 139.60, validAt, 0.1)},
+		minutely: []environment.MinutelyPrecip{
+			{Lat: 35.70, Lon: 139.70, At: validAt, IntensityMMH: 9.9}, // 0.075 away
+			{Lat: 35.63, Lon: 139.63, At: validAt, IntensityMMH: 1.2}, // 0.005 away
+		},
+	}
+	svc := NewWeatherService(repo, nil)
+
+	snap, err := svc.GridSnapshot(context.Background(), [4]float64{139.60, 35.60, 139.85, 35.75}, validAt)
+	if err != nil {
+		t.Fatalf("GridSnapshot: %v", err)
+	}
+	if got := snap.Cells[0].PrecipIntensityMMH; got != 1.2 {
+		t.Errorf("PrecipIntensityMMH: want nearest point 1.2, got %v", got)
+	}
+}
+
+func TestGridSnapshotEmptyGridEchoesRequestedTime(t *testing.T) {
+	at := time.Date(2026, 8, 20, 5, 10, 0, 0, time.UTC)
+	svc := NewWeatherService(&stubWeatherRepo{}, nil)
+
+	snap, err := svc.GridSnapshot(context.Background(), [4]float64{139.60, 35.60, 139.85, 35.75}, at)
+	if err != nil {
+		t.Fatalf("GridSnapshot: %v", err)
+	}
+	if !snap.ValidAt.Equal(at) {
+		t.Errorf("ValidAt: want requested time %v, got %v", at, snap.ValidAt)
+	}
+	if len(snap.Cells) != 0 {
+		t.Errorf("cells: want none, got %d", len(snap.Cells))
 	}
 }
 

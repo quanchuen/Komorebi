@@ -18,7 +18,8 @@ import type {
   DiscoverNearbyParams,
   DiscoverViewportParams,
   DiscoverSuggestedParams,
-  DiscoveryListResponse
+  DiscoveryListResponse,
+  WeatherGridResponse
 } from './types';
 import { apiRouteToRoute, discoveryRouteToRoute } from './types';
 
@@ -114,6 +115,12 @@ export const routing = {
 
   conditionsPreview: (bbox: string, departureAt: string) =>
     get<{ features: unknown[] }>('/routing/conditions/preview', { bbox, departure_at: departureAt })
+};
+
+// --- Weather ---
+
+export const weather = {
+  grid: (bbox: string, at: string) => get<WeatherGridResponse>('/weather/grid', { bbox, at })
 };
 
 // --- Venues ---

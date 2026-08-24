@@ -72,3 +72,11 @@ postgres:
       geometry_type: POINT
       minzoom: 14
       maxzoom: 18
+
+  functions:
+    # Time-sliced building shadows; pass ?hour_slot=0-23&month=1-12 (JST).
+    shadow_cells:
+      schema: environment
+      function: shadow_cells
+      minzoom: 11
+      maxzoom: 16

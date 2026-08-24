@@ -4,9 +4,11 @@ import type { Map as MapLibreMap } from 'maplibre-gl';
 
 export type OverlayType = 'shade' | 'wind' | 'rain' | null;
 
-// Optional map layers — all off by default (progressive disclosure)
-export type MapLayer = 'cycling-roads' | 'venues' | 'landuse';
-export const visibleLayers = writable<Set<MapLayer>>(new Set());
+// Optional map layers. Data layers are off by default (progressive
+// disclosure); the time-scrubbed shadow and rain layers are on by default —
+// seeing conditions move with the departure time is the point of the map.
+export type MapLayer = 'cycling-roads' | 'venues' | 'landuse' | 'shadows' | 'rain-cells';
+export const visibleLayers = writable<Set<MapLayer>>(new Set(['shadows', 'rain-cells']));
 
 // The MapLibre map instance — set once the map mounts
 export const mapInstance = writable<MapLibreMap | null>(null);
@@ -32,6 +34,14 @@ function defaultDeparture(): string {
   return d.toISOString();
 }
 export const departureAt = writable<string>(defaultDeparture());
+
+// The shadow-grid slice matching the departure time. The grid is keyed by
+// JST hour (fixed UTC+9, no DST) and calendar month; the tile function snaps
+// the month to the nearest one with data.
+export const shadowSlice = derived(departureAt, ($d) => {
+  const jst = new Date(new Date($d).getTime() + 9 * 3600_000);
+  return { hourSlot: jst.getUTCHours(), month: jst.getUTCMonth() + 1 };
+});
 
 // Route alternatives displayed on the map
 export interface RouteDisplayInfo {

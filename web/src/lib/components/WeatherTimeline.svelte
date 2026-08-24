@@ -1,29 +1,12 @@
 <!-- web/src/lib/components/WeatherTimeline.svelte -->
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { browser } from '$app/environment';
   import { departureAt, mapBounds } from '$lib/stores/map';
-
-  const COLLAPSED_KEY = 'komorebi:weather-timeline-collapsed:v1';
-
-  function loadCollapsed(): boolean {
-    if (!browser) return false;
-    try {
-      return localStorage.getItem(COLLAPSED_KEY) === '1';
-    } catch {
-      return false;
-    }
-  }
-
-  let collapsed = $state(loadCollapsed());
+  import { weatherTimelineCollapsed as collapsed } from '$lib/stores/ui';
+  import Chevron from './ui/Chevron.svelte';
 
   function toggleCollapsed() {
-    collapsed = !collapsed;
-    try {
-      localStorage.setItem(COLLAPSED_KEY, collapsed ? '1' : '0');
-    } catch {
-      // Storage may be disabled or full; the toggle still works this session.
-    }
+    collapsed.update((c) => !c);
   }
 
   interface HourSlot {
@@ -41,6 +24,42 @@
   let error = $state<string | null>(null);
   let scrollContainer: HTMLDivElement;
   let lastFetchKey = '';
+
+  // Scrubber: drag left/right across the next 24h; the map's shadow and rain
+  // layers follow departureAt live.
+  const SCRUB_STEP_MIN = 10;
+  const SCRUB_SPAN_MIN = 24 * 60 - SCRUB_STEP_MIN;
+
+  function currentHourFloor(): Date {
+    const d = new Date();
+    d.setMinutes(0, 0, 0);
+    return d;
+  }
+  const timelineStart = currentHourFloor();
+
+  const scrubValue = $derived.by(() => {
+    const offsetMin = (new Date($departureAt).getTime() - timelineStart.getTime()) / 60000;
+    const snapped = Math.round(offsetMin / SCRUB_STEP_MIN) * SCRUB_STEP_MIN;
+    return Math.max(0, Math.min(SCRUB_SPAN_MIN, snapped));
+  });
+
+  const scrubLabel = $derived.by(() => {
+    const t = new Date($departureAt);
+    const hm = t.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+    return t.getDate() === new Date().getDate()
+      ? hm
+      : `${t.toLocaleDateString('en-US', { weekday: 'short' })} ${hm}`;
+  });
+
+  function handleScrub(e: Event) {
+    const v = Number((e.currentTarget as HTMLInputElement).value);
+    const t = new Date(timelineStart.getTime() + v * 60000);
+    departureAt.set(t.toISOString());
+    slots = slots.map((s) => ({
+      ...s,
+      isSelected: s.time.getHours() === t.getHours() && s.time.getDate() === t.getDate()
+    }));
+  }
 
   function generateSlots(): HourSlot[] {
     const now = new Date();
@@ -179,33 +198,53 @@
 
 <div class="shrink-0 border-t border-border bg-surface">
   <div class="overflow-hidden">
-    <div class="flex items-center justify-between px-4 pt-2 pb-1">
+    <!-- One header row: the fold toggle shares the line with the departure
+         scrubber so expanding the panel costs no extra height. Collapsed, the
+         row still shows the selected departure time. -->
+    <div class="flex items-center gap-3 px-4">
       <button
         onclick={toggleCollapsed}
-        aria-expanded={!collapsed}
+        aria-expanded={!$collapsed}
         aria-controls="weather-timeline-hours"
-        class="flex items-center gap-1.5 text-3xs text-text-subtle uppercase tracking-wider
-               hover:text-text-muted transition-colors py-1 -my-1"
+        class="flex items-center gap-1.5 min-h-11 shrink-0 text-3xs text-text-subtle uppercase
+               tracking-wider hover:text-text-muted transition-colors"
       >
-        <span
-          class="inline-block transition-transform {collapsed ? '-rotate-90' : ''}"
-          aria-hidden="true">▾</span
-        >
-        Weather timeline
-      </button>
-      {#if !collapsed}
-        {#if loading}
-          <span class="text-3xs text-text-subtle animate-pulse">Loading...</span>
-        {:else if error}
-          <span class="text-3xs text-amber-400">{error}</span>
+        <Chevron direction={$collapsed ? 'up' : 'down'} />
+        Weather
+        {#if $collapsed}
+          <span class="normal-case tracking-normal text-accent font-medium tabular-nums">
+            · {scrubLabel}
+          </span>
         {/if}
+      </button>
+
+      {#if !$collapsed}
+        {#if loading}
+          <span class="text-3xs text-text-subtle animate-pulse shrink-0">Loading...</span>
+        {:else if error}
+          <span class="text-3xs text-amber-400 shrink-0">{error}</span>
+        {/if}
+        <input
+          type="range"
+          min="0"
+          max={SCRUB_SPAN_MIN}
+          step={SCRUB_STEP_MIN}
+          value={scrubValue}
+          oninput={handleScrub}
+          aria-label="Departure time"
+          aria-valuetext={scrubLabel}
+          class="time-scrubber w-full min-w-0"
+        />
+        <span class="text-2xs text-accent font-medium tabular-nums shrink-0 w-16 text-right">
+          {scrubLabel}
+        </span>
       {/if}
     </div>
 
     <div
       id="weather-timeline-hours"
       bind:this={scrollContainer}
-      class="flex overflow-x-auto gap-0 px-2 pb-2 scrollbar-thin {collapsed ? 'hidden' : ''}"
+      class="flex overflow-x-auto gap-0 px-2 pb-2 scrollbar-thin {$collapsed ? 'hidden' : ''}"
     >
       {#each slots as slot (slot.hour)}
         <button
@@ -262,6 +301,45 @@
 </div>
 
 <style>
+  /* The 44px tall input keeps the whole strip an easy drag target while the
+     visible track stays a thin line. */
+  .time-scrubber {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 44px;
+    background: transparent;
+    cursor: ew-resize;
+  }
+  .time-scrubber::-webkit-slider-runnable-track {
+    height: 4px;
+    border-radius: 2px;
+    background: var(--color-surface-overlay, #cbd5e1);
+  }
+  .time-scrubber::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    margin-top: -6px;
+    border-radius: 50%;
+    background: var(--color-accent, #0284c7);
+    border: 2px solid var(--color-surface, #ffffff);
+    box-shadow: 0 1px 3px rgb(0 0 0 / 0.35);
+  }
+  .time-scrubber::-moz-range-track {
+    height: 4px;
+    border-radius: 2px;
+    background: var(--color-surface-overlay, #cbd5e1);
+  }
+  .time-scrubber::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--color-accent, #0284c7);
+    border: 2px solid var(--color-surface, #ffffff);
+    box-shadow: 0 1px 3px rgb(0 0 0 / 0.35);
+  }
+
   .scrollbar-thin::-webkit-scrollbar {
     height: 4px;
   }

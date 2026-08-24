@@ -7,7 +7,10 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': process.env.API_PROXY_TARGET ?? 'http://127.0.0.1:8080',
-      '/tiles': process.env.TILES_PROXY_TARGET ?? 'http://127.0.0.1:3000',
+      '/tiles': {
+        target: process.env.TILES_PROXY_TARGET ?? 'http://127.0.0.1:3000',
+        rewrite: (path) => path.replace(/^\/tiles/, '')
+      },
       '/nominatim': {
         target: 'https://nominatim.openstreetmap.org',
         changeOrigin: true,

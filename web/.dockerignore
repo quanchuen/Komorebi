@@ -1,0 +1,9 @@
+node_modules
+.svelte-kit
+build
+tests
+test-results
+playwright-report
+.lighthouseci
+.husky
+*.log

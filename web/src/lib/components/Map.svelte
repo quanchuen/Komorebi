@@ -10,12 +10,17 @@
     visibleLayers,
     routeDisplays,
     selectedRouteGeometry,
-    liveNavigationPosition
+    liveNavigationPosition,
+    departureAt,
+    shadowSlice,
+    bboxString
   } from '$lib/stores/map';
+  import { weather } from '$lib/api/client';
   import { buildLineGradient } from '$lib/utils/conditionColors';
   import type { RouteConditionSegment } from '$lib/api/types';
 
   import type { RouteAlternative } from '$lib/api/types';
+  import type { FeatureCollection } from 'geojson';
 
   interface RouteDisplay {
     coords: [number, number][];
@@ -56,6 +61,15 @@
   let mapLoaded = $state(false);
 
   const MARTIN_URL = 'http://localhost:3000';
+
+  // Shadow tiles are sliced per (hour, month); the slider swaps the tile URL.
+  // MapLibre needs absolute tile URLs, so resolve the /tiles proxy against the
+  // page origin (the map only exists in the browser).
+  function shadowTileUrls(slice: { hourSlot: number; month: number }): string[] {
+    return [
+      `${window.location.origin}/tiles/shadow_cells/{z}/{x}/{y}?hour_slot=${slice.hourSlot}&month=${slice.month}`
+    ];
+  }
 
   // Optional layers: defined here but hidden by default
   const OPTIONAL_LAYERS = {
@@ -186,6 +200,82 @@
     });
 
     map.on('load', () => {
+      // Time-scrubbed area layers (building shadows, rain cells). Inserted
+      // below curated-routes so every line layer stays readable above them;
+      // visibility is driven by the visibleLayers store like other layers.
+      map.addSource('shadow-cells', {
+        type: 'vector',
+        tiles: shadowTileUrls($shadowSlice),
+        minzoom: 11,
+        maxzoom: 16
+      });
+      map.addLayer(
+        {
+          id: 'shadow-cells-fill',
+          type: 'fill',
+          source: 'shadow-cells',
+          'source-layer': 'shadow_cells',
+          paint: {
+            'fill-color': '#1e3a8a',
+            'fill-antialias': false,
+            'fill-opacity': [
+              'interpolate',
+              ['linear'],
+              ['get', 'shade_coverage'],
+              0.05,
+              0,
+              0.4,
+              0.16,
+              1,
+              0.38
+            ]
+          },
+          layout: { visibility: 'none' }
+        },
+        'curated-routes'
+      );
+
+      map.addSource('rain-cells', {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] }
+      });
+      map.addLayer(
+        {
+          id: 'rain-cells-fill',
+          type: 'fill',
+          source: 'rain-cells',
+          paint: {
+            'fill-color': [
+              'interpolate',
+              ['linear'],
+              ['get', 'precip'],
+              0.05,
+              '#67e8f9',
+              1,
+              '#6366f1',
+              4,
+              '#4c1d95'
+            ],
+            'fill-antialias': false,
+            'fill-opacity': [
+              'interpolate',
+              ['linear'],
+              ['get', 'precip'],
+              0,
+              0,
+              0.1,
+              0.12,
+              1,
+              0.3,
+              4,
+              0.45
+            ]
+          },
+          layout: { visibility: 'none' }
+        },
+        'curated-routes'
+      );
+
       // Add optional layers (hidden by default)
       for (const def of Object.values(OPTIONAL_LAYERS)) {
         map.addLayer(def as any);
@@ -275,9 +365,10 @@
 
       mapLoaded = true;
       mapInstance.set(map);
+      publishBounds(); // seed viewport-driven layers before the first pan
     });
 
-    map.on('moveend', () => {
+    function publishBounds() {
       const bounds = map.getBounds();
       mapBounds.set({
         minLon: bounds.getWest(),
@@ -286,7 +377,9 @@
         maxLat: bounds.getNorth()
       });
       onmoveend?.({ bounds });
-    });
+    }
+
+    map.on('moveend', publishBounds);
 
     map.on('click', (e) => {
       onclick?.({ lng: e.lngLat.lng, lat: e.lngLat.lat });
@@ -323,7 +416,9 @@
     const layerMap: Record<string, string> = {
       'cycling-roads': 'cycling-roads',
       landuse: 'landuse-fill',
-      venues: 'venue-circles'
+      venues: 'venue-circles',
+      shadows: 'shadow-cells-fill',
+      'rain-cells': 'rain-cells-fill'
     };
     for (const [key, layerId] of Object.entries(layerMap)) {
       const vis = layers.has(key as any) ? 'visible' : 'none';
@@ -331,6 +426,79 @@
         map.setLayoutProperty(layerId, 'visibility', vis);
       }
     }
+  });
+
+  // Swap the shadow tile slice when the departure time moves. Debounced so a
+  // slider drag settles before tiles reload; already-seen slices come back
+  // from the browser HTTP cache.
+  let shadowTimer: ReturnType<typeof setTimeout>;
+  $effect(() => {
+    const slice = $shadowSlice;
+    if (!map || !mapLoaded) return;
+    clearTimeout(shadowTimer);
+    shadowTimer = setTimeout(() => {
+      const src = map.getSource('shadow-cells') as maplibregl.VectorTileSource | undefined;
+      src?.setTiles(shadowTileUrls(slice));
+    }, 150);
+  });
+
+  // Repaint the rain cells when the departure time or viewport moves.
+  // Snapshots are cached per quantized time step so scrubbing back and forth
+  // repaints from memory.
+  let rainTimer: ReturnType<typeof setTimeout>;
+  let rainSeq = 0;
+  const rainCache = new Map<string, FeatureCollection>();
+
+  async function refreshRainCells(bbox: string, at: string) {
+    const src = map.getSource('rain-cells') as maplibregl.GeoJSONSource | undefined;
+    if (!src) return;
+    const t = new Date(at);
+    t.setSeconds(0, 0);
+    t.setMinutes(Math.round(t.getMinutes() / 10) * 10);
+    const key = `${t.toISOString()}|${bbox}`;
+    let fc = rainCache.get(key);
+    const seq = ++rainSeq;
+    if (!fc) {
+      try {
+        const res = await weather.grid(bbox, t.toISOString());
+        fc = {
+          type: 'FeatureCollection',
+          features: res.cells.map((c) => ({
+            type: 'Feature',
+            geometry: {
+              type: 'Polygon',
+              coordinates: [
+                [
+                  [c.min_lon, c.min_lat],
+                  [c.max_lon, c.min_lat],
+                  [c.max_lon, c.max_lat],
+                  [c.min_lon, c.max_lat],
+                  [c.min_lon, c.min_lat]
+                ]
+              ]
+            },
+            properties: { precip: c.precip_intensity_mmh, source: c.precip_source }
+          }))
+        };
+        rainCache.set(key, fc);
+        if (rainCache.size > 200) {
+          rainCache.delete(rainCache.keys().next().value as string);
+        }
+      } catch {
+        return; // API offline or no data — keep the previous snapshot
+      }
+      if (seq !== rainSeq) return; // a newer request superseded this one
+    }
+    src.setData(fc);
+  }
+
+  $effect(() => {
+    const at = $departureAt;
+    const bbox = $bboxString;
+    const visible = $visibleLayers.has('rain-cells');
+    if (!map || !mapLoaded || !bbox || !visible) return;
+    clearTimeout(rainTimer);
+    rainTimer = setTimeout(() => void refreshRainCells(bbox, at), 180);
   });
 
   // Show all route alternatives on map (dimmed unselected, bright selected)

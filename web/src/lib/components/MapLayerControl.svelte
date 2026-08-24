@@ -13,6 +13,8 @@
   ];
 
   const dataLayers: { id: MapLayer; label: string; icon: string }[] = [
+    { id: 'shadows', label: 'Shadows', icon: '🌗' },
+    { id: 'rain-cells', label: 'Rain radar', icon: '🌧' },
     { id: 'venues', label: 'Venues', icon: '📍' },
     { id: 'cycling-roads', label: 'Cycle paths', icon: '🚲' },
     { id: 'landuse', label: 'Green areas', icon: '🌳' }

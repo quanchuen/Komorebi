@@ -1,3 +1,5 @@
+.DEFAULT_GOAL := help
+
 MIGRATE_URL ?= postgres://osm_dev:osm_dev@localhost:5432/cyclist_map_dev?sslmode=disable
 
 OSM_PBF     := pipelines/osm_import/kanto-latest.osm.pbf
@@ -20,16 +22,20 @@ GITLEAKS         ?= $(shell command -v gitleaks 2>/dev/null || echo $${GOPATH:-$
 .PHONY: hooks gitleaks-install secrets-audit
 .PHONY: migrate-up migrate-down migrate-create osm-download osm-import osm-update osm-venues osm-all greenery plateau-shadow weather support-up support-stop project-up project-stop stack-up stack-down compose-config dev-run dev-api dev-martin dev-valhalla dev-web test test-unit test-integration test-web test-all web-lint web-lighthouse help
 
+## Apply pending database migrations
 migrate-up:
 	migrate -path migrations -database "$(MIGRATE_URL)" up
 
+## Roll back one migration
 migrate-down:
 	migrate -path migrations -database "$(MIGRATE_URL)" down 1
 
+## Create a new numbered migration pair (prompts for a name)
 migrate-create:
 	@read -p "Name: " name; \
 	migrate create -ext sql -dir migrations -seq -digits 6 $$name
 
+## Re-seed demo routes via the reroute tool (requires DB + Valhalla)
 demo-routes:
 	DATABASE_URL="$(DATABASE_URL)" VALHALLA_URL="$${VALHALLA_URL:-http://localhost:8002}" go run ./cmd/reroute-demo
 
@@ -83,9 +89,9 @@ plateau-shadow:
 	    --wards $(WARDS) \
 	    --months 1,4,7,10
 
-## Start supporting services only (Martin + Valhalla)
+## Start supporting services only (Martin + Valhalla); runs pending migrations first
 support-up:
-	$(COMPOSE) --profile support up -d martin valhalla
+	$(COMPOSE) up -d martin valhalla
 
 ## Stop supporting services without touching project containers or data
 support-stop:
@@ -93,23 +99,23 @@ support-stop:
 
 ## Build and start project-owned containers only (API + Web)
 project-up:
-	$(COMPOSE) --profile project up -d --build api web
+	$(COMPOSE) up -d --build api web
 
 ## Stop project-owned containers without touching supporting services
 project-stop:
 	$(COMPOSE) stop api web
 
-## Build and start the complete container stack
+## Build and start the complete container stack (same as `docker compose up -d --build`)
 stack-up:
-	$(COMPOSE) --profile project --profile support up -d --build
+	$(COMPOSE) up -d --build
 
 ## Stop the complete stack; named data volumes are preserved
 stack-down:
-	$(COMPOSE) --profile project --profile support down
+	$(COMPOSE) down
 
-## Validate all Compose profiles without starting containers
+## Validate the Compose file (including the pipelines profile) without starting containers
 compose-config:
-	$(COMPOSE) --profile project --profile support --profile pipelines config --quiet
+	$(COMPOSE) --profile pipelines config --quiet
 
 ## Start support containers plus local API and Vite dev servers; Ctrl-C stops local processes
 dev-run: support-up
@@ -130,17 +136,18 @@ dev-web:
 		echo 'warning: API is not reachable on :$(API_PORT); run "make dev-api" or use "make dev-run"'
 	cd web && npm run dev
 
-## Start only Martin through its support profile
+## Start only Martin (plus the one-shot migrate service it depends on)
 dev-martin:
-	$(COMPOSE) --profile support up martin
+	$(COMPOSE) up martin
 
-## Start only Valhalla through its support profile
+## Start only Valhalla
 dev-valhalla:
-	$(COMPOSE) --profile support up valhalla
+	$(COMPOSE) up valhalla
 
 ## Fast default: Go tests that do not require Postgres, Martin, or Valhalla processes
 test: test-unit
 
+## Go tests for domain/app/api and HTTP adapters only
 test-unit:
 	go test ./cmd/... ./internal/domain/... ./internal/app/... ./internal/api/... \
 		./internal/infra/valhalla/... ./internal/infra/openmeteo/... \
@@ -171,7 +178,7 @@ hooks: gitleaks-install
 	git config core.hooksPath web/.husky
 	@echo "core.hooksPath -> web/.husky (pre-commit: gitleaks + lint-staged)"
 
-## Build gitleaks $(GITLEAKS_VERSION) from source if it is not already on PATH
+## Build the pinned gitleaks version from source if it is not already on PATH
 gitleaks-install:
 	@if [ -x "$(GITLEAKS)" ]; then echo "gitleaks present: $(GITLEAKS)"; \
 	else echo "installing gitleaks $(GITLEAKS_VERSION) via go install"; \
@@ -181,5 +188,7 @@ gitleaks-install:
 secrets-audit: gitleaks-install
 	"$(GITLEAKS)" git . --config .gitleaks.toml --redact --no-banner
 
+## Show this help
 help:
-	@grep -E '^## ' Makefile | sed 's/^## //'
+	@printf 'Usage: make <target>\n\nTargets:\n'
+	@awk '/^## /{d=substr($$0,4); next} /^[a-zA-Z0-9][a-zA-Z0-9_.-]*:/{if(d){t=$$1; sub(/:.*/,"",t); printf "  \033[36m%-18s\033[0m %s\n", t, d; d=""}} /^$$/{d=""}' Makefile

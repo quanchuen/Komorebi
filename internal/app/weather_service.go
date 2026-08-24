@@ -25,7 +25,39 @@ const (
 	// (and re-waiting on) the upstream call for every segment of every route.
 	weatherNegativeTTL  = time.Minute
 	weatherFetchTimeout = 5 * time.Second
+	// minutelyOverrideRadiusDeg is the Chebyshev (max of |dlat|, |dlon|) match
+	// radius between a cell centroid and a nowcast point: minutely points sit
+	// on a ~0.10 degree grid, so 0.08 covers each cell's nearest point without
+	// bleeding into the next-but-one.
+	minutelyOverrideRadiusDeg = 0.08
 )
+
+// Precipitation source labels for GridCell.PrecipSource.
+const (
+	PrecipSourceHourly   = "hourly"
+	PrecipSourceMinutely = "minutely"
+)
+
+// GridCell is one weather cell of a GridSnapshot with axis-aligned bounds.
+type GridCell struct {
+	MinLon             float64
+	MinLat             float64
+	MaxLon             float64
+	MaxLat             float64
+	PrecipIntensityMMH float64
+	WindSpeedMS        float64
+	WindBearingDeg     float64
+	TemperatureC       float64
+	UVIndex            float64
+	PrecipSource       string
+}
+
+// GridSnapshot is the weather grid inside a bbox at one hourly snapshot,
+// with per-cell precipitation optionally overridden by minutely nowcast data.
+type GridSnapshot struct {
+	ValidAt time.Time
+	Cells   []GridCell
+}
 
 // WeatherService is the application-layer facade over weather data.
 //
@@ -82,6 +114,82 @@ func (s *WeatherService) AtPointContext(ctx context.Context, lat, lon float64, t
 		return nil, fmt.Errorf("%w: live fetch failed: %w", environment.ErrNoWeather, err)
 	}
 	return wg, err
+}
+
+// GridSnapshot returns the weather cells intersecting bbox (minLon, minLat,
+// maxLon, maxLat) at the hourly snapshot nearest to at. When minutely nowcast
+// data exists near at, per-cell precipitation is overridden by the nearest
+// nowcast point within minutelyOverrideRadiusDeg of the cell centroid.
+// An empty grid yields ValidAt = at (UTC) and no cells.
+func (s *WeatherService) GridSnapshot(ctx context.Context, bbox [4]float64, at time.Time) (*GridSnapshot, error) {
+	grids, err := s.repo.GridInBBox(ctx, bbox, at)
+	if err != nil {
+		return nil, err
+	}
+	if len(grids) == 0 {
+		return &GridSnapshot{ValidAt: at.UTC(), Cells: []GridCell{}}, nil
+	}
+
+	minutely, err := s.repo.MinutelySnapshot(ctx, at)
+	if err != nil {
+		return nil, err
+	}
+
+	cells := make([]GridCell, len(grids))
+	for i, g := range grids {
+		minLon, minLat, maxLon, maxLat := ringBounds(g.CellGeometry)
+		cell := GridCell{
+			MinLon:             minLon,
+			MinLat:             minLat,
+			MaxLon:             maxLon,
+			MaxLat:             maxLat,
+			PrecipIntensityMMH: g.PrecipIntensityMMH,
+			WindSpeedMS:        g.WindSpeedMS,
+			WindBearingDeg:     g.WindBearingDeg,
+			TemperatureC:       g.TemperatureC,
+			UVIndex:            g.UVIndex,
+			PrecipSource:       PrecipSourceHourly,
+		}
+		if m, ok := nearestMinutely(minutely, (minLat+maxLat)/2, (minLon+maxLon)/2); ok {
+			cell.PrecipIntensityMMH = m.IntensityMMH
+			cell.PrecipSource = PrecipSourceMinutely
+		}
+		cells[i] = cell
+	}
+	return &GridSnapshot{ValidAt: grids[0].ValidAt.UTC(), Cells: cells}, nil
+}
+
+// nearestMinutely returns the nowcast point closest to (lat, lon) by Chebyshev
+// distance, if one lies within minutelyOverrideRadiusDeg.
+func nearestMinutely(points []environment.MinutelyPrecip, lat, lon float64) (environment.MinutelyPrecip, bool) {
+	best := -1
+	bestDist := minutelyOverrideRadiusDeg
+	for i, p := range points {
+		d := math.Max(math.Abs(p.Lat-lat), math.Abs(p.Lon-lon))
+		if d <= bestDist {
+			best, bestDist = i, d
+		}
+	}
+	if best < 0 {
+		return environment.MinutelyPrecip{}, false
+	}
+	return points[best], true
+}
+
+// ringBounds returns the axis-aligned bounds of a polygon ring.
+func ringBounds(ring [][2]float64) (minLon, minLat, maxLon, maxLat float64) {
+	if len(ring) == 0 {
+		return 0, 0, 0, 0
+	}
+	minLon, maxLon = ring[0][0], ring[0][0]
+	minLat, maxLat = ring[0][1], ring[0][1]
+	for _, p := range ring[1:] {
+		minLon = math.Min(minLon, p[0])
+		maxLon = math.Max(maxLon, p[0])
+		minLat = math.Min(minLat, p[1])
+		maxLat = math.Max(maxLat, p[1])
+	}
+	return minLon, minLat, maxLon, maxLat
 }
 
 // AlongRoute scores each segment by fetching the nearest weather cell and

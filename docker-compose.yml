@@ -1,6 +1,23 @@
+# `docker compose up --build` starts the full application: api + web (built from
+# this repo) and the martin + valhalla adapters. Only `plateau_shadow` sits
+# behind a profile because it is a one-shot pipeline, not a long-running service.
+#
+# Postgres is NOT part of this file — bring your own (see README) and point
+# db.env at it. Migrations are applied by the `migrate` one-shot service before
+# the api and martin start, so a fresh checkout is schema-complete on first up.
 services:
+  migrate:
+    image: migrate/migrate:v4.18.3
+    env_file:
+      - db.env
+    volumes:
+      - ./migrations:/migrations:ro
+    # The image ENTRYPOINT is the `migrate` binary, which cannot expand
+    # $DATABASE_URL itself; go through sh so the env_file value is used.
+    entrypoint: ["sh", "-c"]
+    command: ['exec migrate -path /migrations -database "$$DATABASE_URL" up']
+
   api:
-    profiles: [project]
     build: .
     ports:
       - "8080:8080"
@@ -12,9 +29,12 @@ services:
         required: false
     environment:
       VALHALLA_URL: http://valhalla:8002
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
 
   martin:
-    profiles: [support]
     image: ghcr.io/maplibre/martin:1.13.0
     ports:
       - "3000:3000"
@@ -23,9 +43,14 @@ services:
     volumes:
       - ./martin.yaml:/usr/local/share/martin/martin.yaml:ro
     command: ["--config", "/usr/local/share/martin/martin.yaml"]
+    # martin.yaml references SQL function sources created by migrations
+    # (e.g. environment.shadow_cells); Martin only discovers them at startup.
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
 
   valhalla:
-    profiles: [support]
     image: ghcr.io/gis-ops/docker-valhalla/valhalla:latest
     ports:
       - "8002:8002"
@@ -36,9 +61,9 @@ services:
       # Download SRTM elevation for the graph extent and rebuild tiles with it —
       # required for /height (elevation profiles, gain/loss backfill).
       build_elevation: "True"
+    restart: unless-stopped
 
   web:
-    profiles: [project]
     build:
       context: ./web
       dockerfile: Dockerfile
@@ -48,6 +73,8 @@ services:
       - NODE_ENV=production
       - ORIGIN=http://localhost:3001
       - API_URL=http://api:8080
+      # Server-side proxy target for /tiles/* (see web/src/hooks.server.ts).
+      - TILES_URL=http://martin:3000
     depends_on:
       - api
     restart: unless-stopped

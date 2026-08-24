@@ -166,28 +166,32 @@ with `make support-stop`.
 
 ## Running services individually
 
-Compose services are separated by operational ownership:
+`docker compose up --build` brings up the complete application against your
+local Postgres: a one-shot `migrate` service applies pending migrations, then
+the API (`:8080`), web (`:3001`), Martin (`:3000`) and Valhalla (`:8002`)
+start. Services are grouped by operational ownership:
 
-| Profile | Services | Purpose |
+| Group | Services | Purpose |
 |---|---|---|
-| `project` | `api`, `web` | Code built and maintained in this repository |
-| `support` | `valhalla`, `martin` | Replaceable external routing and tile adapters |
-| `pipelines` | `plateau_shadow` | One-shot or scheduled data processing |
+| project | `api`, `web` | Code built and maintained in this repository |
+| support | `valhalla`, `martin` | Replaceable external routing and tile adapters |
+| schema | `migrate` | One-shot golang-migrate run; `api` and `martin` wait for it |
+| `pipelines` profile | `plateau_shadow` | One-shot data processing; not started by default |
 
 Common workflows:
 
 ```bash
-make support-up       # Martin + Valhalla only; useful for local source development
-make project-up       # Containerized API + Web only; adapters may be unavailable
-make stack-up         # Project + support profiles
-make stack-down       # Stop the complete stack, preserving named volumes
-make compose-config   # Validate every profile without starting anything
+docker compose up --build   # Everything, in the foreground
+make stack-up               # Same, detached
+make support-up             # Martin + Valhalla only; useful for local source development
+make project-up             # Containerized API + Web only; adapters may be unavailable
+make stack-down             # Stop the complete stack, preserving named volumes
+make compose-config         # Validate the Compose file without starting anything
 ```
 
-The `project` profile intentionally has no Compose dependency on `support`.
-Missing adapters must surface as normal API/service errors; this keeps project
-containers and most tests independently runnable. For a complete application,
-enable both profiles with `make stack-up`.
+Project services intentionally have no Compose dependency on the support
+adapters. Missing adapters must surface as normal API/service errors; this
+keeps project containers and most tests independently runnable.
 
 Individual local processes and containers:
 

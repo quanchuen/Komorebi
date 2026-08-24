@@ -19,7 +19,7 @@ make dev-run
 # Operationally separated Compose services
 make support-up       # external adapters: Martin + Valhalla
 make project-up       # repository-owned containers: API + Web
-make stack-up         # both profiles
+make stack-up         # everything (== docker compose up -d --build)
 
 # Individual services
 JWT_SECRET=cyclist-map-dev-secret-do-not-use-in-production \
@@ -55,10 +55,14 @@ Never allowlist a real credential — rotate it. Real keys live in `.envrc` /
 
 Integration tests in `infra/postgres/` connect to the real database. They use `TEST_DB_DSN` or the default connection string and skip gracefully if unreachable. Test stubs are hand-written (no mocking library) — see `testutil_test.go` files for patterns.
 
-Docker Compose has three profiles: `project` (`api`, `web`), `support`
-(`martin`, `valhalla`), and `pipelines` (`plateau_shadow`). Project services do
-not declare dependencies on support services so they can be developed and tested
-independently; use `make stack-up` for the integrated container stack.
+`docker compose up --build` starts the whole application: a one-shot `migrate`
+service applies pending migrations, then `api`, `web`, `martin`, and `valhalla`
+start (Postgres stays outside Compose; `db.env` points at it). Only
+`plateau_shadow` is behind a profile (`pipelines`). Project services (`api`,
+`web`) declare no dependency on the support adapters (`martin`, `valhalla`) so
+they can be developed and tested independently. The root `.dockerignore` is an
+allow-list (`go.mod`, `go.sum`, `cmd/`, `internal/`) — add to it if the Go
+build ever needs another path.
 
 ## Database
 
@@ -70,7 +74,7 @@ make migrate-down                           # Rollback one migration
 make migrate-create                         # Create new migration pair
 ```
 
-Migrations use golang-migrate, numbered `000001`–`000021`. Four schemas: `routes`, `community`, `environment`, `plan`. The `osm` schema is managed by osm2pgsql.
+Migrations use golang-migrate, numbered `000001`–`000023`. Four schemas: `routes`, `community`, `environment`, `plan`. The `osm` schema is managed by osm2pgsql.
 
 ## Architecture
 
@@ -126,7 +130,7 @@ pipeline does.
 
 ## API Endpoints (internal/api/router.go)
 
-**Public:** GET routes, GET discover/nearby|viewport|suggested, GET venues/tags, POST auth/register|login|refresh, GET weather/point, POST routing/directions, POST routing/intent, POST routing/conditions, GET routes/:id/conditions
+**Public:** GET routes, GET discover/nearby|viewport|suggested, GET venues/tags, POST auth/register|login|refresh, GET weather/point, GET weather/grid, POST routing/directions, POST routing/intent, POST routing/conditions, GET routes/:id/conditions
 
 **Authenticated:** POST contributions, POST reviews, POST ride-logs, POST plans, POST plans/:id/stops|tasks
 

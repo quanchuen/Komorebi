@@ -1,0 +1,8 @@
+# Build context for the Go API image (root Dockerfile). Allow-list only what
+# `go build ./cmd/api` needs; everything else (13 GB of pipeline caches,
+# node_modules, .git) stays out so `docker compose up --build` is fast.
+*
+!go.mod
+!go.sum
+!cmd
+!internal
