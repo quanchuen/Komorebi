@@ -130,7 +130,7 @@
     <div class="p-4">
       <button
         onclick={savePlan}
-        class="w-full bg-accent hover:bg-accent-strong text-white text-sm font-semibold rounded-xl py-2.5 transition-colors"
+        class="w-full bg-accent hover:bg-accent-strong text-on-accent text-sm font-semibold rounded-xl py-2.5 transition-colors"
       >
         Save plan
       </button>

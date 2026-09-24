@@ -42,7 +42,7 @@
     {#each items as review (review.id)}
       <div class="bg-surface-raised rounded-lg p-3 space-y-1">
         <div class="flex items-center gap-2">
-          <span class="text-yellow-400 text-xs tracking-wide">{stars(review.rating)}</span>
+          <span class="text-rating text-xs tracking-wide">{stars(review.rating)}</span>
           <span class="text-xs text-text-subtle"
             >{new Date(review.createdAt).toLocaleDateString()}</span
           >

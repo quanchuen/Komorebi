@@ -36,6 +36,26 @@
   --color-danger: #b91c1c; /* red-700 */
   --color-danger-surface: #fee2e2; /* red-100 */
   --color-warning: #f59e0b; /* amber-500 — effort/grade traces, caution accents */
+  --color-warning-strong: #b45309; /* amber-700 — caution text on light surfaces */
+  --color-warning-surface: #fef3c7; /* amber-100 — caution note background */
+  --color-success: #059669; /* emerald-600 — go / start actions */
+  --color-success-strong: #047857; /* emerald-700 — hover on filled success */
+
+  /* Text on filled accent/status buttons and chips */
+  --color-on-accent: #ffffff;
+
+  /* Condition indicators — text/chip counterparts of the MapLibre ramps in
+     src/lib/utils/conditionColors.ts, darkened for contrast on light surfaces */
+  --color-shade: #2563eb; /* blue-600 */
+  --color-greenery: #16a34a; /* green-600 */
+  --color-rain: #9333ea; /* purple-600 */
+  --color-wind: #16a34a; /* green-600 — favorable / tailwind */
+  --color-wind-adverse: #dc2626; /* red-600 — headwind */
+  --color-hot: #dc2626; /* red-600 — high-temperature readouts */
+  --color-cold: #2563eb; /* blue-600 — low-temperature readouts */
+
+  /* Ratings */
+  --color-rating: #eab308; /* yellow-500 — review stars */
 
   /* Micro type scale — replaces arbitrary text-[9px]/[10px]/[11px] usages.
      (9px labels are bumped to 3xs/10px on migration — negligible visually,

@@ -31,9 +31,8 @@
   import RouteCard from './RouteCard.svelte';
   import ConditionSparkline from './ConditionSparkline.svelte';
   import ElevationSparkline from './ElevationSparkline.svelte';
-  import MapLayerControl from './MapLayerControl.svelte';
   import AsyncBoundary from './ui/AsyncBoundary.svelte';
-  import Chevron from './ui/Chevron.svelte';
+  import FoldGrabber from './ui/FoldGrabber.svelte';
 
   interface Stop {
     id: string;
@@ -600,16 +599,23 @@
 
   let filteredRoutes = $derived($discoveryRoutes);
 
-  // One-line summary shown when the address card is folded.
-  let collapsedSummary = $derived.by(() => {
+  // From / To halves of the summary shown when the address card is folded.
+  // Rendered as three cells (From, arrow, To) so the arrow splits the bar's
+  // center and each address centers in its own half.
+  let collapsedFrom = $derived.by(() => {
+    const first = stops[0];
+    return first?.label || first?.query.trim() || 'Start';
+  });
+  let collapsedTo = $derived.by(() => {
+    const last = stops[stops.length - 1];
+    const to = last?.label || last?.query.trim() || 'Destination';
+    const vias = stops.length - 2;
+    return vias > 0 ? `${to} · ${vias} via` : to;
+  });
+  let collapsedEmpty = $derived.by(() => {
     const first = stops[0];
     const last = stops[stops.length - 1];
-    const from = first?.label || first?.query.trim();
-    const to = last?.label || last?.query.trim();
-    if (!from && !to) return 'Where to?';
-    const vias = stops.length - 2;
-    const core = `${from || 'Start'} → ${to || 'Destination'}`;
-    return vias > 0 ? `${core} · ${vias} via` : core;
+    return !(first?.label || first?.query.trim()) && !(last?.label || last?.query.trim());
   });
 
   // Fresh alternatives are the one thing a rider always wants to see: unfold
@@ -635,42 +641,55 @@
               rounded-2xl shadow-2xl pointer-events-auto
               xl:absolute xl:top-0 xl:left-1/2 xl:-translate-x-1/2
               {$navCardCollapsed
-      ? 'px-3 py-1 xl:w-auto xl:min-w-72 xl:max-w-2xl'
+      ? 'overflow-hidden xl:w-auto xl:min-w-72 xl:max-w-2xl'
       : hasVias
         ? 'p-4 xl:w-96'
         : 'p-4 xl:w-2xl'}"
   >
     {#if $navCardCollapsed}
-      <!-- Folded: a single bar with the trip summary. The Stop control stays
-           reachable here so live guidance can always be ended. -->
-      <div class="flex items-center gap-2">
+      <!-- Folded: summary row (From · arrow · To) over a dedicated fold
+           strip. The Stop control stays reachable so live guidance can
+           always be ended. -->
+      <div class="relative">
         <button
           onclick={() => navCardCollapsed.set(false)}
           aria-expanded="false"
           aria-controls="nav-card-body"
-          class="flex-1 min-w-0 min-h-11 flex items-center gap-2 text-left
-                 text-text-muted hover:text-text transition-colors"
+          class="group block w-full text-text-muted hover:text-text transition-colors"
         >
-          <Chevron direction="down" class="text-text-subtle" />
-          <span class="text-xs truncate">{collapsedSummary}</span>
+          {#if collapsedEmpty}
+            <span class="h-10 px-4 flex items-center justify-center text-xs">Where to?</span>
+          {:else}
+            <span class="h-10 px-4 flex items-center gap-2">
+              <span class="flex-1 min-w-0 text-center truncate text-xs">{collapsedFrom}</span>
+              <span class="text-xs text-border-strong">→</span>
+              <span class="flex-1 min-w-0 text-center truncate text-xs">{collapsedTo}</span>
+            </span>
+          {/if}
+          <span
+            class="h-6 flex items-center justify-center bg-surface-overlay/40 border-t border-border/50"
+          >
+            <FoldGrabber direction="down" size="sm" />
+          </span>
         </button>
         {#if $foregroundNavigation.status !== 'idle'}
-          <span class="text-3xs text-text-subtle shrink-0 hidden sm:inline">
-            {$foregroundNavigation.status === 'requesting'
-              ? 'Waiting for GPS…'
-              : $foregroundNavigation.offRoute
-                ? 'Off route'
-                : $foregroundNavigation.remainingDistanceM !== null
-                  ? `${($foregroundNavigation.remainingDistanceM / 1000).toFixed(1)} km left`
-                  : 'Guidance active'}
-          </span>
-          <button
-            onclick={stopForegroundNavigation}
-            class="shrink-0 px-2.5 py-1.5 rounded-lg text-3xs text-text-muted
-                   border border-border hover:text-text hover:bg-surface-raised">Stop</button
-          >
+          <div class="absolute right-3 top-0 h-10 flex items-center gap-2">
+            <span class="text-3xs text-text-subtle shrink-0 hidden sm:inline">
+              {$foregroundNavigation.status === 'requesting'
+                ? 'Waiting for GPS…'
+                : $foregroundNavigation.offRoute
+                  ? 'Off route'
+                  : $foregroundNavigation.remainingDistanceM !== null
+                    ? `${($foregroundNavigation.remainingDistanceM / 1000).toFixed(1)} km left`
+                    : 'Guidance active'}
+            </span>
+            <button
+              onclick={stopForegroundNavigation}
+              class="shrink-0 px-2.5 py-1.5 rounded-lg text-3xs text-text-muted bg-surface-raised/80
+                     border border-border hover:text-text hover:bg-surface-raised">Stop</button
+            >
+          </div>
         {/if}
-        <MapLayerControl />
       </div>
     {:else}
       <div id="nav-card-body">
@@ -686,7 +705,7 @@
                 {:else if i === stops.length - 1}
                   <span title="End">🚩</span>
                 {:else}
-                  <div class="w-3 h-3 rounded-full bg-amber-400 border-2 border-amber-300"></div>
+                  <div class="w-3 h-3 rounded-full bg-warning border-2 border-warning/40"></div>
                 {/if}
               </div>
 
@@ -756,9 +775,9 @@
                   <div class="w-3 border-t border-dashed border-border"></div>
                   <button
                     onclick={() => addStopAfter(i)}
-                    class="text-3xs text-text-subtle hover:text-amber-400
+                    class="text-3xs text-text-subtle hover:text-warning-strong
                        bg-surface-raised hover:bg-surface-overlay border border-border
-                       hover:border-amber-500/50
+                       hover:border-warning/50
                        rounded-full w-5 h-5 flex items-center justify-center
                        transition-colors"
                     aria-label="Add stop">+</button
@@ -776,9 +795,9 @@
                   <div class="flex-1 border-t border-dashed border-border"></div>
                   <button
                     onclick={() => addStopAfter(i)}
-                    class="text-3xs text-text-subtle hover:text-amber-400
+                    class="text-3xs text-text-subtle hover:text-warning-strong
                        bg-surface-raised hover:bg-surface-overlay border border-border
-                       hover:border-amber-500/50
+                       hover:border-warning/50
                        rounded-full w-5 h-5 flex items-center justify-center
                        transition-colors"
                     aria-label="Add stop">+</button
@@ -798,7 +817,7 @@
             class="w-full mt-3 py-2 rounded-lg text-xs font-semibold transition-colors
                {isRouting
               ? 'bg-accent-strong text-accent cursor-wait'
-              : 'bg-accent hover:bg-accent-strong text-white'}"
+              : 'bg-accent hover:bg-accent-strong text-on-accent'}"
           >
             {isRouting ? 'Finding routes...' : 'Route'}
           </button>
@@ -863,7 +882,7 @@
               {/if}
 
               {#if intentResult.unsupported.length > 0}
-                <div class="text-3xs text-amber-300">
+                <div class="text-3xs text-warning-strong">
                   Not supported yet: {intentResult.unsupported
                     .map((k) => unsupportedLabels[k] ?? k)
                     .join(', ')}
@@ -883,7 +902,7 @@
                   class="w-full mt-1 py-1.5 rounded-lg text-3xs font-semibold transition-colors
                      {intentApplied
                     ? 'bg-surface-overlay text-text-subtle cursor-default'
-                    : 'bg-accent hover:bg-accent-strong text-white'}"
+                    : 'bg-accent hover:bg-accent-strong text-on-accent'}"
                 >
                   {intentApplied
                     ? 'Applied to preferences ✓'
@@ -906,8 +925,8 @@
             {#if $foregroundNavigation.status === 'idle'}
               <button
                 onclick={startForegroundNavigation}
-                class="w-full py-2 rounded-lg text-xs font-semibold bg-emerald-600
-                   hover:bg-emerald-500 text-white transition-colors"
+                class="w-full py-2 rounded-lg text-xs font-semibold bg-success
+                   hover:bg-success-strong text-on-accent transition-colors"
               >
                 Start foreground navigation
               </button>
@@ -943,7 +962,9 @@
                 >
               </div>
               {#if $foregroundNavigation.offRoute}
-                <div class="mt-2 text-3xs text-amber-300 bg-amber-950/50 rounded-lg px-2 py-1.5">
+                <div
+                  class="mt-2 text-3xs text-warning-strong bg-warning-surface rounded-lg px-2 py-1.5"
+                >
                   About {Math.round($foregroundNavigation.distanceFromRouteM ?? 0)} m from this route.
                   Recalculate when it is safe to stop.
                 </div>
@@ -954,20 +975,20 @@
 
         <!-- Fold handle: a wide grabber spanning the card's last row (the top
              bar folds upward), with the layer control kept at its right. -->
-        <div class="mt-3 pt-2 border-t border-border/50 flex items-center gap-2">
+        <!-- Dedicated fold strip along the card's bottom edge; full-bleed
+             past the card padding so the handle owns the whole edge. -->
+        <div class="mt-3 -mx-4 -mb-4">
           <button
             onclick={() => navCardCollapsed.set(true)}
             aria-expanded="true"
             aria-controls="nav-card-body"
             aria-label="Hide trip planner"
-            class="flex-1 h-9 flex items-center justify-center gap-3 rounded-lg
-                   text-text-subtle hover:text-text-muted hover:bg-surface-raised/60 transition-colors"
+            class="group w-full h-7 flex items-center justify-center rounded-b-2xl
+                   bg-surface-overlay/40 border-t border-border/50
+                   hover:bg-surface-overlay/60 transition-colors"
           >
-            <span class="w-12 h-1 rounded-full bg-border-strong" aria-hidden="true"></span>
-            <Chevron direction="up" />
-            <span class="w-12 h-1 rounded-full bg-border-strong" aria-hidden="true"></span>
+            <FoldGrabber direction="up" />
           </button>
-          <MapLayerControl />
         </div>
       </div>
     {/if}
@@ -978,22 +999,29 @@
        its right edge; folded, only a vertical tab remains on the map's left
        edge. Sized by content, scrolling internally once it overflows. -->
   {#if $resultsPanelCollapsed}
+    <!-- Folded tab: label beside a full-height handle rail on the right
+         edge — the fold edge — mirroring the expanded panel's rail. -->
     <button
       onclick={() => resultsPanelCollapsed.set(false)}
       aria-expanded="false"
       aria-controls="results-panel-body"
-      class="self-start min-w-11 py-3 px-2 pointer-events-auto flex flex-col items-center gap-3
+      class="group self-start pointer-events-auto flex items-stretch overflow-hidden
              bg-surface/80 backdrop-blur-lg border border-border/50 rounded-2xl shadow-2xl
              text-3xs text-text-subtle uppercase tracking-wider
              hover:text-text-muted hover:bg-surface/95 transition-colors
              xl:absolute xl:top-0 xl:left-0"
     >
-      <Chevron direction="right" />
-      <span class="vertical-label">
-        {alternatives.length > 0 ? 'Routes found' : 'Suggested routes'}
-        ({alternatives.length > 0 ? alternatives.length : filteredRoutes.length})
+      <span class="min-w-10 flex justify-center py-3 px-2">
+        <span class="vertical-label">
+          {alternatives.length > 0 ? 'Routes found' : 'Suggested routes'}
+          ({alternatives.length > 0 ? alternatives.length : filteredRoutes.length})
+        </span>
       </span>
-      <span class="w-1 h-10 rounded-full bg-border-strong" aria-hidden="true"></span>
+      <span
+        class="w-7 flex items-center justify-center border-l border-border/50 bg-surface-overlay/40"
+      >
+        <FoldGrabber direction="right" />
+      </span>
     </button>
   {:else}
     <div
@@ -1050,19 +1078,19 @@
                   <!-- Conditions summary, matching the curated route cards -->
                   {#if summary}
                     <div class="flex gap-3 text-3xs mt-1.5">
-                      <span class="text-blue-400" title="Shade coverage">
+                      <span class="text-shade" title="Shade coverage">
                         ☀ {Math.round(summary.avgShade * 100)}% shade
                       </span>
                       <span
                         class={summary.avgWind > 0.1
-                          ? 'text-green-400'
+                          ? 'text-wind'
                           : summary.avgWind < -0.1
-                            ? 'text-red-400'
+                            ? 'text-wind-adverse'
                             : 'text-text-muted'}
                       >
                         💨 {windLabel(summary.avgWind)}
                       </span>
-                      <span class={summary.maxPrecip > 0 ? 'text-purple-400' : 'text-text-subtle'}>
+                      <span class={summary.maxPrecip > 0 ? 'text-rain' : 'text-text-subtle'}>
                         🌧 {precipLabel(summary.maxPrecip)}
                       </span>
                     </div>
@@ -1134,12 +1162,11 @@
         aria-expanded="true"
         aria-controls="results-panel-body"
         aria-label="Hide route list"
-        class="w-8 shrink-0 flex flex-col items-center justify-center gap-3
-               border-l border-border/50 text-text-subtle
-               hover:text-text-muted hover:bg-surface-raised/60 transition-colors"
+        class="group w-7 shrink-0 flex items-center justify-center
+               border-l border-border/50 bg-surface-overlay/40
+               hover:bg-surface-overlay/60 transition-colors"
       >
-        <Chevron direction="left" />
-        <span class="w-1 h-10 rounded-full bg-border-strong" aria-hidden="true"></span>
+        <FoldGrabber direction="left" />
       </button>
     </div>
   {/if}

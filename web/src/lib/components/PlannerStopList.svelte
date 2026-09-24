@@ -21,10 +21,10 @@
       <div class="flex flex-col items-center gap-1 shrink-0">
         <div
           class="w-3 h-3 rounded-full {i === 0
-            ? 'bg-green-400'
+            ? 'bg-success'
             : i === $plannerStops.length - 1
-              ? 'bg-red-400'
-              : 'bg-sky-400'}"
+              ? 'bg-danger'
+              : 'bg-accent'}"
         ></div>
         {#if i < $plannerStops.length - 1}
           <div class="w-0.5 h-3 bg-surface-overlay"></div>

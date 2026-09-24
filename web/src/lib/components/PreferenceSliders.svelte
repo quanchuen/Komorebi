@@ -7,9 +7,9 @@
     label: string;
     color: string;
   }[] = [
-    { key: 'shade', label: 'Shade', color: 'accent-blue-500' },
-    { key: 'greenery', label: 'Greenery', color: 'accent-green-500' },
-    { key: 'wind', label: 'Wind avoid', color: 'accent-red-400' }
+    { key: 'shade', label: 'Shade', color: 'accent-shade' },
+    { key: 'greenery', label: 'Greenery', color: 'accent-greenery' },
+    { key: 'wind', label: 'Wind avoid', color: 'accent-wind-adverse' }
   ];
 
   function handleInput(key: 'shade' | 'greenery' | 'wind', e: Event) {

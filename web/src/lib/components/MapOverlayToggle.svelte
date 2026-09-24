@@ -4,9 +4,9 @@
   import type { OverlayType } from '$lib/stores/map';
 
   const overlays: { id: Exclude<OverlayType, null>; label: string; activeClass: string }[] = [
-    { id: 'shade', label: 'Shade', activeClass: 'bg-blue-800 text-blue-100' },
-    { id: 'wind', label: 'Wind', activeClass: 'bg-green-800 text-green-100' },
-    { id: 'rain', label: 'Rain', activeClass: 'bg-purple-800 text-purple-100' }
+    { id: 'shade', label: 'Shade', activeClass: 'bg-shade text-on-accent' },
+    { id: 'wind', label: 'Wind', activeClass: 'bg-wind text-on-accent' },
+    { id: 'rain', label: 'Rain', activeClass: 'bg-rain text-on-accent' }
   ];
 
   function toggle(id: Exclude<OverlayType, null>) {

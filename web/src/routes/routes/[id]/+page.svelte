@@ -123,7 +123,7 @@
       <button
         onclick={planThisRide}
         disabled={planLoading}
-        class="w-full bg-accent hover:bg-accent-strong disabled:opacity-50 text-white font-semibold
+        class="w-full bg-accent hover:bg-accent-strong disabled:opacity-50 text-on-accent font-semibold
                rounded-xl py-3 text-sm transition-colors"
       >
         {planLoading ? 'Creating plan…' : 'Plan this ride'}

@@ -5,10 +5,16 @@ import type { Map as MapLibreMap } from 'maplibre-gl';
 export type OverlayType = 'shade' | 'wind' | 'rain' | null;
 
 // Optional map layers. Data layers are off by default (progressive
-// disclosure); the time-scrubbed shadow and rain layers are on by default —
-// seeing conditions move with the departure time is the point of the map.
+// disclosure); the time-scrubbed environment layers are driven exclusively by
+// the timeline-layer switch in the weather timeline (rain cells by default).
 export type MapLayer = 'cycling-roads' | 'venues' | 'landuse' | 'shadows' | 'rain-cells';
-export const visibleLayers = writable<Set<MapLayer>>(new Set(['shadows', 'rain-cells']));
+export const visibleLayers = writable<Set<MapLayer>>(new Set(['rain-cells']));
+
+// Which environment lens the weather timeline scrubs: weather (rain radar +
+// rain route coloring), shade (building shadows), or sun (sun-exposure route
+// coloring). Exclusive — selecting one swaps map layers and route overlay.
+export type TimelineLayer = 'weather' | 'shade' | 'sun';
+export const timelineLayer = writable<TimelineLayer>('weather');
 
 // The MapLibre map instance — set once the map mounts
 export const mapInstance = writable<MapLibreMap | null>(null);

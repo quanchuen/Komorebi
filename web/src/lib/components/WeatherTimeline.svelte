@@ -1,13 +1,44 @@
 <!-- web/src/lib/components/WeatherTimeline.svelte -->
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { departureAt, mapBounds } from '$lib/stores/map';
+  import {
+    departureAt,
+    mapBounds,
+    timelineLayer,
+    visibleLayers,
+    activeOverlay,
+    type TimelineLayer
+  } from '$lib/stores/map';
   import { weatherTimelineCollapsed as collapsed } from '$lib/stores/ui';
-  import Chevron from './ui/Chevron.svelte';
+  import FoldGrabber from './ui/FoldGrabber.svelte';
 
   function toggleCollapsed() {
     collapsed.update((c) => !c);
   }
+
+  // The relocated layer control: an exclusive environment lens. Weather shows
+  // the rain radar + rain route coloring, Shade the building-shadow layer,
+  // Sun the sun-exposure route coloring — all scrubbed by departure time.
+  const lenses: { id: TimelineLayer; label: string }[] = [
+    { id: 'weather', label: 'Weather' },
+    { id: 'shade', label: 'Shade' },
+    { id: 'sun', label: 'Sun' }
+  ];
+
+  function selectLens(id: TimelineLayer) {
+    timelineLayer.set(id);
+    visibleLayers.update((set) => {
+      const next = new Set(set);
+      next.delete('rain-cells');
+      next.delete('shadows');
+      if (id === 'weather') next.add('rain-cells');
+      if (id === 'shade') next.add('shadows');
+      return next;
+    });
+    activeOverlay.set(id === 'weather' ? 'rain' : id === 'sun' ? 'shade' : null);
+  }
+
+  const lensLabel = $derived(lenses.find((l) => l.id === $timelineLayer)?.label ?? 'Weather');
 
   interface HourSlot {
     hour: string;
@@ -198,31 +229,51 @@
 
 <div class="shrink-0 border-t border-border bg-surface">
   <div class="overflow-hidden">
-    <!-- One header row: the fold toggle shares the line with the departure
-         scrubber so expanding the panel costs no extra height. Collapsed, the
-         row still shows the selected departure time. -->
-    <div class="flex items-center gap-3 px-4">
-      <button
-        onclick={toggleCollapsed}
-        aria-expanded={!$collapsed}
-        aria-controls="weather-timeline-hours"
-        class="flex items-center gap-1.5 min-h-11 shrink-0 text-3xs text-text-subtle uppercase
-               tracking-wider hover:text-text-muted transition-colors"
-      >
-        <Chevron direction={$collapsed ? 'up' : 'down'} />
-        Weather
-        {#if $collapsed}
-          <span class="normal-case tracking-normal text-accent font-medium tabular-nums">
-            · {scrubLabel}
-          </span>
-        {/if}
-      </button>
+    <!-- Dedicated fold strip along the top edge — the edge the panel grows
+         from. The grabber bar sits dead-center; its chevron points the way
+         the panel will move when pressed. -->
+    <button
+      onclick={toggleCollapsed}
+      aria-expanded={!$collapsed}
+      aria-controls="weather-timeline-hours"
+      aria-label={$collapsed ? 'Show weather timeline' : 'Hide weather timeline'}
+      class="group w-full h-6 flex items-center justify-center bg-surface-overlay/40
+             border-b border-border/50 hover:bg-surface-overlay/60 transition-colors"
+    >
+      <FoldGrabber direction={$collapsed ? 'up' : 'down'} size="sm" />
+    </button>
 
-      {#if !$collapsed}
+    {#if $collapsed}
+      <div
+        class="h-9 flex items-center gap-1.5 px-4 text-3xs text-text-subtle uppercase tracking-wider"
+      >
+        {lensLabel}
+        <span class="normal-case tracking-normal text-accent font-medium tabular-nums">
+          · {scrubLabel}
+        </span>
+      </div>
+    {:else}
+      <!-- Header row: the relocated layer switch shares the line with the
+           departure scrubber. -->
+      <div class="h-10 flex items-center gap-3 px-4">
+        <div class="flex items-center gap-1 shrink-0" role="group" aria-label="Timeline layer">
+          {#each lenses as lens (lens.id)}
+            <button
+              onclick={() => selectLens(lens.id)}
+              aria-pressed={$timelineLayer === lens.id}
+              class="text-3xs uppercase tracking-wider px-2 py-1 rounded-lg border transition-colors
+                     {$timelineLayer === lens.id
+                ? 'bg-accent/15 border-accent/40 text-accent-strong font-medium'
+                : 'border-transparent text-text-muted hover:text-text hover:bg-surface-overlay/50'}"
+            >
+              {lens.label}
+            </button>
+          {/each}
+        </div>
         {#if loading}
           <span class="text-3xs text-text-subtle animate-pulse shrink-0">Loading...</span>
         {:else if error}
-          <span class="text-3xs text-amber-400 shrink-0">{error}</span>
+          <span class="text-3xs text-danger shrink-0">{error}</span>
         {/if}
         <input
           type="range"
@@ -238,8 +289,8 @@
         <span class="text-2xs text-accent font-medium tabular-nums shrink-0 w-16 text-right">
           {scrubLabel}
         </span>
-      {/if}
-    </div>
+      </div>
+    {/if}
 
     <div
       id="weather-timeline-hours"
@@ -278,7 +329,7 @@
             {#if slot.windSpeed > 0.5}
               <span
                 style="transform: {windArrow(slot.windDir)}; display: inline-block;"
-                class={slot.windSpeed > 5 ? 'text-amber-400' : 'text-text-muted'}>↑</span
+                class={slot.windSpeed > 5 ? 'text-warning-strong' : 'text-text-muted'}>↑</span
               >
             {:else}
               <span class="text-text-subtle">·</span>
@@ -287,9 +338,9 @@
 
           <span
             class="text-3xs {slot.temp > 30
-              ? 'text-red-400'
+              ? 'text-hot'
               : slot.temp < 10
-                ? 'text-blue-400'
+                ? 'text-cold'
                 : 'text-text-subtle'}"
           >
             {slot.temp > 0 ? slot.temp : '--'}°

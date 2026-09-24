@@ -43,7 +43,7 @@
   <button
     onclick={addTask}
     disabled={adding || !$plannerPlan}
-    class="bg-accent hover:bg-accent-strong disabled:opacity-40 text-white text-sm font-semibold
+    class="bg-accent hover:bg-accent-strong disabled:opacity-40 text-on-accent text-sm font-semibold
            rounded-lg px-3 py-2 transition-colors"
   >
     Add

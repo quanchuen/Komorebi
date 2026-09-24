@@ -30,7 +30,7 @@
       aria-pressed={$discoveryFilters.difficulty === d.value}
       class="px-3 py-1 rounded-full text-xs font-semibold border transition-colors
              {$discoveryFilters.difficulty === d.value
-        ? 'bg-accent text-white border-transparent'
+        ? 'bg-accent text-on-accent border-transparent'
         : 'bg-surface-raised text-text-muted border-border hover:bg-surface-overlay'}"
     >
       {d.label}
@@ -42,7 +42,7 @@
     aria-pressed={$discoveryFilters.shade}
     class="px-3 py-1 rounded-full text-xs font-semibold border transition-colors
            {$discoveryFilters.shade
-      ? 'bg-blue-800 text-blue-100 border-transparent'
+      ? 'bg-shade text-on-accent border-transparent'
       : 'bg-surface-raised text-text-muted border-border hover:bg-surface-overlay'}"
   >
     Shade
@@ -53,7 +53,7 @@
     aria-pressed={$discoveryFilters.greenery}
     class="px-3 py-1 rounded-full text-xs font-semibold border transition-colors
            {$discoveryFilters.greenery
-      ? 'bg-green-800 text-green-100 border-transparent'
+      ? 'bg-greenery text-on-accent border-transparent'
       : 'bg-surface-raised text-text-muted border-border hover:bg-surface-overlay'}"
   >
     Greenery

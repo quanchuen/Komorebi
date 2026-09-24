@@ -114,21 +114,21 @@
   <!-- Weather / conditions summary -->
   {#if conditions.length > 0}
     <div class="flex gap-3 text-2xs mb-3">
-      <span class="text-blue-400" title="Shade coverage">
+      <span class="text-shade" title="Shade coverage">
         ☀ {Math.round(avgShade * 100)}% shade
       </span>
       <span
         class={avgWind > 0.1
-          ? 'text-green-400'
+          ? 'text-wind'
           : avgWind < -0.1
-            ? 'text-red-400'
+            ? 'text-wind-adverse'
             : 'text-text-muted'}
         title={windLabel(avgWind)}
       >
         {windIcon(avgWind)}
         {windLabel(avgWind)}
       </span>
-      <span class={maxPrecip > 0 ? 'text-purple-400' : 'text-text-subtle'} title="Precipitation">
+      <span class={maxPrecip > 0 ? 'text-rain' : 'text-text-subtle'} title="Precipitation">
         🌧 {precipLabel(maxPrecip)}
       </span>
     </div>
