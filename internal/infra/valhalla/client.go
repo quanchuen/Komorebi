@@ -93,6 +93,21 @@ var profileCosting = map[RouteProfile]map[string]any{
 	},
 }
 
+// maxPenaltySeconds is Valhalla's upper bound for costing penalties (kMaxPenalty, 12 h).
+const maxPenaltySeconds = 12 * 60 * 60
+
+// accessCosting keeps every profile off private land. Valhalla marks
+// access=private/destination/customers/delivery/permit/residents ways as
+// destination-only but only adds a 600 s penalty for entering one, so a large
+// enough saving still cuts through private property. Maxing the penalties makes
+// that practically never worthwhile while a ride may still start or end on a
+// private way (Valhalla exempts the destination). Penalties are soft, not a
+// guarantee (ADR 0002).
+var accessCosting = map[string]any{
+	"destination_only_penalty": maxPenaltySeconds, // entering a private or destination-only way
+	"private_access_penalty":   maxPenaltySeconds, // passing a private gate or barrier
+}
+
 // Route requests a bicycle route with the given profile.
 func (c *Client) Route(stops []Location, profile RouteProfile) (*RouteResult, error) {
 	if len(stops) < 2 {
@@ -113,9 +128,16 @@ func (c *Client) Route(stops []Location, profile RouteProfile) (*RouteResult, er
 		locations[i] = loc
 	}
 
-	costing, ok := profileCosting[profile]
+	profileOpts, ok := profileCosting[profile]
 	if !ok {
-		costing = profileCosting[ProfileSuggested]
+		profileOpts = profileCosting[ProfileSuggested]
+	}
+	costing := make(map[string]any, len(profileOpts)+len(accessCosting))
+	for k, v := range profileOpts {
+		costing[k] = v
+	}
+	for k, v := range accessCosting {
+		costing[k] = v
 	}
 
 	body := map[string]any{
