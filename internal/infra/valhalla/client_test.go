@@ -74,6 +74,43 @@ func TestClient_Route_Success(t *testing.T) {
 	}
 }
 
+func TestClient_Route_PenalizesPrivateAccess(t *testing.T) {
+	profiles := []valhalla.RouteProfile{
+		valhalla.ProfileSuggested, valhalla.ProfileFast, valhalla.ProfileAvoidMainRoads,
+	}
+	for _, profile := range profiles {
+		t.Run(string(profile), func(t *testing.T) {
+			var bike map[string]any
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path == "/route" {
+					var body struct {
+						CostingOptions map[string]map[string]any `json:"costing_options"`
+					}
+					if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+						t.Fatalf("could not decode request body: %v", err)
+					}
+					bike = body.CostingOptions["bicycle"]
+				}
+				_, _ = w.Write([]byte(minimalValhallaResponse()))
+			}))
+			defer srv.Close()
+
+			stops := []valhalla.Location{{Lat: 35.6895, Lon: 139.6917}, {Lat: 35.6812, Lon: 139.7671}}
+			if _, err := valhalla.NewClient(srv.URL).Route(stops, profile); err != nil {
+				t.Fatalf("Route() returned error: %v", err)
+			}
+			for _, key := range []string{"destination_only_penalty", "private_access_penalty"} {
+				if bike[key] != float64(43200) {
+					t.Errorf("%s = %v, want 43200 (Valhalla max)", key, bike[key])
+				}
+			}
+			if bike["bicycle_type"] == nil {
+				t.Error("profile costing options were dropped")
+			}
+		})
+	}
+}
+
 func TestClient_Route_MultiStop(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/height" {
