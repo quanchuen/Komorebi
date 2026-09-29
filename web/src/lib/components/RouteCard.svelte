@@ -79,11 +79,11 @@
   onclick={handleClick}
   class="w-full text-left rounded-xl p-4 border transition-colors
          {isHighlighted
-    ? 'bg-surface-overlay border-accent'
-    : 'bg-surface-raised border-border hover:bg-surface-overlay hover:border-border-strong'}"
+    ? 'bg-surface-tint border-primary'
+    : 'bg-surface-base border-line hover:bg-surface-tint hover:border-line-strong'}"
 >
   <div class="flex items-start justify-between gap-2 mb-1">
-    <h3 class="text-sm font-semibold text-text leading-snug">{route.name}</h3>
+    <h3 class="text-sm font-semibold text-text-default leading-snug">{route.name}</h3>
     <span class="shrink-0">
       <DifficultyBadge difficulty={route.difficulty} />
     </span>
@@ -93,7 +93,7 @@
     <p class="text-xs text-text-subtle mb-2 line-clamp-1">{route.description}</p>
   {/if}
 
-  <div class="flex gap-3 text-xs text-text-muted mb-2">
+  <div class="flex gap-3 text-xs text-text-subtle mb-2">
     <span>{distanceLabel(route.distanceM)}</span>
     <span title="Estimated climbing">↗ {Math.round(route.elevationGainM)} m</span>
     <span title="Estimated descent">↘ {Math.round(route.elevationLossM)} m</span>
@@ -120,7 +120,7 @@
           ? 'text-wind'
           : avgWind < -0.1
             ? 'text-wind-adverse'
-            : 'text-text-muted'}
+            : 'text-text-subtle'}
         title={windLabel(avgWind)}
       >
         {windIcon(avgWind)}

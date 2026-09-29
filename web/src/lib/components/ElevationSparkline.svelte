@@ -77,10 +77,10 @@
       role="img"
       aria-label="Elevation area profile and grade effort trace over distance"
     >
-      <path d={chart.areaPath} class="fill-accent/20" />
+      <path d={chart.areaPath} class="fill-primary/20" />
       <path
         d={chart.elevationPath}
-        class="stroke-accent"
+        class="stroke-primary"
         fill="none"
         stroke-width="1.5"
         stroke-linejoin="round"
@@ -90,7 +90,7 @@
         y1={effortBaseline}
         x2={width}
         y2={effortBaseline}
-        class="stroke-border"
+        class="stroke-line"
         stroke-width="0.75"
       />
       <path

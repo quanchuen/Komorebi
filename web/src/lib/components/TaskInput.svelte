@@ -37,13 +37,13 @@
     value={$plannerTaskInput}
     oninput={handleInput}
     onkeydown={handleKeydown}
-    class="flex-1 bg-surface-raised border border-border text-text text-sm rounded-lg
-           px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent placeholder-text-subtle"
+    class="flex-1 bg-surface-base border border-line text-text-default text-sm rounded-lg
+           px-3 py-2 focus:outline-none focus:ring-2 focus:ring-focus placeholder-text-subtle"
   />
   <button
     onclick={addTask}
     disabled={adding || !$plannerPlan}
-    class="bg-accent hover:bg-accent-strong disabled:opacity-40 text-on-accent text-sm font-semibold
+    class="bg-primary hover:bg-primary-hover disabled:opacity-40 text-on-primary text-sm font-semibold
            rounded-lg px-3 py-2 transition-colors"
   >
     Add

@@ -231,7 +231,7 @@
   }
 </script>
 
-<div class="shrink-0 border-t border-border bg-surface">
+<div class="shrink-0 border-t border-line bg-surface-canvas">
   <div class="overflow-hidden">
     <!-- Dedicated fold strip along the top edge — the edge the panel grows
          from. The grabber bar sits dead-center; its chevron points the way
@@ -241,8 +241,8 @@
       aria-expanded={!$collapsed}
       aria-controls="weather-timeline-hours"
       aria-label={$collapsed ? 'Show weather timeline' : 'Hide weather timeline'}
-      class="group w-full h-6 flex items-center justify-center bg-surface-overlay/40
-             border-b border-border/50 hover:bg-surface-overlay/60 transition-colors"
+      class="group w-full h-6 flex items-center justify-center bg-surface-tint/40
+             border-b border-line/50 hover:bg-surface-tint/60 transition-colors"
     >
       <FoldGrabber direction={$collapsed ? 'up' : 'down'} size="sm" />
     </button>
@@ -252,7 +252,7 @@
         class="h-9 flex items-center gap-1.5 px-4 text-3xs text-text-subtle uppercase tracking-wider"
       >
         {lensLabel}
-        <span class="normal-case tracking-normal text-accent font-medium tabular-nums">
+        <span class="normal-case tracking-normal text-primary font-medium tabular-nums">
           · {scrubLabel}
         </span>
       </div>
@@ -267,8 +267,8 @@
               aria-pressed={$timelineLayer === lens.id}
               class="text-3xs uppercase tracking-wider px-2 py-1 rounded-lg border transition-colors
                      {$timelineLayer === lens.id
-                ? 'bg-accent/15 border-accent/40 text-accent-strong font-medium'
-                : 'border-transparent text-text-muted hover:text-text hover:bg-surface-overlay/50'}"
+                ? 'bg-primary/15 border-primary/40 text-primary-hover font-medium'
+                : 'border-transparent text-text-subtle hover:text-text-default hover:bg-surface-tint/50'}"
             >
               {lens.label}
             </button>
@@ -290,7 +290,7 @@
           aria-valuetext={scrubLabel}
           class="time-scrubber w-full min-w-0"
         />
-        <span class="text-2xs text-accent font-medium tabular-nums shrink-0 w-16 text-right">
+        <span class="text-2xs text-primary font-medium tabular-nums shrink-0 w-16 text-right">
           {scrubLabel}
         </span>
       </div>
@@ -306,10 +306,12 @@
           onclick={() => selectHour(slot)}
           class="flex flex-col items-center shrink-0 w-14 py-1 rounded-lg transition-colors
                  {slot.isSelected
-            ? 'bg-accent/20 border border-accent/40'
-            : 'hover:bg-surface-raised/50 border border-transparent'}"
+            ? 'bg-primary/20 border border-primary/40'
+            : 'hover:bg-surface-base/50 border border-transparent'}"
         >
-          <span class="text-3xs font-medium {slot.isSelected ? 'text-accent' : 'text-text-muted'}">
+          <span
+            class="text-3xs font-medium {slot.isSelected ? 'text-primary' : 'text-text-subtle'}"
+          >
             {slot.hour}
           </span>
 
@@ -322,7 +324,7 @@
                 )};"
               ></div>
             {:else}
-              <div class="w-4 h-px bg-surface-overlay"></div>
+              <div class="w-4 h-px bg-surface-tint"></div>
             {/if}
           </div>
 
@@ -333,7 +335,7 @@
             {#if slot.windSpeed > 0.5}
               <span
                 style="transform: {windArrow(slot.windDir)}; display: inline-block;"
-                class={slot.windSpeed > 5 ? 'text-warning-strong' : 'text-text-muted'}>↑</span
+                class={slot.windSpeed > 5 ? 'text-warning-strong' : 'text-text-subtle'}>↑</span
               >
             {:else}
               <span class="text-text-subtle">·</span>
@@ -368,7 +370,7 @@
   .time-scrubber::-webkit-slider-runnable-track {
     height: 4px;
     border-radius: 2px;
-    background: var(--color-surface-overlay, #cbd5e1);
+    background: var(--color-surface-tint, #cbd5e1);
   }
   .time-scrubber::-webkit-slider-thumb {
     -webkit-appearance: none;
@@ -377,21 +379,21 @@
     height: 16px;
     margin-top: -6px;
     border-radius: 50%;
-    background: var(--color-accent, #0284c7);
-    border: 2px solid var(--color-surface, #ffffff);
+    background: var(--color-primary, #0284c7);
+    border: 2px solid var(--color-surface-canvas, #ffffff);
     box-shadow: 0 1px 3px rgb(0 0 0 / 0.35);
   }
   .time-scrubber::-moz-range-track {
     height: 4px;
     border-radius: 2px;
-    background: var(--color-surface-overlay, #cbd5e1);
+    background: var(--color-surface-tint, #cbd5e1);
   }
   .time-scrubber::-moz-range-thumb {
     width: 16px;
     height: 16px;
     border-radius: 50%;
-    background: var(--color-accent, #0284c7);
-    border: 2px solid var(--color-surface, #ffffff);
+    background: var(--color-primary, #0284c7);
+    border: 2px solid var(--color-surface-canvas, #ffffff);
     box-shadow: 0 1px 3px rgb(0 0 0 / 0.35);
   }
 

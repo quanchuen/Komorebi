@@ -77,11 +77,11 @@
   }
 </script>
 
-<aside class="flex flex-col w-full md:w-96 h-full bg-surface border-r border-border z-10">
-  <div class="p-4 border-b border-border space-y-4">
+<aside class="flex flex-col w-full md:w-96 h-full bg-surface-canvas border-r border-line z-10">
+  <div class="p-4 border-b border-line space-y-4">
     <div class="flex items-center gap-2">
-      <a href="/" class="text-text-muted hover:text-text text-sm">← Discover</a>
-      <h1 class="text-base font-bold text-text ml-auto">Route Planner</h1>
+      <a href="/" class="text-text-subtle hover:text-text-default text-sm">← Discover</a>
+      <h1 class="text-base font-bold text-text-default ml-auto">Route Planner</h1>
     </div>
 
     <DepartureTimePicker />
@@ -90,7 +90,7 @@
       <PlannerStopList />
     {:else}
       <div
-        class="text-sm text-text-subtle text-center py-3 border border-dashed border-border rounded-xl"
+        class="text-sm text-text-subtle text-center py-3 border border-dashed border-line rounded-xl"
       >
         Click the map to add two or more stops
       </div>
@@ -110,19 +110,19 @@
   </div>
 
   {#if $plannerLoading}
-    <div class="p-4 text-sm text-text-muted text-center">Computing route…</div>
+    <div class="p-4 text-sm text-text-subtle text-center">Computing route…</div>
   {:else if $plannerError}
     <div class="p-4 text-sm text-danger">{$plannerError}</div>
   {:else if $plannerResult}
-    <div class="p-4 border-b border-border">
+    <div class="p-4 border-b border-line">
       <div class="flex gap-4 text-sm">
         <div>
           <div class="text-text-subtle text-xs">Distance</div>
-          <div class="text-text font-semibold">{distanceLabel}</div>
+          <div class="text-text-default font-semibold">{distanceLabel}</div>
         </div>
         <div>
           <div class="text-text-subtle text-xs">Time</div>
-          <div class="text-text font-semibold">{durationLabel}</div>
+          <div class="text-text-default font-semibold">{durationLabel}</div>
         </div>
       </div>
     </div>
@@ -130,7 +130,7 @@
     <div class="p-4">
       <button
         onclick={savePlan}
-        class="w-full bg-accent hover:bg-accent-strong text-on-accent text-sm font-semibold rounded-xl py-2.5 transition-colors"
+        class="w-full bg-primary hover:bg-primary-hover text-on-primary text-sm font-semibold rounded-xl py-2.5 transition-colors"
       >
         Save plan
       </button>

@@ -117,9 +117,9 @@
 </script>
 
 <!-- Desktop: left panel -->
-<aside class="hidden md:flex flex-col w-96 h-full bg-surface border-r border-border z-10">
-  <div class="p-4 border-b border-border space-y-3">
-    <h1 class="text-lg font-bold text-text">Komorebi</h1>
+<aside class="hidden md:flex flex-col w-96 h-full bg-surface-canvas border-r border-line z-10">
+  <div class="p-4 border-b border-line space-y-3">
+    <h1 class="text-lg font-bold text-text-default">Komorebi</h1>
     <DepartureTimePicker />
     <FilterChips />
     <div class="flex items-center justify-between">
@@ -132,8 +132,8 @@
         placeholder="Search routes..."
         value={searchQuery}
         oninput={handleSearchInput}
-        class="w-full bg-surface-raised border border-border text-text text-sm rounded-lg
-               pl-3 pr-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent"
+        class="w-full bg-surface-base border border-line text-text-default text-sm rounded-lg
+               pl-3 pr-3 py-2 focus:outline-none focus:ring-2 focus:ring-focus"
       />
     </div>
   </div>
@@ -158,7 +158,7 @@
 <!-- Mobile: bottom sheet -->
 <div class="md:hidden fixed bottom-0 inset-x-0 z-20">
   <div
-    class="bg-surface border-t border-border rounded-t-2xl transition-all duration-300"
+    class="bg-surface-canvas border-t border-line rounded-t-2xl transition-all duration-300"
     style="height: {sheetOpen ? '70vh' : '6rem'};"
   >
     <button
@@ -167,8 +167,8 @@
       aria-label="Toggle route list"
       aria-pressed={sheetOpen}
     >
-      <div class="w-10 h-1 rounded-full bg-border-strong"></div>
-      <span class="text-xs text-text-muted">
+      <div class="w-10 h-1 rounded-full bg-line-strong"></div>
+      <span class="text-xs text-text-subtle">
         {#if $discoveryError}
           Connection error
         {:else}

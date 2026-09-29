@@ -45,21 +45,6 @@
   --color-meter-filled: var(--color-text-default);
   --color-meter-empty: var(--color-line-strong);
 
-  /* ── Legacy aliases ─────────────────────────────────────────────────────
-     Pre-rework names mapped onto the Kumo values so existing components adopt
-     the gray look without a rewrite. New code uses the names above; delete an
-     alias once nothing references it. */
-  --color-surface: var(--color-surface-canvas);
-  --color-surface-raised: var(--color-surface-base);
-  --color-surface-overlay: var(--color-surface-tint);
-  --color-border: var(--color-line);
-  --color-border-strong: var(--color-line-strong);
-  --color-text: var(--color-text-default);
-  --color-text-muted: var(--color-text-subtle);
-  --color-accent: var(--color-primary);
-  --color-accent-strong: var(--color-primary-hover);
-  --color-on-accent: var(--color-on-primary);
-
   /* ── Status ─────────────────────────────────────────────────────────── */
   --color-info: #1e40af; /* text only, never map lines */
   --color-success: #047857;

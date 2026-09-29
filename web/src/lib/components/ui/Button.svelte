@@ -23,11 +23,11 @@
   }: Props = $props();
 
   const variants: Record<string, string> = {
-    primary: 'bg-accent text-surface border-transparent hover:bg-accent-strong',
+    primary: 'bg-primary text-on-primary border-transparent hover:bg-primary-hover',
     secondary:
-      'bg-surface-raised text-text border-border hover:bg-surface-overlay hover:border-border-strong',
+      'bg-surface-base text-text-default border-line hover:bg-surface-tint hover:border-line-strong',
     ghost:
-      'bg-transparent text-text-muted border-transparent hover:bg-surface-overlay hover:text-text',
+      'bg-transparent text-text-subtle border-transparent hover:bg-surface-tint hover:text-text-default',
     danger: 'bg-danger-surface text-danger border-danger/40 hover:bg-danger/20'
   };
 
@@ -41,7 +41,7 @@
   {type}
   aria-pressed={pressed}
   class="inline-flex items-center justify-center border font-medium transition-colors
-         focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1 focus-visible:ring-offset-surface
+         focus:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-1 focus-visible:ring-offset-surface-canvas
          disabled:pointer-events-none disabled:opacity-50
          {variants[variant]} {sizes[size]} {extraClass}"
   {...rest}

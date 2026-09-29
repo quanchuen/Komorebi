@@ -21,7 +21,7 @@
 <div class="space-y-3">
   {#each sliders as s}
     <div class="space-y-1">
-      <div class="flex justify-between text-xs text-text-muted">
+      <div class="flex justify-between text-xs text-text-subtle">
         <span>{s.label}</span>
         <span>{Math.round($plannerPreferences[s.key] * 100)}%</span>
       </div>
@@ -32,7 +32,7 @@
         step="0.05"
         value={$plannerPreferences[s.key]}
         oninput={(e) => handleInput(s.key, e)}
-        class="w-full h-1.5 bg-surface-overlay rounded-full appearance-none cursor-pointer {s.color}"
+        class="w-full h-1.5 bg-surface-tint rounded-full appearance-none cursor-pointer {s.color}"
       />
     </div>
   {/each}

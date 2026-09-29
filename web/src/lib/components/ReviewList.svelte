@@ -31,7 +31,7 @@
 </script>
 
 <div class="space-y-3">
-  <h3 class="text-sm font-semibold text-text-muted">Reviews</h3>
+  <h3 class="text-sm font-semibold text-text-subtle">Reviews</h3>
 
   <AsyncBoundary
     {loading}
@@ -40,14 +40,14 @@
     emptyMessage="No reviews yet."
   >
     {#each items as review (review.id)}
-      <div class="bg-surface-raised rounded-lg p-3 space-y-1">
+      <div class="bg-surface-base rounded-lg p-3 space-y-1">
         <div class="flex items-center gap-2">
           <span class="text-rating text-xs tracking-wide">{stars(review.rating)}</span>
           <span class="text-xs text-text-subtle"
             >{new Date(review.createdAt).toLocaleDateString()}</span
           >
         </div>
-        <p class="text-sm text-text-muted leading-snug">{review.body}</p>
+        <p class="text-sm text-text-subtle leading-snug">{review.body}</p>
       </div>
     {/each}
   </AsyncBoundary>

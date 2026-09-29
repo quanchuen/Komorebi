@@ -125,7 +125,7 @@
 </svelte:head>
 
 <!-- Vertical flex: map area (grows) + timeline (fixed at bottom) -->
-<div class="flex flex-col h-full w-full overflow-hidden bg-surface">
+<div class="flex flex-col h-full w-full overflow-hidden bg-surface-canvas">
   <!-- Map area with floating nav panel -->
   <div class="flex-1 relative min-h-0">
     <Map

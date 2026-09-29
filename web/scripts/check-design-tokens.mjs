@@ -7,7 +7,7 @@
  * (e.g. `bg-slate-800`, `text-white`, `accent-red-400`), or hard-codes a hex
  * color in a `style=` attribute. These are the presentational escape hatches that
  * fork the design system; components should use the semantic tokens defined in
- * src/app.css (bg-surface, text-muted, text-2xs, …) instead.
+ * src/app.css (bg-surface-base, text-text-subtle, text-2xs, …) instead.
  *
  * Deliberately narrow: it does NOT ban hex everywhere, because MapLibre paint
  * expressions in <script> (Map.svelte, lib/utils/conditionColors.ts) use hex

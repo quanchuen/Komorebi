@@ -4,9 +4,9 @@
   import type { OverlayType } from '$lib/stores/map';
 
   const overlays: { id: Exclude<OverlayType, null>; label: string; activeClass: string }[] = [
-    { id: 'shade', label: 'Shade', activeClass: 'bg-shade text-on-accent' },
-    { id: 'wind', label: 'Wind', activeClass: 'bg-wind text-on-accent' },
-    { id: 'rain', label: 'Rain', activeClass: 'bg-rain text-on-accent' }
+    { id: 'shade', label: 'Shade', activeClass: 'bg-shade text-on-primary' },
+    { id: 'wind', label: 'Wind', activeClass: 'bg-wind text-on-primary' },
+    { id: 'rain', label: 'Rain', activeClass: 'bg-rain text-on-primary' }
   ];
 
   function toggle(id: Exclude<OverlayType, null>) {
@@ -22,7 +22,7 @@
       class="px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors
              {$activeOverlay === ov.id
         ? ov.activeClass + ' border-transparent'
-        : 'bg-surface-raised text-text-muted border-border hover:bg-surface-overlay'}"
+        : 'bg-surface-base text-text-subtle border-line hover:bg-surface-tint'}"
     >
       {ov.label}
     </button>

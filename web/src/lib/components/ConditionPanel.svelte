@@ -50,8 +50,8 @@
   {#each [{ label: 'Shade', overlay: 'shade' as const, summary: shadeLabel(avgShade) }, { label: 'Wind', overlay: 'wind' as const, summary: windLabel(avgWind) }, { label: 'Rain', overlay: 'rain' as const, summary: precipLabel(avgPrecip) }] as item}
     <div>
       <div class="flex items-center justify-between mb-1">
-        <span class="text-sm font-medium text-text-muted">{item.label}</span>
-        <span class="text-xs text-text-muted">{item.summary}</span>
+        <span class="text-sm font-medium text-text-subtle">{item.label}</span>
+        <span class="text-xs text-text-subtle">{item.summary}</span>
       </div>
       <ConditionSparkline {segments} overlay={item.overlay} />
     </div>

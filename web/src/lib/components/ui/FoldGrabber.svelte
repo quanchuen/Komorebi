@@ -102,7 +102,7 @@
   .bar {
     display: block;
     border-radius: 9999px;
-    background: var(--color-border-strong);
+    background: var(--color-line-strong);
   }
   .h.lg .bar {
     width: 40px;
@@ -120,7 +120,7 @@
   .cv {
     position: absolute;
     display: flex;
-    color: var(--color-accent-strong);
+    color: var(--color-primary-hover);
     opacity: 0;
     transition:
       opacity 0.2s ease,

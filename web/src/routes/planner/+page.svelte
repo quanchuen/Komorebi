@@ -43,7 +43,7 @@
   <title>Route Planner — Komorebi</title>
 </svelte:head>
 
-<div class="flex h-dvh w-screen overflow-hidden bg-surface">
+<div class="flex h-dvh w-screen overflow-hidden bg-surface-canvas">
   <PlannerPanel />
 
   <div class="flex-1 relative">
@@ -62,24 +62,24 @@
     {#if $plannerResult}
       <div
         class="absolute bottom-6 left-1/2 -translate-x-1/2 z-10
-                  bg-surface/90 border border-border rounded-full px-4 py-2
-                  text-xs text-text-muted backdrop-blur-sm"
+                  bg-surface-canvas/90 border border-line rounded-full px-4 py-2
+                  text-xs text-text-subtle backdrop-blur-sm"
       >
         Click map to add more stops
       </div>
     {:else if $plannerStops.length === 0}
       <div
         class="absolute bottom-6 left-1/2 -translate-x-1/2 z-10
-                  bg-surface/90 border border-border rounded-full px-4 py-2
-                  text-xs text-text-muted backdrop-blur-sm"
+                  bg-surface-canvas/90 border border-line rounded-full px-4 py-2
+                  text-xs text-text-subtle backdrop-blur-sm"
       >
         Click map to set origin
       </div>
     {:else if $plannerStops.length === 1}
       <div
         class="absolute bottom-6 left-1/2 -translate-x-1/2 z-10
-                  bg-surface/90 border border-border rounded-full px-4 py-2
-                  text-xs text-text-muted backdrop-blur-sm"
+                  bg-surface-canvas/90 border border-line rounded-full px-4 py-2
+                  text-xs text-text-subtle backdrop-blur-sm"
       >
         Click map to set destination
       </div>

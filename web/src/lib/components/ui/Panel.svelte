@@ -12,6 +12,6 @@
   let { padded = true, class: extraClass = '', children }: Props = $props();
 </script>
 
-<div class="rounded-xl border border-border bg-surface-raised {padded ? 'p-4' : ''} {extraClass}">
+<div class="rounded-xl border border-line bg-surface-base {padded ? 'p-4' : ''} {extraClass}">
   {@render children()}
 </div>
