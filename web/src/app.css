@@ -1,61 +1,135 @@
 @import 'tailwindcss';
+@import '@fontsource-variable/inter';
+@import '@fontsource-variable/noto-sans-jp';
 
 /*
  * Design tokens — the single source of truth for surfaces, text, accent, and
- * semantic colors. Components must use these (bg-surface, text-muted, …) rather
- * than reaching for raw palette classes or arbitrary values. This mirrors the
- * centralized-LUT approach in src/lib/utils/conditionColors.ts and is enforced
- * by scripts/check-design-tokens.mjs.
+ * semantic colors. Components must use these (bg-surface-base, text-text-subtle,
+ * …) rather than reaching for raw palette classes or arbitrary values. This
+ * mirrors the centralized-LUT approach in src/lib/utils/conditionColors.ts and
+ * is enforced by scripts/check-design-tokens.mjs.
+ *
+ * Visual system: Cloudflare Kumo's structure, gray-led (no brand hue). See
+ * docs/specs/2026-09-29-ui-rework.md. One hue per meaning: chrome is neutral,
+ * routes own blue, each data layer owns one ramp.
  */
 @theme {
-  /* Surfaces (light by default so street and terrain context stays legible) */
-  --color-surface: #f8fafc; /* slate-50 — app background */
-  --color-surface-raised: #ffffff; /* cards, panels */
-  --color-surface-overlay: #e2e8f0; /* slate-200 — hover / selected */
+  /* Type. Inter has no Japanese glyphs; Noto Sans JP covers them and only
+     loads the unicode-range subsets a page actually uses. */
+  --font-sans:
+    'Inter Variable', 'Noto Sans JP Variable', ui-sans-serif, system-ui, sans-serif,
+    'Apple Color Emoji', 'Segoe UI Emoji';
 
-  /* Borders */
-  --color-border: #cbd5e1; /* slate-300 */
-  --color-border-strong: #94a3b8; /* slate-400 — hover emphasis */
+  /* ── Chrome (Kumo gray) ─────────────────────────────────────────────── */
+  --color-surface-canvas: #fafafa; /* app background */
+  --color-surface-base: #ffffff; /* cards, panels, controls */
+  --color-surface-elevated: #f9f9f9; /* inset tiles (condition tiles) */
+  --color-surface-recessed: #f3f3f3; /* icon wells, segmented control track */
+  --color-surface-tint: #f5f5f5; /* badges, hover */
+  --color-fill: #e5e5e5; /* switch off, grabbers */
+  --color-line: #e4e4e7; /* 1px rings on controls/panels */
+  --color-line-strong: #d4d4d8; /* hover emphasis, empty meter bars */
+  --color-hairline: #ededed; /* dividers */
 
-  /* Text hierarchy */
-  --color-text: #0f172a; /* slate-900 — primary */
-  --color-text-muted: #475569; /* slate-600 — secondary */
-  --color-text-subtle: #64748b; /* slate-500 — tertiary / placeholder */
+  --color-text-default: #18181b; /* body */
+  --color-text-strong: #0a0a0a; /* titles */
+  --color-text-subtle: #71717a; /* secondary */
+  --color-text-placeholder: #a1a1aa; /* placeholders, tertiary */
 
-  /* Accent / focus — the existing focus:ring-sky-500 convention as a token */
-  --color-accent: #0ea5e9; /* sky-500 */
-  --color-accent-strong: #0284c7; /* sky-600 */
+  --color-primary: #18181b; /* primary buttons, switch on */
+  --color-primary-hover: #27272a;
+  --color-on-primary: #ffffff;
+  --color-focus: #27272a; /* focus ring */
 
-  /* Semantic difficulty (was duplicated inline in RouteCard) */
-  --color-easy: #4ade80; /* green-400 */
-  --color-moderate: #facc15; /* yellow-400 */
-  --color-hard: #fb923c; /* orange-400 */
-  --color-expert: #f87171; /* red-400 */
+  /* Difficulty meter (difficulty carries no colour, only filled bars) */
+  --color-meter-filled: var(--color-text-default);
+  --color-meter-empty: var(--color-line-strong);
 
-  /* Status */
-  --color-danger: #b91c1c; /* red-700 */
-  --color-danger-surface: #fee2e2; /* red-100 */
-  --color-warning: #f59e0b; /* amber-500 — effort/grade traces, caution accents */
-  --color-warning-strong: #b45309; /* amber-700 — caution text on light surfaces */
-  --color-warning-surface: #fef3c7; /* amber-100 — caution note background */
-  --color-success: #059669; /* emerald-600 — go / start actions */
-  --color-success-strong: #047857; /* emerald-700 — hover on filled success */
+  /* ── Legacy aliases ─────────────────────────────────────────────────────
+     Pre-rework names mapped onto the Kumo values so existing components adopt
+     the gray look without a rewrite. New code uses the names above; delete an
+     alias once nothing references it. */
+  --color-surface: var(--color-surface-canvas);
+  --color-surface-raised: var(--color-surface-base);
+  --color-surface-overlay: var(--color-surface-tint);
+  --color-border: var(--color-line);
+  --color-border-strong: var(--color-line-strong);
+  --color-text: var(--color-text-default);
+  --color-text-muted: var(--color-text-subtle);
+  --color-accent: var(--color-primary);
+  --color-accent-strong: var(--color-primary-hover);
+  --color-on-accent: var(--color-on-primary);
 
-  /* Text on filled accent/status buttons and chips */
-  --color-on-accent: #ffffff;
+  /* ── Status ─────────────────────────────────────────────────────────── */
+  --color-info: #1e40af; /* text only, never map lines */
+  --color-success: #047857;
+  --color-success-strong: #065f46;
+  --color-danger: #b91c1c;
+  --color-danger-surface: #fee2e2;
+  /* Warning is an open decision (spec: orange-600 proposed, since amber now
+     belongs to shade). Unchanged until decided. */
+  --color-warning: #f59e0b;
+  --color-warning-strong: #b45309;
+  --color-warning-surface: #fef3c7;
 
-  /* Condition indicators — text/chip counterparts of the MapLibre ramps in
-     src/lib/utils/conditionColors.ts, darkened for contrast on light surfaces */
-  --color-shade: #2563eb; /* blue-600 */
-  --color-greenery: #16a34a; /* green-600 */
-  --color-rain: #9333ea; /* purple-600 */
-  --color-wind: #16a34a; /* green-600 — favorable / tailwind */
-  --color-wind-adverse: #dc2626; /* red-600 — headwind */
-  --color-hot: #dc2626; /* red-600 — high-temperature readouts */
-  --color-cold: #2563eb; /* blue-600 — low-temperature readouts */
+  /* ── Routes (map lines live in conditionColors.ts; these are chrome
+     counterparts for swatches and legends) ───────────────────────────── */
+  --color-route: #1a73e8;
+  --color-route-muted: #90a4c3;
+  --color-route-pressed: #0b57d0;
+
+  /* ── Data ramps — keep in step with src/lib/utils/conditionColors.ts ── */
+  /* Shade: sun → deep shade (darker = deeper shade) */
+  --color-shade-sun: #fde047;
+  --color-shade-partial: #fbbf24;
+  --color-shade-mostly: #d97706;
+  --color-shade-deep: #92400e;
+  /* Rain, mm/h */
+  --color-rain-drizzle: #bae6fd;
+  --color-rain-light: #38bdf8;
+  --color-rain-moderate: #0891b2;
+  --color-rain-heavy: #155e75;
+  /* Wind: headwind component along the heading. Calm has no colour. */
+  --color-wind-tail: #0d9488;
+  --color-wind-tail-light: #5eead4;
+  --color-wind-head-light: #fca5a5;
+  --color-wind-head: #dc2626;
+  /* Greenery: bare → full canopy */
+  --color-greenery-100: #dcfce7;
+  --color-greenery-300: #86efac;
+  --color-greenery-500: #22c55e;
+  --color-greenery-700: #15803d;
+  /* UV index (WHO scale) */
+  --color-uv-low: #a7f3d0;
+  --color-uv-moderate: #fde68a;
+  --color-uv-high: #fb923c;
+  --color-uv-very-high: #dc2626;
+  --color-uv-extreme: #7e22ce;
+
+  /* Condition text/chip colours: the ramp step that reads on a light surface. */
+  --color-shade: var(--color-shade-deep);
+  --color-rain: var(--color-rain-heavy);
+  --color-greenery: var(--color-greenery-700);
+  /* wind-tail (teal-600) is 3.7:1 on white; teal-700 keeps text at AA. */
+  --color-wind: #0f766e;
+  --color-wind-adverse: var(--color-wind-head);
+  /* Temperature readouts are an open decision (spec proposes slate for cold).
+     Unchanged until decided. */
+  --color-hot: #dc2626;
+  --color-cold: #2563eb;
 
   /* Ratings */
   --color-rating: #eab308; /* yellow-500 — review stars */
+
+  /* ── Radii (Kumo) ───────────────────────────────────────────────────── */
+  --radius-badge: 6px;
+  --radius-control: 8px;
+  --radius-panel: 12px;
+  --radius-dialog: 14px;
+
+  /* ── Shadows (Kumo) ─────────────────────────────────────────────────── */
+  --shadow-xs: 0 1px 2px rgb(0 0 0 / 0.08);
+  --shadow-lg: 0 8px 24px -4px rgb(0 0 0 / 0.12), 0 0 0 1px rgb(0 0 0 / 0.06);
 
   /* Micro type scale — replaces arbitrary text-[9px]/[10px]/[11px] usages.
      (9px labels are bumped to 3xs/10px on migration — negligible visually,
@@ -71,11 +145,16 @@
 }
 
 body {
-  @apply bg-surface text-text antialiased;
+  @apply bg-surface-canvas text-text-default font-sans antialiased;
   margin: 0;
   padding: 0;
   height: 100dvh;
   overflow: hidden;
+}
+
+/* Japanese text uses Noto Sans JP first so Latin runs inside it match. */
+:lang(ja) {
+  font-family: 'Noto Sans JP Variable', 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
 }
 
 /* MapLibre canvas fills its container */

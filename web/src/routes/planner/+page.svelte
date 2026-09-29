@@ -4,6 +4,7 @@
   import PlannerPanel from '$lib/components/PlannerPanel.svelte';
   import MapOverlayToggle from '$lib/components/MapOverlayToggle.svelte';
   import { plannerStops, plannerResult } from '$lib/stores/planner';
+  import { routeWaypoints } from '$lib/stores/map';
   import type { RouteConditionSegment } from '$lib/api/types';
 
   let stopCounter = $state(0);
@@ -21,6 +22,12 @@
       }
     ]);
   }
+
+  // Stops between the first and last are numbered waypoint markers.
+  $effect(() => {
+    routeWaypoints.set($plannerStops.slice(1, -1).map((s) => [s.lon, s.lat]));
+    return () => routeWaypoints.set([]);
+  });
 
   let planGeometry = $derived(
     $plannerResult?.geometry.coordinates.map((c: number[]) => [c[0], c[1]] as [number, number]) ??

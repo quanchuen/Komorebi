@@ -6,6 +6,7 @@
   import ConditionPanel from '$lib/components/ConditionPanel.svelte';
   import ReviewList from '$lib/components/ReviewList.svelte';
   import MapOverlayToggle from '$lib/components/MapOverlayToggle.svelte';
+  import DifficultyBadge from '$lib/components/ui/DifficultyBadge.svelte';
   import { departureAt } from '$lib/stores/map';
   import { plans } from '$lib/api/client';
 
@@ -14,13 +15,6 @@
   let route = $derived(data.route);
   let conditions = $derived(data.conditions?.segments ?? []);
   let geometry = $derived(route.geometry.coordinates.map((c) => [c[0], c[1]] as [number, number]));
-
-  const difficultyColor: Record<string, string> = {
-    easy: 'text-easy',
-    moderate: 'text-moderate',
-    hard: 'text-hard',
-    expert: 'text-expert'
-  };
 
   let planLoading = $state(false);
   async function planThisRide() {
@@ -58,10 +52,10 @@
       <!-- Title + meta -->
       <div class="space-y-1">
         <h1 class="text-xl font-bold text-text">{route.name}</h1>
-        <div class="flex gap-3 text-sm text-text-muted">
+        <div class="flex items-center gap-3 text-sm text-text-muted">
           <span>{(route.distanceM / 1000).toFixed(1)} km</span>
           <span>+{route.elevationGainM} m</span>
-          <span class="capitalize {difficultyColor[route.difficulty]}">{route.difficulty}</span>
+          <DifficultyBadge difficulty={route.difficulty} />
         </div>
         {#if route.tags.length > 0}
           <div class="flex flex-wrap gap-1 mt-1">

@@ -24,3 +24,8 @@ vite.config.ts.timestamp-*
 
 # Lighthouse CI
 .lighthouseci
+
+# Playwright
+/test-results
+/playwright-report
+/blob-report

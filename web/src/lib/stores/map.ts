@@ -7,8 +7,20 @@ export type OverlayType = 'shade' | 'wind' | 'rain' | null;
 // Optional map layers. Data layers are off by default (progressive
 // disclosure); the time-scrubbed environment layers are driven exclusively by
 // the timeline-layer switch in the weather timeline (rain cells by default).
-export type MapLayer = 'cycling-roads' | 'venues' | 'landuse' | 'shadows' | 'rain-cells';
+export type MapLayer = 'cycling-roads' | 'landuse' | 'shadows' | 'rain-cells';
 export const visibleLayers = writable<Set<MapLayer>>(new Set(['rain-cells']));
+
+// Venues are opt-in per type (SHOW ON MAP chips); none are drawn by default.
+export type VenueType = 'konbini' | 'cafe' | 'water' | 'repair';
+// environment.venue.category values drawn for each type
+// (pipelines/osm_import/extract_venues.sql).
+export const VENUE_CATEGORIES: Record<VenueType, string[]> = {
+  konbini: ['konbini'],
+  cafe: ['cafe'],
+  water: ['water'],
+  repair: ['bike-shop', 'bike-repair']
+};
+export const visibleVenueTypes = writable<Set<VenueType>>(new Set());
 
 // Which environment lens the weather timeline scrubs: weather (rain radar +
 // rain route coloring), shade (building shadows), or sun (sun-exposure route
@@ -62,6 +74,10 @@ export const routeDisplays = writable<RouteDisplayInfo[]>([]);
 // The selected route's geometry (for the highlight line + condition gradient)
 export const selectedRouteGeometry = writable<[number, number][] | null>(null);
 export const selectedRouteDistanceM = writable<number>(0);
+
+// Intermediate stops of the route being planned, in order ([lon, lat]).
+// Drawn as numbered waypoint markers; start and end come from the route line.
+export const routeWaypoints = writable<[number, number][]>([]);
 
 // Current foreground-navigation fix. It is deliberately not persisted.
 export const liveNavigationPosition = writable<GeolocationCoordinates | null>(null);

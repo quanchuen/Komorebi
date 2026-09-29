@@ -6,7 +6,7 @@
   import { resolve } from '$app/paths';
   import { browser } from '$app/environment';
   import { routing, discovery, routes as routesApi } from '$lib/api/client';
-  import { buildLineGradient } from '$lib/utils/conditionColors';
+  import { buildLineGradient, ROUTE_COLORS } from '$lib/utils/conditionColors';
   import {
     departureAt,
     highlightedRouteId,
@@ -16,8 +16,10 @@
     selectedRouteGeometry,
     selectedRouteDistanceM,
     activeOverlay,
-    liveNavigationPosition
+    liveNavigationPosition,
+    routeWaypoints
   } from '$lib/stores/map';
+  import { requestRide } from '$lib/stores/disclaimer';
   import { discoveryRoutes, discoveryLoading, discoveryError } from '$lib/stores/discovery';
   import { plannerPreferences } from '$lib/stores/planner';
   import { navCardCollapsed, resultsPanelCollapsed } from '$lib/stores/ui';
@@ -286,11 +288,8 @@
     avoid_main_roads: '🛡'
   };
 
-  const profileColors: Record<string, string> = {
-    suggested: '#38bdf8', // sky-400
-    fast: '#f59e0b', // amber-500
-    avoid_main_roads: '#34d399' // emerald-400
-  };
+  // One hue per meaning: the selected alternative is route blue, the others
+  // route-muted; profiles are told apart by icon and label, not colour.
 
   function updateRouteDisplays() {
     routeDisplays.set(
@@ -302,7 +301,7 @@
           coords,
           selected: alt.profile === selectedProfile,
           profile: alt.profile,
-          color: profileColors[alt.profile] ?? '#64748b',
+          color: alt.profile === selectedProfile ? ROUTE_COLORS.route : ROUTE_COLORS.muted,
           distanceM: alt.total_distance_km * 1000
         };
       })
@@ -467,11 +466,7 @@
       // Geometry is drawn by the Map component from selectedRouteGeometry;
       // only paint (profile color) is set here — overlay replaces via $effect.
       mapInst.setPaintProperty('highlight-route-line', 'line-gradient', null);
-      mapInst.setPaintProperty(
-        'highlight-route-line',
-        'line-color',
-        profileColors[profile] ?? '#38BDF8'
-      );
+      mapInst.setPaintProperty('highlight-route-line', 'line-color', ROUTE_COLORS.route);
 
       const lons = coords.map((c) => c[0]);
       const lats = coords.map((c) => c[1]);
@@ -496,11 +491,7 @@
     if (!overlay || selectedConditions.length === 0) {
       // No overlay active — use profile color
       mapInst.setPaintProperty('highlight-route-line', 'line-gradient', null);
-      mapInst.setPaintProperty(
-        'highlight-route-line',
-        'line-color',
-        profileColors[selectedProfile ?? 'suggested'] ?? '#38BDF8'
-      );
+      mapInst.setPaintProperty('highlight-route-line', 'line-color', ROUTE_COLORS.route);
       return;
     }
 
@@ -512,11 +503,22 @@
     liveNavigationPosition.set($foregroundNavigation.position);
   });
 
+  // Via stops with a resolved location become numbered waypoint markers.
+  $effect(() => {
+    routeWaypoints.set(
+      stops
+        .slice(1, -1)
+        .filter((s) => s.lat !== null && s.lon !== null)
+        .map((s) => [s.lon as number, s.lat as number])
+    );
+  });
+
   onDestroy(() => {
     clearTimeout(loadDebounce);
     routeLoadSequence += 1;
     stopForegroundNavigation();
     liveNavigationPosition.set(null);
+    routeWaypoints.set([]);
   });
 
   // Close suggestions when clicking outside
@@ -924,7 +926,7 @@
           <div class="mt-3 pt-3 border-t border-border/50">
             {#if $foregroundNavigation.status === 'idle'}
               <button
-                onclick={startForegroundNavigation}
+                onclick={() => requestRide(startForegroundNavigation)}
                 class="w-full py-2 rounded-lg text-xs font-semibold bg-success
                    hover:bg-success-strong text-on-accent transition-colors"
               >
@@ -1049,18 +1051,15 @@
                   onclick={() => selectAlternative(alt.profile)}
                   class="w-full px-3 py-2.5 rounded-lg text-left transition-colors border
                    {selectedProfile === alt.profile
-                    ? 'border-accent/40 text-text'
+                    ? 'bg-route/5 border-route/40 text-text'
                     : 'bg-surface-raised/50 border-border/50 text-text-muted hover:bg-surface-raised hover:text-text'}"
-                  style={selectedProfile === alt.profile
-                    ? `background: ${profileColors[alt.profile]}15; border-color: ${profileColors[alt.profile]}66`
-                    : ''}
                 >
                   <div class="flex items-center gap-2.5">
                     <!-- Color dot matching map line -->
                     <div
-                      class="w-3 h-3 rounded-full shrink-0"
-                      style="background: {profileColors[alt.profile] ??
-                        '#64748b'}; opacity: {selectedProfile === alt.profile ? 1 : 0.4}"
+                      class="w-3 h-3 rounded-full shrink-0 {selectedProfile === alt.profile
+                        ? 'bg-route'
+                        : 'bg-route-muted'}"
                     ></div>
                     <span class="text-sm shrink-0">{profileIcons[alt.profile] ?? '🚲'}</span>
                     <div class="flex-1 min-w-0">

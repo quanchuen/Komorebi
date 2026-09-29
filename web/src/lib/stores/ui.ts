@@ -6,7 +6,12 @@
 import { browser } from '$app/environment';
 import { writable, type Writable } from 'svelte/store';
 
-function persistedCollapsed(key: string, fallback = false): Writable<boolean> {
+// The Data sources sheet (opened from the attribution pill, the first-ride
+// disclaimer, and later Menu → About). Session-only.
+export const dataSourcesOpen = writable<boolean>(false);
+
+/** A boolean flag persisted under a versioned localStorage key. */
+export function persistedFlag(key: string, fallback = false): Writable<boolean> {
   let initial = fallback;
   if (browser) {
     try {
@@ -33,8 +38,6 @@ function persistedCollapsed(key: string, fallback = false): Writable<boolean> {
   return store;
 }
 
-export const navCardCollapsed = persistedCollapsed('komorebi:nav-card-collapsed:v1');
-export const resultsPanelCollapsed = persistedCollapsed('komorebi:results-panel-collapsed:v1');
-export const weatherTimelineCollapsed = persistedCollapsed(
-  'komorebi:weather-timeline-collapsed:v1'
-);
+export const navCardCollapsed = persistedFlag('komorebi:nav-card-collapsed:v1');
+export const resultsPanelCollapsed = persistedFlag('komorebi:results-panel-collapsed:v1');
+export const weatherTimelineCollapsed = persistedFlag('komorebi:weather-timeline-collapsed:v1');

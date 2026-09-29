@@ -1,5 +1,10 @@
 <!-- web/src/lib/components/ConditionPanel.svelte -->
 <script lang="ts">
+  import { creditsWeather } from '$lib/stores/attribution';
+
+  // Weather readouts credit their source in the attribution pill.
+  creditsWeather();
+
   import type { RouteConditionSegment } from '$lib/api/types';
   import ConditionSparkline from './ConditionSparkline.svelte';
 

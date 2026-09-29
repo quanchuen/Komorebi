@@ -3,7 +3,7 @@
   import type { Route, RouteConditionSegment } from '$lib/api/types';
   import ConditionSparkline from './ConditionSparkline.svelte';
   import ElevationSparkline from './ElevationSparkline.svelte';
-  import Badge from './ui/Badge.svelte';
+  import DifficultyBadge from './ui/DifficultyBadge.svelte';
   import { highlightedRouteId } from '$lib/stores/map';
 
   interface Props {
@@ -85,9 +85,7 @@
   <div class="flex items-start justify-between gap-2 mb-1">
     <h3 class="text-sm font-semibold text-text leading-snug">{route.name}</h3>
     <span class="shrink-0">
-      <Badge tone={route.difficulty as 'easy' | 'moderate' | 'hard' | 'expert'}>
-        {route.difficulty}
-      </Badge>
+      <DifficultyBadge difficulty={route.difficulty} />
     </span>
   </div>
 

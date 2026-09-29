@@ -11,6 +11,10 @@
   } from '$lib/stores/map';
   import { weatherTimelineCollapsed as collapsed } from '$lib/stores/ui';
   import FoldGrabber from './ui/FoldGrabber.svelte';
+  import { creditsWeather } from '$lib/stores/attribution';
+
+  // The strip shows forecast weather; credit it in the attribution pill.
+  creditsWeather();
 
   function toggleCollapsed() {
     collapsed.update((c) => !c);
