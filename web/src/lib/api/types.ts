@@ -45,6 +45,8 @@ export interface Route {
   elevationLossM: number;
   difficulty: Difficulty;
   status: RouteStatus;
+  /** House pick shown as a suggested route regardless of the viewport. */
+  featured: boolean;
   creatorId: string;
   tags: string[];
   waypoints?: Waypoint[];
@@ -70,6 +72,7 @@ export interface ApiRoute {
   elevation_loss_m: number;
   difficulty: Difficulty;
   status: RouteStatus;
+  featured?: boolean;
   creator_id: string;
   tags: string[];
   waypoints?: Array<{
@@ -100,6 +103,7 @@ export function apiRouteToRoute(route: ApiRoute): Route {
     elevationLossM: route.elevation_loss_m,
     difficulty: route.difficulty,
     status: route.status,
+    featured: route.featured ?? false,
     creatorId: route.creator_id,
     tags: route.tags ?? [],
     waypoints: (route.waypoints ?? []).map((waypoint, index) => ({
@@ -184,6 +188,7 @@ export interface DiscoveryRoute {
   elevation_loss_m: number;
   difficulty: Difficulty;
   status: RouteStatus;
+  featured?: boolean;
   tags: string[];
   dist_from_m: number;
 }
@@ -204,6 +209,7 @@ export function discoveryRouteToRoute(dr: DiscoveryRoute): Route {
     elevationLossM: dr.elevation_loss_m,
     difficulty: dr.difficulty,
     status: dr.status,
+    featured: dr.featured ?? false,
     creatorId: '',
     tags: dr.tags ?? [],
     waypoints: [],

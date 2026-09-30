@@ -10,7 +10,7 @@
   import {
     departureAt,
     highlightedRouteId,
-    bboxString,
+    mapBounds,
     mapInstance,
     routeDisplays,
     selectedRouteGeometry,
@@ -531,19 +531,26 @@
   // Load routes in viewport
   let routeLoadSequence = 0;
 
-  async function loadRoutes(bbox: string | null, departure: string) {
-    if (!bbox) return;
+  // Suggested routes are the featured set (routes.route.featured), ordered by
+  // distance from the map centre at load time. They are deliberately not a
+  // viewport query: selecting a route zooms the map, and a viewport-driven
+  // list would drop every other route the moment it left the screen.
+  async function loadRoutes(departure: string) {
     const sequence = ++routeLoadSequence;
-    // Keep the current cards visible while refreshing an already populated
-    // viewport. Conditions are enrichment and must not block route rendering.
+    // Keep the current cards visible while refreshing. Conditions are
+    // enrichment and must not block route rendering.
     if ($discoveryRoutes.length === 0) discoveryLoading.set(true);
     discoveryError.set(null);
     try {
-      const res = await discovery.viewport({ bbox });
+      const b = $mapBounds;
+      const centre = b
+        ? { lat: (b.minLat + b.maxLat) / 2, lon: (b.minLon + b.maxLon) / 2 }
+        : { lat: 35.6895, lon: 139.6917 };
+      const res = await discovery.suggested({ ...centre, departureAt: departure });
       if (sequence !== routeLoadSequence) return;
       discoveryRoutes.set(res.routes);
-      // A highlight pointing at a route that left the viewport has no card
-      // left to clear it — release it so the map doesn't stay dimmed forever.
+      // A highlight pointing at a route no longer in the set has no card left
+      // to clear it — release it so the map doesn't stay dimmed forever.
       if ($highlightedRouteId && !res.routes.some((r) => r.id === $highlightedRouteId)) {
         highlightedRouteId.set(null);
       }
@@ -586,17 +593,18 @@
     }
   }
 
+  // Reload when the departure time changes (conditions follow it). Panning
+  // the map does not reload: the suggested set is not viewport-driven.
   let loadDebounce: ReturnType<typeof setTimeout>;
   $effect(() => {
-    const bbox = $bboxString;
     const dep = $departureAt;
     clearTimeout(loadDebounce);
-    loadDebounce = setTimeout(() => loadRoutes(bbox, dep), 1000);
+    loadDebounce = setTimeout(() => loadRoutes(dep), 300);
   });
 
   function retryLoad() {
     discoveryError.set(null);
-    loadRoutes($bboxString, $departureAt);
+    loadRoutes($departureAt);
   }
 
   let filteredRoutes = $derived($discoveryRoutes);

@@ -8,9 +8,8 @@ import { stubApi } from './helpers/api';
 
 test('route cards show a neutral 1–4 bar difficulty badge', async ({ page }) => {
   await stubApi(page);
-  // Cards appear once the viewport query returns (the panel debounces it
-  // behind the map's first bounds), so wait on that specific response.
-  const viewportLoaded = page.waitForResponse(/\/discover\/viewport/);
+  // Cards appear once the suggested (featured) query returns.
+  const viewportLoaded = page.waitForResponse(/\/discover\/suggested/);
   await gotoHydrated(page, '/');
   await viewportLoaded;
 
