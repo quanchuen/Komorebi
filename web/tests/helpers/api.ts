@@ -59,11 +59,19 @@ export const ROUTES = [
   }
 ];
 
+// Discovery results use route_id (see DiscoveryRoute in src/lib/api/types.ts).
 function discoveryRoute(r: (typeof ROUTES)[number]) {
   return {
-    ...r,
-    shade: null,
-    conditions: null
+    route_id: r.id,
+    name: r.name,
+    description: r.description,
+    distance_m: r.distance_m,
+    elevation_gain_m: r.elevation_gain_m,
+    elevation_loss_m: r.elevation_loss_m,
+    difficulty: r.difficulty,
+    status: r.status,
+    tags: r.tags,
+    dist_from_m: 0
   };
 }
 

@@ -104,13 +104,6 @@
   --color-wind-adverse: #dc2626; /* wind-head */
   --color-greenery: #15803d; /* greenery-full */
 
-  /* Semantic difficulty — removed in the difficulty-badge step once nothing
-     uses them (Badge.svelte, route detail). */
-  --color-easy: #4ade80;
-  --color-moderate: #facc15;
-  --color-hard: #fb923c;
-  --color-expert: #f87171;
-
   /* Ratings */
   --color-rating: #eab308; /* yellow-500 — review stars */
 

@@ -6,6 +6,7 @@
   import ConditionPanel from '$lib/components/ConditionPanel.svelte';
   import ReviewList from '$lib/components/ReviewList.svelte';
   import MapOverlayToggle from '$lib/components/MapOverlayToggle.svelte';
+  import DifficultyBadge from '$lib/components/DifficultyBadge.svelte';
   import { departureAt } from '$lib/stores/map';
   import { plans } from '$lib/api/client';
 
@@ -20,13 +21,6 @@
       .sort((a, b) => a.sortOrder - b.sortOrder)
       .map((w) => [w.geometry.coordinates[0], w.geometry.coordinates[1]] as [number, number])
   );
-
-  const difficultyColor: Record<string, string> = {
-    easy: 'text-easy',
-    moderate: 'text-moderate',
-    hard: 'text-hard',
-    expert: 'text-expert'
-  };
 
   let planLoading = $state(false);
   async function planThisRide() {
@@ -67,7 +61,7 @@
         <div class="flex gap-3 text-sm text-text-subtle">
           <span>{(route.distanceM / 1000).toFixed(1)} km</span>
           <span>+{route.elevationGainM} m</span>
-          <span class="capitalize {difficultyColor[route.difficulty]}">{route.difficulty}</span>
+          <DifficultyBadge difficulty={route.difficulty} />
         </div>
         {#if route.tags.length > 0}
           <div class="flex flex-wrap gap-1 mt-1">

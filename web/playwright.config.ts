@@ -9,6 +9,9 @@ const PORT = 4173;
 export default defineConfig({
   testDir: './tests',
   fullyParallel: true,
+  // Every test boots a WebGL map; more workers than this starve the GPU and
+  // turn map-load timing into flakes.
+  workers: 2,
   forbidOnly: !!process.env.CI,
   retries: 0,
   reporter: process.env.CI ? 'github' : 'list',

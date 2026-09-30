@@ -3,7 +3,7 @@
   import type { Snippet } from 'svelte';
 
   interface Props {
-    tone?: 'neutral' | 'accent' | 'easy' | 'moderate' | 'hard' | 'expert';
+    tone?: 'neutral' | 'accent';
     class?: string;
     children: Snippet;
   }
@@ -12,11 +12,7 @@
 
   const tones: Record<string, string> = {
     neutral: 'bg-surface-tint text-text-subtle',
-    accent: 'bg-surface-tint text-text-strong',
-    easy: 'bg-easy/10 text-easy',
-    moderate: 'bg-moderate/10 text-moderate',
-    hard: 'bg-hard/10 text-hard',
-    expert: 'bg-expert/10 text-expert'
+    accent: 'bg-surface-tint text-text-strong'
   };
 </script>
 
