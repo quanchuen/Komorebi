@@ -6,6 +6,9 @@
 import type { VenueType } from '$lib/stores/map';
 
 export type MarkerKind = 'start' | 'end' | 'loop' | 'waypoint';
+
+/** Start and end closer than this are one loop (one combined marker). */
+export const LOOP_M = 100;
 export type MarkerSize = 20 | 24 | 28;
 
 /** Sizes by zoom: z ≤ 13 → 20px · z14–15 → 24px · z16+ → 28px. */

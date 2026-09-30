@@ -1,6 +1,6 @@
 @import 'tailwindcss';
-@import '@fontsource-variable/inter';
-/* Inter has no Japanese glyphs; Noto Sans JP covers :lang(ja) content. */
+@import '@fontsource-variable/inter-tight';
+/* Inter Tight (the Penpot type) has no Japanese glyphs; Noto Sans JP covers :lang(ja) content. */
 @import '@fontsource/noto-sans-jp/400.css';
 @import '@fontsource/noto-sans-jp/500.css';
 @import '@fontsource/noto-sans-jp/700.css';
@@ -109,25 +109,36 @@
 
   /* Ratings */
   --color-rating: #eab308; /* yellow-500 — review stars */
+  /* Elevation profile line (zinc-700) over a 6% text-coloured area. */
+  --color-chart-line: #3f3f46;
 
   /* ---- Type ------------------------------------------------------------- */
   --font-sans:
-    'Inter Variable', 'Noto Sans JP', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto,
-    'Helvetica Neue', Arial, sans-serif;
+    'Inter Tight Variable', 'Noto Sans JP', ui-sans-serif, system-ui, -apple-system, 'Segoe UI',
+    Roboto, 'Helvetica Neue', Arial, sans-serif;
 
-  /* Micro type scale — replaces arbitrary text-[9px]/[10px]/[11px] usages. */
+  /* Penpot type scale, 1.4 line height: 10 · 11 · 12 (xs) · 13 · 14 (sm) ·
+     15 · 16 (base) · 17 · 18 (lg). Odd sizes are named by pixel. */
   --text-2xs: 0.6875rem; /* 11px */
   --text-2xs--line-height: 1rem;
   --text-3xs: 0.625rem; /* 10px */
   --text-3xs--line-height: 0.875rem;
+  --text-13: 0.8125rem;
+  --text-13--line-height: 1.125rem;
+  --text-15: 0.9375rem;
+  --text-15--line-height: 1.3125rem;
+  --text-17: 1.0625rem;
+  --text-17--line-height: 1.5rem;
 
-  /* ---- Radii: sm 6 · md 8 (controls, cards) · lg 12 (floating panels) ·
-     xl 14 (dialogs) · pill ------------------------------------------------ */
+  /* ---- Radii (Penpot): sm 6 badges · md 8 buttons, chips, inputs, rows ·
+     control 10 search pill and 40px icon buttons · lg 12 floating panels ·
+     xl 14 dialogs and the time scrubber · 2xl 20 mobile sheets · pill ---- */
   --radius-sm: 6px;
   --radius-md: 8px;
+  --radius-control: 10px;
   --radius-lg: 12px;
   --radius-xl: 14px;
-  --radius-2xl: 14px;
+  --radius-2xl: 20px;
   --radius-pill: 999px;
 
   /* ---- Shadows: soft and layered ---------------------------------------- */
@@ -149,11 +160,98 @@ body {
 }
 
 :lang(ja) {
-  font-family: 'Noto Sans JP', 'Inter Variable', system-ui, sans-serif;
+  font-family: 'Noto Sans JP', 'Inter Tight Variable', system-ui, sans-serif;
 }
 
 /* MapLibre canvas fills its container */
 .maplibregl-map {
   width: 100%;
   height: 100%;
+}
+
+/* Buttons (Penpot "Button / primary | secondary | ghost"): 40px on desktop
+   panels, 44px in mobile sheets; radius 8; 13–14px medium. Sized by the
+   caller (h-10 / h-11, width). */
+@layer components {
+  /* Penpot draws these 40px tall; the repo's 44px hit-box rule is met with a
+     2px transparent border that the background does not paint under
+     (background-clip), so the visible face stays 40px. `.btn-tall` /
+     `.input-tall` are the mobile-sheet variants with a 44px face. */
+  .btn-primary,
+  .btn-secondary,
+  .btn-ghost {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: 44px;
+    padding: 0 14px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+    border-radius: calc(var(--radius-md) + 2px);
+    font-weight: 500;
+    white-space: nowrap;
+    transition: background-color 0.15s ease;
+  }
+  .btn-tall {
+    border-width: 0;
+    border-radius: var(--radius-md);
+  }
+  .btn-primary {
+    background-color: var(--color-primary);
+    color: var(--color-on-primary);
+  }
+  .btn-primary:hover {
+    background-color: var(--color-primary-hover);
+  }
+  .btn-primary:disabled {
+    opacity: 0.35;
+    pointer-events: none;
+  }
+  .btn-secondary {
+    background-color: var(--color-surface-base);
+    color: var(--color-text);
+    box-shadow: inset 0 0 0 1px var(--color-line);
+  }
+  .btn-secondary:hover {
+    background-color: var(--color-surface-tint);
+    box-shadow: inset 0 0 0 1px var(--color-line-strong);
+  }
+  .btn-ghost {
+    background-color: transparent;
+    color: var(--color-text-strong);
+  }
+  .btn-ghost:hover {
+    background-color: var(--color-surface-tint);
+  }
+  .btn-primary:focus-visible,
+  .btn-secondary:focus-visible,
+  .btn-ghost:focus-visible {
+    outline: 2px solid var(--color-focus);
+    outline-offset: 0;
+  }
+  /* Text inputs (Penpot "Input / stop"): a 40px face, radius 8, line ring;
+     the focus ring is `focus` at 1.5px. Same 2px transparent border trick. */
+  .input-field {
+    height: 44px;
+    width: 100%;
+    padding: 0 12px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+    border-radius: calc(var(--radius-md) + 2px);
+    background-color: var(--color-surface-base);
+    box-shadow: inset 0 0 0 1px var(--color-line);
+    color: var(--color-text);
+    font-size: var(--text-sm);
+  }
+  .input-field::placeholder {
+    color: var(--color-text-placeholder);
+  }
+  .input-field:hover {
+    box-shadow: inset 0 0 0 1px var(--color-line-strong);
+  }
+  .input-field:focus {
+    outline: none;
+    box-shadow: inset 0 0 0 1.5px var(--color-focus);
+  }
 }

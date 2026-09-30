@@ -144,7 +144,7 @@
          first-ride-dialog backdrop:bg-text/40"
 >
   <div
-    class="flex flex-col h-full sm:h-auto first-ride-panel bg-surface-base text-text sm:rounded-2xl shadow-lg"
+    class="flex flex-col h-full sm:h-auto first-ride-panel bg-surface-base text-text sm:rounded-xl shadow-lg"
   >
     <div class="flex items-center justify-end px-5 pt-4">
       <div
