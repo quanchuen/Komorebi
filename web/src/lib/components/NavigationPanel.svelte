@@ -21,7 +21,7 @@
   } from '$lib/stores/map';
   import { discoveryRoutes, discoveryLoading, discoveryError } from '$lib/stores/discovery';
   import { plannerPreferences } from '$lib/stores/planner';
-  import { navCardCollapsed, resultsPanelCollapsed } from '$lib/stores/ui';
+  import { navCardCollapsed, resultsPanelCollapsed, requestRide } from '$lib/stores/ui';
   import {
     foregroundNavigation,
     setNavigationRoute,
@@ -645,8 +645,8 @@
               {$navCardCollapsed
       ? 'overflow-hidden xl:w-auto xl:min-w-72 xl:max-w-2xl'
       : hasVias
-        ? 'p-4 xl:w-96'
-        : 'p-4 xl:w-2xl'}"
+        ? 'xl:w-96'
+        : 'xl:w-2xl'}"
   >
     {#if $navCardCollapsed}
       <!-- Folded: summary row (From · arrow · To) over a dedicated fold
@@ -694,298 +694,304 @@
         {/if}
       </div>
     {:else}
+      <!-- Padding lives on the inner box so the fold strip below can run
+           edge to edge without negative margins (which would overflow the
+           card and register as a clipping ancestor). -->
       <div id="nav-card-body">
-        <!-- Stop inputs with icon rail -->
-        <div class="flex flex-col gap-0 {hasVias ? '' : 'xl:flex-row xl:items-center xl:gap-2'}">
-          {#each stops as stop, i (stop.id)}
-            <!-- Stop row -->
-            <div class="flex items-center gap-2 {hasVias ? '' : 'xl:flex-1 xl:min-w-0'}">
-              <!-- Icon -->
-              <div class="w-5 shrink-0 flex items-center justify-center text-sm">
-                {#if i === 0}
-                  <span title="Start">🏁</span>
-                {:else if i === stops.length - 1}
-                  <span title="End">🚩</span>
-                {:else}
-                  <div class="w-3 h-3 rounded-full bg-warning border-2 border-warning/40"></div>
-                {/if}
-              </div>
-
-              <!-- Input -->
-              <div class="flex-1 relative">
-                <div class="flex items-center gap-1">
-                  <input
-                    bind:this={inputRefs[i]}
-                    type="text"
-                    placeholder={i === 0
-                      ? 'Start location'
-                      : i === stops.length - 1
-                        ? 'Destination'
-                        : 'Via stop'}
-                    value={stop.query}
-                    onfocus={() => focusInput(i)}
-                    onblur={handleBlur}
-                    oninput={(e) => handleInput(i, e)}
-                    onkeydown={(e) => handleKeydown(i, e)}
-                    class="w-full bg-surface-base/80 border text-text text-xs rounded-md
-                       px-3 py-2 transition-colors
-                       {activeInputIndex === i
-                      ? 'border-primary ring-1 ring-focus/30'
-                      : 'border-line hover:border-line-strong'}
-                       focus:outline-none placeholder:text-text-subtle"
-                  />
-                  {#if i > 0 && i < stops.length - 1}
-                    <button
-                      onclick={() => removeStop(i)}
-                      class="text-text-subtle hover:text-danger text-sm w-5 h-5
-                         flex items-center justify-center shrink-0"
-                      aria-label="Remove stop">&times;</button
-                    >
+        <div class="p-4 pb-0">
+          <!-- Stop inputs with icon rail -->
+          <div class="flex flex-col gap-0 {hasVias ? '' : 'xl:flex-row xl:items-center xl:gap-2'}">
+            {#each stops as stop, i (stop.id)}
+              <!-- Stop row -->
+              <div class="flex items-center gap-2 {hasVias ? '' : 'xl:flex-1 xl:min-w-0'}">
+                <!-- Icon -->
+                <div class="w-5 shrink-0 flex items-center justify-center text-sm">
+                  {#if i === 0}
+                    <span title="Start">🏁</span>
+                  {:else if i === stops.length - 1}
+                    <span title="End">🚩</span>
+                  {:else}
+                    <div class="w-3 h-3 rounded-full bg-warning border-2 border-warning/40"></div>
                   {/if}
                 </div>
 
-                <!-- Address suggestions dropdown -->
-                {#if activeInputIndex === i && suggestions.length > 0}
-                  <div
-                    class="absolute top-full left-0 right-0 mt-1 z-50
+                <!-- Input -->
+                <div class="flex-1 relative">
+                  <div class="flex items-center gap-1">
+                    <input
+                      bind:this={inputRefs[i]}
+                      type="text"
+                      placeholder={i === 0
+                        ? 'Start location'
+                        : i === stops.length - 1
+                          ? 'Destination'
+                          : 'Via stop'}
+                      value={stop.query}
+                      onfocus={() => focusInput(i)}
+                      onblur={handleBlur}
+                      oninput={(e) => handleInput(i, e)}
+                      onkeydown={(e) => handleKeydown(i, e)}
+                      class="w-full bg-surface-base/80 border text-text text-xs rounded-md
+                       px-3 py-2 transition-colors
+                       {activeInputIndex === i
+                        ? 'border-primary ring-1 ring-focus/30'
+                        : 'border-line hover:border-line-strong'}
+                       focus:outline-none placeholder:text-text-subtle"
+                    />
+                    {#if i > 0 && i < stops.length - 1}
+                      <button
+                        onclick={() => removeStop(i)}
+                        class="text-text-subtle hover:text-danger text-sm w-5 h-5
+                         flex items-center justify-center shrink-0"
+                        aria-label="Remove stop">&times;</button
+                      >
+                    {/if}
+                  </div>
+
+                  <!-- Address suggestions dropdown -->
+                  {#if activeInputIndex === i && suggestions.length > 0}
+                    <div
+                      class="absolute top-full left-0 right-0 mt-1 z-50
                           bg-surface-base border border-line rounded-md shadow-xl
                           overflow-hidden"
-                  >
-                    {#each suggestions as s, si}
-                      <button
-                        onmousedown={() => selectSuggestion(i, s)}
-                        onmouseenter={() => (highlightedSuggIdx = si)}
-                        class="w-full text-left px-3 py-2 text-xs transition-colors border-b border-line/50
+                    >
+                      {#each suggestions as s, si}
+                        <button
+                          onmousedown={() => selectSuggestion(i, s)}
+                          onmouseenter={() => (highlightedSuggIdx = si)}
+                          class="w-full text-left px-3 py-2 text-xs transition-colors border-b border-line/50
                            last:border-b-0
                            {si === highlightedSuggIdx
-                          ? 'bg-surface-tint text-text'
-                          : 'text-text-subtle hover:bg-surface-tint'}"
+                            ? 'bg-surface-tint text-text'
+                            : 'text-text-subtle hover:bg-surface-tint'}"
+                        >
+                          {s.display_name.split(',').slice(0, 3).join(',')}
+                        </button>
+                      {/each}
+                    </div>
+                  {/if}
+                </div>
+              </div>
+
+              <!-- Connector + add-stop button between each pair -->
+              {#if i < stops.length - 1}
+                {#if !hasVias}
+                  <!-- Compact horizontal connector for the wide Start → End bar -->
+                  <div class="hidden xl:flex items-center gap-1 shrink-0">
+                    <div class="w-3 border-t border-dashed border-line"></div>
+                    <button
+                      onclick={() => addStopAfter(i)}
+                      class="text-3xs text-text-subtle hover:text-warning-strong
+                       bg-surface-base hover:bg-surface-tint border border-line
+                       hover:border-warning/50
+                       rounded-full w-5 h-5 flex items-center justify-center
+                       transition-colors"
+                      aria-label="Add stop">+</button
+                    >
+                    <div class="w-3 border-t border-dashed border-line"></div>
+                  </div>
+                {/if}
+                <div class="flex items-center gap-2 my-2 {hasVias ? '' : 'xl:hidden'}">
+                  <!-- Vertical dash line under icon column -->
+                  <div class="w-5 shrink-0 flex justify-center">
+                    <div class="w-px h-4 border-l border-dashed border-line-strong"></div>
+                  </div>
+                  <!-- Dashed line + plus button -->
+                  <div class="flex-1 flex items-center gap-2">
+                    <div class="flex-1 border-t border-dashed border-line"></div>
+                    <button
+                      onclick={() => addStopAfter(i)}
+                      class="text-3xs text-text-subtle hover:text-warning-strong
+                       bg-surface-base hover:bg-surface-tint border border-line
+                       hover:border-warning/50
+                       rounded-full w-5 h-5 flex items-center justify-center
+                       transition-colors"
+                      aria-label="Add stop">+</button
+                    >
+                    <div class="flex-1 border-t border-dashed border-line"></div>
+                  </div>
+                </div>
+              {/if}
+            {/each}
+          </div>
+
+          <!-- Route button -->
+          {#if canRoute}
+            <button
+              onclick={doRoute}
+              disabled={isRouting}
+              class="w-full mt-3 py-2 rounded-md text-xs font-semibold transition-colors
+               {isRouting
+                ? 'bg-primary-hover text-text-strong cursor-wait'
+                : 'bg-primary hover:bg-primary-hover text-on-primary'}"
+            >
+              {isRouting ? 'Finding routes...' : 'Route'}
+            </button>
+          {/if}
+
+          <!-- Route error -->
+          {#if routeError}
+            <div class="mt-2 text-xs text-danger bg-danger-surface/50 rounded-md px-3 py-2">
+              {routeError}
+            </div>
+          {/if}
+
+          <!-- Natural-language routing -->
+          <div class="mt-3 pt-3 border-t border-line/50">
+            <form class="flex items-center gap-2" onsubmit={interpretIntent}>
+              <input
+                type="text"
+                bind:value={intentText}
+                maxlength="500"
+                placeholder="Describe your ride — e.g. max shade, out of the wind"
+                aria-label="Describe your ride"
+                class="flex-1 min-w-0 bg-surface-base/80 border border-line text-text text-xs
+                 rounded-md px-3 py-2 transition-colors hover:border-line-strong
+                 focus:outline-none focus:border-primary placeholder:text-text-subtle"
+              />
+              <button
+                type="submit"
+                disabled={intentLoading || !intentText.trim()}
+                aria-label="Interpret ride description"
+                class="shrink-0 px-2.5 py-2 rounded-md text-xs transition-colors border
+                 {intentLoading
+                  ? 'bg-surface-base text-text-subtle border-line cursor-wait'
+                  : 'bg-surface-base hover:bg-surface-tint text-text-subtle hover:text-text border-line hover:border-line-strong'}"
+              >
+                {intentLoading ? '…' : '✨'}
+              </button>
+            </form>
+
+            {#if intentError}
+              <div class="mt-2 text-3xs text-danger bg-danger-surface/50 rounded-md px-3 py-1.5">
+                {intentError}
+              </div>
+            {/if}
+
+            {#if intentResult}
+              <div
+                class="mt-2 bg-surface-base/60 border border-line/50 rounded-md px-3 py-2 space-y-1.5"
+              >
+                <div class="text-2xs text-text">{intentResult.intent.summary}</div>
+
+                {#if intentResult.applied.length > 0}
+                  <div class="flex flex-wrap gap-1">
+                    {#each intentResult.applied as key (key)}
+                      <span
+                        class="text-3xs px-1.5 py-0.5 rounded-full bg-surface-tint text-text-strong border border-line"
                       >
-                        {s.display_name.split(',').slice(0, 3).join(',')}
-                      </button>
+                        {key}
+                        {intentResult.preferences[key as 'shade' | 'greenery' | 'wind'].toFixed(1)}
+                      </span>
                     {/each}
                   </div>
                 {/if}
-              </div>
-            </div>
 
-            <!-- Connector + add-stop button between each pair -->
-            {#if i < stops.length - 1}
-              {#if !hasVias}
-                <!-- Compact horizontal connector for the wide Start → End bar -->
-                <div class="hidden xl:flex items-center gap-1 shrink-0">
-                  <div class="w-3 border-t border-dashed border-line"></div>
+                {#if intentResult.unsupported.length > 0}
+                  <div class="text-3xs text-warning-strong">
+                    Not supported yet: {intentResult.unsupported
+                      .map((k) => unsupportedLabels[k] ?? k)
+                      .join(', ')}
+                  </div>
+                {/if}
+
+                {#if intentResult.intent.unresolved_terms.length > 0}
+                  <div class="text-3xs text-text-subtle">
+                    Couldn't interpret: {intentResult.intent.unresolved_terms.join(' · ')}
+                  </div>
+                {/if}
+
+                {#if intentResult.applied.length > 0}
                   <button
-                    onclick={() => addStopAfter(i)}
-                    class="text-3xs text-text-subtle hover:text-warning-strong
-                       bg-surface-base hover:bg-surface-tint border border-line
-                       hover:border-warning/50
-                       rounded-full w-5 h-5 flex items-center justify-center
-                       transition-colors"
-                    aria-label="Add stop">+</button
+                    onclick={applyIntent}
+                    disabled={intentApplied}
+                    class="w-full mt-1 py-1.5 rounded-md text-3xs font-semibold transition-colors
+                     {intentApplied
+                      ? 'bg-surface-tint text-text-subtle cursor-default'
+                      : 'bg-primary hover:bg-primary-hover text-on-primary'}"
                   >
-                  <div class="w-3 border-t border-dashed border-line"></div>
-                </div>
-              {/if}
-              <div class="flex items-center gap-2 my-2 {hasVias ? '' : 'xl:hidden'}">
-                <!-- Vertical dash line under icon column -->
-                <div class="w-5 shrink-0 flex justify-center">
-                  <div class="w-px h-4 border-l border-dashed border-line-strong"></div>
-                </div>
-                <!-- Dashed line + plus button -->
-                <div class="flex-1 flex items-center gap-2">
-                  <div class="flex-1 border-t border-dashed border-line"></div>
-                  <button
-                    onclick={() => addStopAfter(i)}
-                    class="text-3xs text-text-subtle hover:text-warning-strong
-                       bg-surface-base hover:bg-surface-tint border border-line
-                       hover:border-warning/50
-                       rounded-full w-5 h-5 flex items-center justify-center
-                       transition-colors"
-                    aria-label="Add stop">+</button
-                  >
-                  <div class="flex-1 border-t border-dashed border-line"></div>
-                </div>
+                    {intentApplied
+                      ? 'Applied to preferences ✓'
+                      : canRoute
+                        ? 'Apply & route'
+                        : 'Apply to preferences'}
+                  </button>
+                {:else}
+                  <div class="text-3xs text-text-subtle">No routing preferences to apply.</div>
+                {/if}
               </div>
             {/if}
-          {/each}
-        </div>
-
-        <!-- Route button -->
-        {#if canRoute}
-          <button
-            onclick={doRoute}
-            disabled={isRouting}
-            class="w-full mt-3 py-2 rounded-md text-xs font-semibold transition-colors
-               {isRouting
-              ? 'bg-primary-hover text-text-strong cursor-wait'
-              : 'bg-primary hover:bg-primary-hover text-on-primary'}"
-          >
-            {isRouting ? 'Finding routes...' : 'Route'}
-          </button>
-        {/if}
-
-        <!-- Route error -->
-        {#if routeError}
-          <div class="mt-2 text-xs text-danger bg-danger-surface/50 rounded-md px-3 py-2">
-            {routeError}
           </div>
-        {/if}
 
-        <!-- Natural-language routing -->
-        <div class="mt-3 pt-3 border-t border-line/50">
-          <form class="flex items-center gap-2" onsubmit={interpretIntent}>
-            <input
-              type="text"
-              bind:value={intentText}
-              maxlength="500"
-              placeholder="Describe your ride — e.g. max shade, out of the wind"
-              aria-label="Describe your ride"
-              class="flex-1 min-w-0 bg-surface-base/80 border border-line text-text text-xs
-                 rounded-md px-3 py-2 transition-colors hover:border-line-strong
-                 focus:outline-none focus:border-primary placeholder:text-text-subtle"
-            />
-            <button
-              type="submit"
-              disabled={intentLoading || !intentText.trim()}
-              aria-label="Interpret ride description"
-              class="shrink-0 px-2.5 py-2 rounded-md text-xs transition-colors border
-                 {intentLoading
-                ? 'bg-surface-base text-text-subtle border-line cursor-wait'
-                : 'bg-surface-base hover:bg-surface-tint text-text-subtle hover:text-text border-line hover:border-line-strong'}"
-            >
-              {intentLoading ? '…' : '✨'}
-            </button>
-          </form>
-
-          {#if intentError}
-            <div class="mt-2 text-3xs text-danger bg-danger-surface/50 rounded-md px-3 py-1.5">
-              {intentError}
-            </div>
-          {/if}
-
-          {#if intentResult}
-            <div
-              class="mt-2 bg-surface-base/60 border border-line/50 rounded-md px-3 py-2 space-y-1.5"
-            >
-              <div class="text-2xs text-text">{intentResult.intent.summary}</div>
-
-              {#if intentResult.applied.length > 0}
-                <div class="flex flex-wrap gap-1">
-                  {#each intentResult.applied as key (key)}
-                    <span
-                      class="text-3xs px-1.5 py-0.5 rounded-full bg-surface-tint text-text-strong border border-line"
-                    >
-                      {key}
-                      {intentResult.preferences[key as 'shade' | 'greenery' | 'wind'].toFixed(1)}
-                    </span>
-                  {/each}
-                </div>
-              {/if}
-
-              {#if intentResult.unsupported.length > 0}
-                <div class="text-3xs text-warning-strong">
-                  Not supported yet: {intentResult.unsupported
-                    .map((k) => unsupportedLabels[k] ?? k)
-                    .join(', ')}
-                </div>
-              {/if}
-
-              {#if intentResult.intent.unresolved_terms.length > 0}
-                <div class="text-3xs text-text-subtle">
-                  Couldn't interpret: {intentResult.intent.unresolved_terms.join(' · ')}
-                </div>
-              {/if}
-
-              {#if intentResult.applied.length > 0}
-                <button
-                  onclick={applyIntent}
-                  disabled={intentApplied}
-                  class="w-full mt-1 py-1.5 rounded-md text-3xs font-semibold transition-colors
-                     {intentApplied
-                    ? 'bg-surface-tint text-text-subtle cursor-default'
-                    : 'bg-primary hover:bg-primary-hover text-on-primary'}"
-                >
-                  {intentApplied
-                    ? 'Applied to preferences ✓'
-                    : canRoute
-                      ? 'Apply & route'
-                      : 'Apply to preferences'}
-                </button>
-              {:else}
-                <div class="text-3xs text-text-subtle">No routing preferences to apply.</div>
-              {/if}
-            </div>
-          {/if}
-        </div>
-
-        <!-- Keep the status/Stop controls visible while navigation is running even
+          <!-- Keep the status/Stop controls visible while navigation is running even
          if a re-route cleared the alternatives, so the GPS watch and wake lock
          can always be stopped from the UI. -->
-        {#if selectedAlt || $foregroundNavigation.status !== 'idle'}
-          <div class="mt-3 pt-3 border-t border-line/50">
-            {#if $foregroundNavigation.status === 'idle'}
-              <button
-                onclick={startForegroundNavigation}
-                class="w-full py-2 rounded-md text-xs font-semibold bg-success
-                   hover:bg-success-strong text-on-primary transition-colors"
-              >
-                Start foreground navigation
-              </button>
-            {:else}
-              <div class="flex items-center justify-between gap-3">
-                <div class="min-w-0">
-                  <div class="text-xs font-medium text-text">
-                    {$foregroundNavigation.status === 'requesting'
-                      ? 'Waiting for GPS…'
-                      : $foregroundNavigation.status === 'paused'
-                        ? 'Guidance paused in background'
-                        : $foregroundNavigation.status === 'error'
-                          ? 'Navigation unavailable'
-                          : $foregroundNavigation.offRoute
-                            ? 'Off route'
-                            : 'Foreground guidance active'}
-                  </div>
-                  <div class="text-3xs text-text-subtle mt-0.5">
-                    {#if $foregroundNavigation.error}
-                      {$foregroundNavigation.error}
-                    {:else if $foregroundNavigation.remainingDistanceM !== null}
-                      {($foregroundNavigation.remainingDistanceM / 1000).toFixed(1)} km remaining · GPS
-                      ±{Math.round($foregroundNavigation.position?.accuracy ?? 0)} m
-                    {:else}
-                      Keep Komorebi visible for continuous guidance
-                    {/if}
-                  </div>
-                </div>
+          {#if selectedAlt || $foregroundNavigation.status !== 'idle'}
+            <div class="mt-3 pt-3 border-t border-line/50">
+              {#if $foregroundNavigation.status === 'idle'}
+                <!-- Ride this → first-ride disclaimer (once) → location permission. -->
                 <button
-                  onclick={stopForegroundNavigation}
-                  class="shrink-0 px-2.5 py-1.5 rounded-md text-3xs text-text-subtle
+                  onclick={() => requestRide(startForegroundNavigation)}
+                  class="w-full min-h-11 py-2 rounded-md text-xs font-semibold bg-primary
+                   hover:bg-primary-hover text-on-primary transition-colors"
+                >
+                  Ride this
+                </button>
+              {:else}
+                <div class="flex items-center justify-between gap-3">
+                  <div class="min-w-0">
+                    <div class="text-xs font-medium text-text">
+                      {$foregroundNavigation.status === 'requesting'
+                        ? 'Waiting for GPS…'
+                        : $foregroundNavigation.status === 'paused'
+                          ? 'Guidance paused in background'
+                          : $foregroundNavigation.status === 'error'
+                            ? 'Navigation unavailable'
+                            : $foregroundNavigation.offRoute
+                              ? 'Off route'
+                              : 'Foreground guidance active'}
+                    </div>
+                    <div class="text-3xs text-text-subtle mt-0.5">
+                      {#if $foregroundNavigation.error}
+                        {$foregroundNavigation.error}
+                      {:else if $foregroundNavigation.remainingDistanceM !== null}
+                        {($foregroundNavigation.remainingDistanceM / 1000).toFixed(1)} km remaining ·
+                        GPS ±{Math.round($foregroundNavigation.position?.accuracy ?? 0)} m
+                      {:else}
+                        Keep Komorebi visible for continuous guidance
+                      {/if}
+                    </div>
+                  </div>
+                  <button
+                    onclick={stopForegroundNavigation}
+                    class="shrink-0 px-2.5 py-1.5 rounded-md text-3xs text-text-subtle
                      border border-line hover:text-text hover:bg-surface-base">Stop</button
-                >
-              </div>
-              {#if $foregroundNavigation.offRoute}
-                <div
-                  class="mt-2 text-3xs text-warning-strong bg-warning-surface rounded-md px-2 py-1.5"
-                >
-                  About {Math.round($foregroundNavigation.distanceFromRouteM ?? 0)} m from this route.
-                  Recalculate when it is safe to stop.
+                  >
                 </div>
+                {#if $foregroundNavigation.offRoute}
+                  <div
+                    class="mt-2 text-3xs text-warning-strong bg-warning-surface rounded-md px-2 py-1.5"
+                  >
+                    About {Math.round($foregroundNavigation.distanceFromRouteM ?? 0)} m from this route.
+                    Recalculate when it is safe to stop.
+                  </div>
+                {/if}
               {/if}
-            {/if}
-          </div>
-        {/if}
+            </div>
+          {/if}
 
-        <!-- Fold handle: a wide grabber spanning the card's last row (the top
+          <!-- Fold handle: a wide grabber spanning the card's last row (the top
              bar folds upward), with the layer control kept at its right. -->
-        <!-- Dedicated fold strip along the card's bottom edge; full-bleed
+          <!-- Dedicated fold strip along the card's bottom edge; full-bleed
              past the card padding so the handle owns the whole edge. -->
-        <div class="mt-3 -mx-4 -mb-4">
+        </div>
+        <div class="mt-3">
           <button
             onclick={() => navCardCollapsed.set(true)}
             aria-expanded="true"
             aria-controls="nav-card-body"
             aria-label="Hide trip planner"
-            class="group w-full h-7 flex items-center justify-center rounded-b-2xl
+            class="group w-full h-7 flex items-center justify-center rounded-b-lg
                    bg-surface-tint/40 border-t border-line/50
                    hover:bg-surface-tint/60 transition-colors"
           >

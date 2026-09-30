@@ -2,6 +2,7 @@
 <script lang="ts">
   import '../app.css';
   import { onMount } from 'svelte';
+  import FirstRideDisclaimer from '$lib/components/FirstRideDisclaimer.svelte';
 
   let { children } = $props();
 
@@ -16,3 +17,6 @@
 <div class="h-dvh w-screen overflow-hidden">
   {@render children()}
 </div>
+
+<!-- Global: opens from "Ride this" (once) and from the Data sources sheet. -->
+<FirstRideDisclaimer />

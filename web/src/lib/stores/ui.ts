@@ -42,3 +42,18 @@ export const weatherTimelineCollapsed = persistedCollapsed(
 // The Data sources sheet (frame E). Opened from the attribution pill and from
 // the first-ride disclaimer; not persisted.
 export const dataSourcesOpen = writable<boolean>(false);
+
+// First-ride disclaimer (frame F). `seen` persists so it shows once; `request`
+// is set by whoever wants it shown — with an onAccept to continue into the
+// ride once the rider taps "I understand", or without one when simply
+// re-reading it.
+export const firstRideDisclaimerSeen = persistedCollapsed('komorebi:first-ride-disclaimer-seen:v1');
+export const firstRideDisclaimerRequest = writable<{ onAccept?: () => void } | null>(null);
+
+/** Show the disclaimer before `ride` runs, or run it straight away once seen. */
+export function requestRide(ride: () => void): void {
+  let seen = false;
+  firstRideDisclaimerSeen.subscribe((v) => (seen = v))();
+  if (seen) ride();
+  else firstRideDisclaimerRequest.set({ onAccept: ride });
+}

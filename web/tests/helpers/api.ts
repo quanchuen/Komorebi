@@ -96,6 +96,8 @@ export async function stubApi(page: Page) {
       const found = ROUTES.find((x) => x.id === r[1]);
       return found ? json(found) : route.fulfill({ status: 404, body: '{}' });
     }
+    if (path === '/routing/directions') return json(DIRECTIONS);
+    if (path === '/routing/conditions') return json({ segments: [] });
     if (path.startsWith('/weather/')) return json({ hours: [], cells: [] });
     if (path.startsWith('/venues')) return json({ tags: [] });
     return route.fulfill({ status: 404, contentType: 'application/json', body: '{}' });
@@ -103,3 +105,23 @@ export async function stubApi(page: Page) {
   // Tiles and the basemap are not under test; fail them fast and quietly.
   await page.route(/basemaps\.cartocdn\.com|localhost:3000|\/tiles\//, (route) => route.abort());
 }
+
+/** One routed alternative for POST /routing/directions. */
+export const DIRECTIONS = {
+  alternatives: [
+    {
+      profile: 'suggested',
+      label: 'Suggested',
+      total_distance_km: 4.8,
+      total_duration_s: 1200,
+      elevation_gain_m: 20,
+      elevation_loss_m: 20,
+      elevation_profile: [
+        { distance_m: 0, elevation_m: 20 },
+        { distance_m: 4800, elevation_m: 20 }
+      ],
+      legs: [{ distance_km: 4.8, duration_s: 1200, eta_at: '2026-09-30T03:00:00Z' }],
+      geometry: { type: 'LineString', coordinates: PALACE_LOOP }
+    }
+  ]
+};

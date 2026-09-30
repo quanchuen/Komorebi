@@ -1,6 +1,6 @@
 <!-- web/src/lib/components/DataSourcesSheet.svelte -->
 <script lang="ts">
-  import { dataSourcesOpen } from '$lib/stores/ui';
+  import { dataSourcesOpen, firstRideDisclaimerRequest } from '$lib/stores/ui';
 
   // Frame E. Every source the app draws from, whatever is on screen now.
   // Freshness ("20 Sep", "2023 edition", "updated 09:00" in the prototype) is
@@ -155,7 +155,16 @@
       <p class="text-sm text-text-subtle mt-4">
         Derived scores (shade, greenery) keep their sources' licences.
       </p>
-      <p class="mt-3">
+      <p class="mt-3 flex flex-wrap items-center gap-x-4">
+        <!-- Until the Menu → About entry exists, the first-ride disclaimer is
+             re-readable from here. -->
+        <button
+          type="button"
+          onclick={() => firstRideDisclaimerRequest.set({})}
+          class="inline-flex items-center min-h-11 text-sm font-medium underline decoration-line-strong underline-offset-2 hover:decoration-text"
+        >
+          Before you ride
+        </button>
         <a
           href="https://www.openstreetmap.org/fixthemap"
           target="_blank"

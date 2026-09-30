@@ -1,5 +1,9 @@
 @import 'tailwindcss';
 @import '@fontsource-variable/inter';
+/* Inter has no Japanese glyphs; Noto Sans JP covers :lang(ja) content. */
+@import '@fontsource/noto-sans-jp/400.css';
+@import '@fontsource/noto-sans-jp/500.css';
+@import '@fontsource/noto-sans-jp/700.css';
 
 /*
  * Design tokens — the single source of truth for chrome, text, states and the
@@ -143,6 +147,10 @@ body {
   padding: 0;
   height: 100dvh;
   overflow: hidden;
+}
+
+:lang(ja) {
+  font-family: 'Noto Sans JP', 'Inter Variable', system-ui, sans-serif;
 }
 
 /* MapLibre canvas fills its container */
