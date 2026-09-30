@@ -38,3 +38,7 @@ export const resultsPanelCollapsed = persistedCollapsed('komorebi:results-panel-
 export const weatherTimelineCollapsed = persistedCollapsed(
   'komorebi:weather-timeline-collapsed:v1'
 );
+
+// The Data sources sheet (frame E). Opened from the attribution pill and from
+// the first-ride disclaimer; not persisted.
+export const dataSourcesOpen = writable<boolean>(false);

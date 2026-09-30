@@ -149,7 +149,7 @@
 
     <!-- Opt-in venue pins. Lives here until the search panel (frame B) hosts
          the SHOW ON MAP chips. -->
-    <div class="absolute bottom-4 left-4 md:left-88 z-10">
+    <div class="absolute bottom-16 left-4 right-4 md:bottom-4 md:right-auto md:left-88 z-10">
       <VenueChips />
     </div>
 

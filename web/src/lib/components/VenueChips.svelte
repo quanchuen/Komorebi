@@ -16,14 +16,20 @@
   }
 </script>
 
-<div class="flex flex-wrap gap-2" role="group" aria-label="Show on map">
+<!-- One scrolling row on narrow screens; the pill and zoom stack keep the corners. -->
+<div
+  class="flex flex-nowrap gap-2 overflow-x-auto pb-1 md:flex-wrap md:overflow-visible md:pb-0"
+  role="group"
+  aria-label="Show on map"
+  data-scroll="true"
+>
   {#each types as type (type)}
     {@const on = $visibleVenueTypes.has(type)}
     <button
       type="button"
       onclick={() => toggle(type)}
       aria-pressed={on}
-      class="inline-flex items-center gap-1.5 min-h-11 min-w-11 px-3 rounded-full border text-xs font-medium
+      class="shrink-0 inline-flex items-center gap-1.5 min-h-11 min-w-11 px-3 rounded-full border text-xs font-medium
              transition-colors shadow-xs
              {on
         ? 'bg-primary text-on-primary border-primary'

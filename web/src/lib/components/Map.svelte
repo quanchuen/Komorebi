@@ -41,6 +41,8 @@
     GREENERY_FILL
   } from '$lib/utils/conditionColors';
   import type { RouteConditionSegment } from '$lib/api/types';
+  import AttributionPill from './AttributionPill.svelte';
+  import DataSourcesSheet from './DataSourcesSheet.svelte';
 
   import type { RouteAlternative } from '$lib/api/types';
   import type { FeatureCollection } from 'geojson';
@@ -328,7 +330,9 @@
       },
       center: initialCenter,
       zoom: initialZoom,
-      interactive
+      interactive,
+      // Credits are our own attribution pill + Data sources sheet.
+      attributionControl: false
     });
 
     if (showControls) {
@@ -834,9 +838,21 @@
 <div class="relative w-full h-full">
   <div bind:this={container} class="w-full h-full"></div>
 
+  <!-- Attribution grows with the visible data: PLATEAU when shadows or the
+       shade overlay show, Open-Meteo when rain cells or a weather overlay show. -->
+  <div class="absolute bottom-3 right-3 z-20">
+    <AttributionPill
+      shade={$visibleLayers.has('shadows') ||
+        ($activeOverlay === 'shade' && conditionSegments.length > 0)}
+      weather={$visibleLayers.has('rain-cells') ||
+        (($activeOverlay === 'rain' || $activeOverlay === 'wind') && conditionSegments.length > 0)}
+    />
+  </div>
+  <DataSourcesSheet />
+
   {#if tileError}
     <div
-      class="absolute bottom-4 left-4 z-10
+      class="absolute bottom-4 left-4 z-10 max-w-56
                 bg-warning-surface border border-warning text-warning-strong text-xs
                 px-3 py-2 rounded-md backdrop-blur flex items-center gap-2"
     >

@@ -20,3 +20,13 @@ export const test = base.extend({
 });
 
 export { expect };
+
+/**
+ * Navigate and wait until the client has hydrated (the root layout sets
+ * `data-hydrated` on <html> in onMount). Server-rendered controls exist
+ * before that but cannot act, so tests must not click them earlier.
+ */
+export async function gotoHydrated(page: import('@playwright/test').Page, path: string) {
+  await page.goto(path);
+  await page.locator('html[data-hydrated="true"]').waitFor({ state: 'attached' });
+}
