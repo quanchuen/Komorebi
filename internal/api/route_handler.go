@@ -66,6 +66,7 @@ type routeResponse struct {
 	ElevationLossM float64        `json:"elevation_loss_m"`
 	Difficulty     string         `json:"difficulty"`
 	Status         string         `json:"status"`
+	Featured       bool           `json:"featured"`
 	CreatorID      string         `json:"creator_id"`
 	Tags           []string       `json:"tags"`
 	Waypoints      []waypointJSON `json:"waypoints"`
@@ -297,6 +298,7 @@ func toRouteResponse(rt *route.Route) routeResponse {
 		ElevationLossM: rt.ElevationLossM,
 		Difficulty:     string(rt.Difficulty),
 		Status:         string(rt.Status),
+		Featured:       rt.Featured,
 		CreatorID:      rt.CreatorID,
 		Tags:           rt.Tags,
 		Waypoints:      wps,

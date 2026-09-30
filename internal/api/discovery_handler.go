@@ -32,6 +32,7 @@ type discoveryResultResponse struct {
 	ElevationLossM float64  `json:"elevation_loss_m"`
 	Difficulty     string   `json:"difficulty"`
 	Status         string   `json:"status"`
+	Featured       bool     `json:"featured"`
 	Tags           []string `json:"tags"`
 	DistFromM      float64  `json:"dist_from_m,omitempty"`
 }
@@ -190,6 +191,7 @@ func toDiscoveryResponse(results []discovery.DiscoveryResult) []discoveryResultR
 			ElevationLossM: r.ElevationLossM,
 			Difficulty:     r.Difficulty,
 			Status:         r.Status,
+			Featured:       r.Featured,
 			Tags:           tags,
 			DistFromM:      r.DistFromM,
 		}

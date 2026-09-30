@@ -70,14 +70,14 @@ func (r *RouteRepo) Create(rt *route.Route) error {
 		_, err := tx.Exec(ctx, `
 			INSERT INTO routes.route
 				(id, name, description, geometry, distance_m, elevation_gain_m, elevation_loss_m,
-				 difficulty, status, creator_id, created_at, updated_at)
+				 difficulty, status, creator_id, created_at, updated_at, featured)
 			VALUES ($1::uuid, $2, $3, ST_GeomFromText($4, 4326), $5, $6, $7,
 			        $8::routes.difficulty, $9::routes.route_status,
-			        $10::uuid, $11, $12)
+			        $10::uuid, $11, $12, $13)
 		`, rt.ID, rt.Name, rt.Description, wkt,
 			rt.DistanceM, rt.ElevationGainM, rt.ElevationLossM,
 			string(rt.Difficulty), string(rt.Status),
-			nullableUUID(rt.CreatorID), rt.CreatedAt, rt.UpdatedAt)
+			nullableUUID(rt.CreatorID), rt.CreatedAt, rt.UpdatedAt, rt.Featured)
 		if err != nil {
 			return fmt.Errorf("insert route: %w", err)
 		}
@@ -99,7 +99,7 @@ func (r *RouteRepo) GetByID(id string) (*route.Route, error) {
 		       ST_AsText(geometry) AS geometry_wkt,
 		       distance_m, elevation_gain_m, elevation_loss_m,
 		       difficulty, status, creator_id,
-		       created_at, updated_at
+		       created_at, updated_at, featured
 		FROM routes.route
 		WHERE id = $1::uuid
 	`, id)
@@ -267,7 +267,7 @@ func (r *RouteRepo) List(params route.ListParams) (route.ListResult, error) {
 		       ST_AsText(r.geometry) AS geometry_wkt,
 		       r.distance_m, r.elevation_gain_m, r.elevation_loss_m,
 		       r.difficulty, r.status, r.creator_id,
-		       r.created_at, r.updated_at
+		       r.created_at, r.updated_at, r.featured
 		FROM routes.route r
 		%s
 		ORDER BY r.created_at DESC, r.id DESC
@@ -466,7 +466,7 @@ func scanRoute(row pgx.Row) (*route.Route, error) {
 		&geomWKT,
 		&rt.DistanceM, &rt.ElevationGainM, &rt.ElevationLossM,
 		&diff, &status, &creatorID,
-		&rt.CreatedAt, &rt.UpdatedAt,
+		&rt.CreatedAt, &rt.UpdatedAt, &rt.Featured,
 	)
 	if err != nil {
 		return nil, err

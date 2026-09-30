@@ -17,9 +17,9 @@ type ViewportParams struct {
 	Limit int        // default 50, max 200
 }
 
-// SuggestedParams holds parameters for the suggested-routes query.
-// In Phase 2 (this plan) scoring is proximity-only; environment scoring
-// is deferred to Phase 3.
+// SuggestedParams holds parameters for the suggested-routes query: the
+// featured (house-pick) routes, ordered by distance from (Lat, Lon).
+// Environment scoring at DepartureAt is deferred to Phase 3.
 type SuggestedParams struct {
 	Lat         float64
 	Lon         float64
@@ -38,6 +38,7 @@ type DiscoveryResult struct {
 	ElevationLossM float64
 	Difficulty     string
 	Status         string
+	Featured       bool // house pick (routes.route.featured); Suggested returns only these
 	Tags           []string
 	// DistFromM is the distance in metres from the query point to the
 	// nearest point on the route geometry. Zero for viewport queries.

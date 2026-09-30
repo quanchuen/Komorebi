@@ -43,6 +43,7 @@ func (r *DiscoveryRepo) Nearby(params discovery.NearbyParams) ([]discovery.Disco
 			r.elevation_loss_m,
 			r.difficulty::text,
 			r.status::text,
+			r.featured,
 			ST_Distance(
 				r.geometry::geography,
 				ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography
@@ -102,6 +103,7 @@ func (r *DiscoveryRepo) Viewport(params discovery.ViewportParams) ([]discovery.D
 			r.elevation_loss_m,
 			r.difficulty::text,
 			r.status::text,
+			r.featured,
 			0.0 AS dist_m
 		FROM routes.route r
 		WHERE r.status = 'published'
@@ -136,27 +138,67 @@ func (r *DiscoveryRepo) Viewport(params discovery.ViewportParams) ([]discovery.D
 	return results, nil
 }
 
-// Suggested returns recommended routes for a given location and departure time.
-// Phase 2 implementation: proximity-ordered nearby routes (same as Nearby).
-// Phase 3 will add environment scoring (shade, weather, greenery) at departure_at.
+// Suggested returns the featured (house-pick) routes, nearest first. Unlike
+// Nearby there is no radius: the set is the same wherever the map is, so the
+// resting view's "Suggested routes" list never changes as the rider pans.
+// Environment scoring at departure_at is deferred to Phase 3.
 func (r *DiscoveryRepo) Suggested(params discovery.SuggestedParams) ([]discovery.DiscoveryResult, error) {
 	limit := params.Limit
 	if limit <= 0 || limit > 50 {
 		limit = 10
 	}
-	return r.Nearby(discovery.NearbyParams{
-		Lat:      params.Lat,
-		Lon:      params.Lon,
-		RadiusKm: 20, // wider radius for suggested
-		Limit:    limit,
-	})
+
+	ctx := context.Background()
+	rows, err := r.pool.Query(ctx, `
+		SELECT
+			r.id,
+			r.name,
+			r.description,
+			r.distance_m,
+			r.elevation_gain_m,
+			r.elevation_loss_m,
+			r.difficulty::text,
+			r.status::text,
+			r.featured,
+			ST_Distance(
+				r.geometry::geography,
+				ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography
+			) AS dist_m
+		FROM routes.route r
+		WHERE r.featured
+		  AND r.status = 'published'
+		  AND NOT EXISTS (
+				SELECT 1 FROM routes.route_tag rt
+				WHERE rt.route_id = r.id AND rt.tag = 'demo'
+		  )
+		ORDER BY dist_m ASC, r.name ASC
+		LIMIT $3
+	`, params.Lat, params.Lon, limit)
+	if err != nil {
+		return nil, fmt.Errorf("discovery.Suggested query: %w", err)
+	}
+	defer rows.Close()
+
+	results, err := scanDiscoveryRows(rows)
+	if err != nil {
+		return nil, err
+	}
+
+	for i := range results {
+		tags, err := loadTagsForRoute(ctx, r.pool, results[i].RouteID)
+		if err == nil {
+			results[i].Tags = tags
+		}
+	}
+
+	return results, nil
 }
 
 // --- helpers ---
 
 // scanDiscoveryRows reads rows from a discovery SELECT and returns DiscoveryResult slice.
 // Expected column order: id, name, description, distance_m, elevation_gain_m,
-// elevation_loss_m, difficulty, status, dist_m.
+// elevation_loss_m, difficulty, status, featured, dist_m.
 func scanDiscoveryRows(rows interface {
 	Next() bool
 	Scan(...any) error
@@ -174,6 +216,7 @@ func scanDiscoveryRows(rows interface {
 			&dr.ElevationLossM,
 			&dr.Difficulty,
 			&dr.Status,
+			&dr.Featured,
 			&dr.DistFromM,
 		); err != nil {
 			return nil, fmt.Errorf("scan discovery row: %w", err)

@@ -83,4 +83,14 @@ func TestDiscoveryRepo_Suggested(t *testing.T) {
 	if results == nil {
 		t.Fatal("expected non-nil slice")
 	}
+	// Suggested is the featured set: every row must carry the flag, and the
+	// order is nearest first.
+	for i, r := range results {
+		if !r.Featured {
+			t.Fatalf("result %d (%s) is not featured", i, r.Name)
+		}
+		if i > 0 && r.DistFromM < results[i-1].DistFromM {
+			t.Fatalf("results not ordered by distance at %d", i)
+		}
+	}
 }

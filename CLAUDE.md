@@ -74,7 +74,7 @@ make migrate-down                           # Rollback one migration
 make migrate-create                         # Create new migration pair
 ```
 
-Migrations use golang-migrate, numbered `000001`–`000023`. Four schemas: `routes`, `community`, `environment`, `plan`. The `osm` schema is managed by osm2pgsql.
+Migrations use golang-migrate, numbered `000001`–`000024`. Four schemas: `routes`, `community`, `environment`, `plan`. The `osm` schema is managed by osm2pgsql.
 
 ## Architecture
 

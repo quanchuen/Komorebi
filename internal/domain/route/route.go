@@ -43,6 +43,7 @@ type Route struct {
 	ElevationLossM  float64
 	Difficulty      Difficulty
 	Status          Status
+	Featured        bool // house pick shown as a suggested route; set in the database, not via the API
 	CreatorID       string
 	Tags            []string
 	Waypoints       []Waypoint

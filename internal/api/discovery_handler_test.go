@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -98,7 +99,7 @@ func TestDiscoveryHandler_Viewport_BadBBox(t *testing.T) {
 
 func TestDiscoveryHandler_Suggested_OK(t *testing.T) {
 	svc := newTestDiscoverySvc([]discovery.DiscoveryResult{
-		{RouteID: "r3", Name: "Morning Ride", DistanceM: 15000, Tags: []string{}},
+		{RouteID: "r3", Name: "Morning Ride", DistanceM: 15000, Featured: true, Tags: []string{}},
 	})
 	h := api.NewDiscoveryHandler(svc)
 
@@ -110,5 +111,8 @@ func TestDiscoveryHandler_Suggested_OK(t *testing.T) {
 
 	if rr.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+	if !strings.Contains(rr.Body.String(), `"featured":true`) {
+		t.Fatalf("expected featured flag in response: %s", rr.Body.String())
 	}
 }
