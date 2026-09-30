@@ -485,7 +485,8 @@
         // Icon rasterisation failed (no canvas); venues stay off.
       });
 
-      // Foreground navigation position. Browser location is never persisted.
+      // Foreground navigation position (route blue with a white ring and an
+      // accuracy halo — decided 2026-09-30). Browser location is never persisted.
       map.addSource('live-navigation-position', {
         type: 'geojson',
         data: { type: 'FeatureCollection', features: [] }
@@ -496,7 +497,7 @@
         source: 'live-navigation-position',
         paint: {
           'circle-radius': 18,
-          'circle-color': '#38bdf8',
+          'circle-color': ROUTE,
           'circle-opacity': 0.14,
           'circle-stroke-width': 0
         }
@@ -507,8 +508,8 @@
         source: 'live-navigation-position',
         paint: {
           'circle-radius': 7,
-          'circle-color': '#38bdf8',
-          'circle-stroke-color': '#f8fafc',
+          'circle-color': ROUTE,
+          'circle-stroke-color': ROUTE_CASING,
           'circle-stroke-width': 3
         }
       });

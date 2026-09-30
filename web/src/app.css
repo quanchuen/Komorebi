@@ -47,11 +47,10 @@
   --color-success-strong: #065f46; /* hover on filled success */
   --color-danger: #b91c1c;
   --color-danger-surface: #fee2e2;
-  /* Warning is an open decision (orange-600 proposed, amber now belongs to
-     shade). The pre-rework amber values stay until it is decided. */
-  --color-warning: #f59e0b;
-  --color-warning-strong: #b45309;
-  --color-warning-surface: #fef3c7;
+  /* Warning is orange (decided 2026-09-30); amber belongs to shade. */
+  --color-warning: #ea580c; /* orange-600 */
+  --color-warning-strong: #9a3412; /* orange-800 — caution text on light surfaces */
+  --color-warning-surface: #ffedd5; /* orange-100 — caution note background */
 
   /* ---- Routes (blue belongs to routes alone) ---------------------------- */
   --color-route: #1a73e8; /* curated routes at rest; the selected route */
@@ -91,9 +90,9 @@
   --color-greenery-full: #15803d;
 
   /* ---- Temperature (text readouts only) --------------------------------- */
-  /* Cold end is an open decision (slate proposed); the pre-rework blue-600
-     stays until it is decided. */
-  --color-temp-cold: #2563eb;
+  /* Cold end is slate (decided 2026-09-30): warmth is the signal worth
+     colouring, and blue stays with routes. */
+  --color-temp-cold: #475569;
   --color-temp-cool: #94a3b8;
   --color-temp-mild: #71717a;
   --color-temp-warm: #fb923c;
