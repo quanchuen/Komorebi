@@ -53,7 +53,7 @@ test('Ride this shows the disclaimer once, then starts the ride on I understand'
 
 test('the disclaimer switches to Japanese and is reachable from Data sources', async ({ page }) => {
   await gotoHydrated(page, '/');
-  await page.getByRole('button', { name: /OpenStreetMap contributors/ }).click();
+  await page.getByRole('button', { name: /OpenStreetMap contributors|OSM/ }).click();
   const sources = page.getByRole('dialog', { name: 'Data sources' });
   const before = sources.getByRole('button', { name: EN_TITLE });
   await expectLayoutInvariants(page, before, 'Before you ride link');

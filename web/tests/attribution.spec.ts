@@ -14,21 +14,25 @@ test.beforeEach(async ({ page }) => {
 test('pill credits OSM and CARTO, grows with the shade layer, and meets layout invariants', async ({
   page
 }) => {
-  const pill = page.getByRole('button', { name: /OpenStreetMap contributors/ });
+  const pill = page.getByRole('button', { name: /OpenStreetMap contributors|OSM/ });
   await expect(pill).toBeVisible();
   await expect(pill).toContainText('CARTO');
   await expect(pill).not.toContainText('PLATEAU');
   await expectLayoutInvariants(page, pill, 'attribution pill');
 
-  // The timeline's Shade lens turns the building-shadow layer on.
-  await page.getByRole('button', { name: 'Shade', exact: true }).click();
-  await expect(pill).toContainText('PLATEAU (MLIT)');
+  // The Shade switch in Map layers (frame C) turns the building-shadow layer on.
+  await page.getByRole('button', { name: 'Map layers' }).click();
+  const shade = page.getByRole('switch', { name: /^Shade/ });
+  await expectLayoutInvariants(page, shade, 'Shade switch');
+  await shade.click();
+  await expect(shade).toHaveAttribute('aria-checked', 'true');
+  await expect(pill).toContainText('PLATEAU');
 });
 
 test('Data sources sheet opens from the pill, lists every source, and closes on Escape', async ({
   page
 }) => {
-  const pill = page.getByRole('button', { name: /OpenStreetMap contributors/ });
+  const pill = page.getByRole('button', { name: /OpenStreetMap contributors|OSM/ });
   await pill.click();
 
   const dialog = page.getByRole('dialog', { name: 'Data sources' });

@@ -6,12 +6,12 @@ import { test, expect, gotoHydrated } from './helpers/fixtures';
 import { expectLayoutInvariants } from './helpers/layout';
 import { stubApi } from './helpers/api';
 
-test('route cards show a neutral 1–4 bar difficulty badge', async ({ page }) => {
+test('route rows show a neutral 1–4 bar difficulty badge', async ({ page }) => {
   await stubApi(page);
-  // Cards appear once the suggested (featured) query returns.
-  const viewportLoaded = page.waitForResponse(/\/discover\/suggested/);
+  const loaded = page.waitForResponse(/\/discover\/viewport/);
   await gotoHydrated(page, '/');
-  await viewportLoaded;
+  await loaded;
+  await page.getByRole('button', { name: /curated routes in view/ }).click();
 
   const easy = page.getByRole('button', { name: /Imperial Palace Loop/ });
   await expect(easy).toBeVisible();
@@ -33,5 +33,5 @@ test('route cards show a neutral 1–4 bar difficulty badge', async ({ page }) =
   );
   expect(colours[0]).toBe(colours[1]);
 
-  await expectLayoutInvariants(page, easy, 'Imperial Palace Loop card');
+  await expectLayoutInvariants(page, easy, 'Imperial Palace Loop row');
 });

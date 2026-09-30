@@ -98,13 +98,55 @@ export async function stubApi(page: Page) {
     }
     if (path === '/routing/directions') return json(DIRECTIONS);
     if (path === '/routing/conditions') return json({ segments: [] });
-    if (path.startsWith('/weather/')) return json({ hours: [], cells: [] });
+    if (path === '/routing/intent') return json(INTENT);
+    if (path === '/weather/point') return json(WEATHER_POINT);
+    if (path.startsWith('/weather/')) return json({ valid_at: '', cells: [] });
+    if (path.match(/^\/routes\/[^/]+\/reviews$/)) return json({ reviews: [], next_cursor: null });
     if (path.startsWith('/venues')) return json({ tags: [] });
     return route.fulfill({ status: 404, contentType: 'application/json', body: '{}' });
   });
   // Tiles and the basemap are not under test; fail them fast and quietly.
   await page.route(/basemaps\.cartocdn\.com|localhost:3000|\/tiles\//, (route) => route.abort());
+  // Place search (Nominatim through the Vite proxy) is stubbed too.
+  await page.route('**/nominatim/**', (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(PLACES) })
+  );
 }
+
+/** One point forecast, reused for every hour the time chip asks for. */
+export const WEATHER_POINT = {
+  temperature_c: 18,
+  wind_speed_ms: 2.1,
+  wind_bearing_deg: 45,
+  precip_intensity_mmh: 0
+};
+
+/** Two Nominatim hits for any query. */
+export const PLACES = [
+  { display_name: 'Kiyosumi Garden, Koto, Tokyo, Japan', lat: '35.6803', lon: '139.7995' },
+  {
+    display_name: 'Kiyosumi-shirakawa Station, Koto, Tokyo, Japan',
+    lat: '35.6817',
+    lon: '139.7998'
+  }
+];
+
+/** POST /routing/intent: one applied preference, one unsupported constraint. */
+export const INTENT = {
+  intent: {
+    schema_version: '1',
+    summary: 'A shady loop with a climb limit.',
+    original_text: 'shady loop, not too many hills',
+    preferences: { shade: 0.9, greenery: null, wind: null },
+    constraints: { max_detour_m: null, max_grade_percent: 4 },
+    unresolved_terms: [],
+    model: 'stub',
+    prompt_version: '1'
+  },
+  preferences: { shade: 0.9, greenery: 0.5, wind: 0.5 },
+  applied: ['shade'],
+  unsupported: ['max_grade_percent']
+};
 
 /** One routed alternative for POST /routing/directions. */
 export const DIRECTIONS = {

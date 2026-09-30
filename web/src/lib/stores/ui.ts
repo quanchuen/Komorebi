@@ -1,12 +1,12 @@
 // web/src/lib/stores/ui.ts
 //
-// Collapsed/expanded state for the floating map panels. Each panel persists
-// its own flag so the layout a rider folds into place survives reloads; the
-// stores degrade to in-memory when storage is disabled, full, or malformed.
+// Chrome state for the explore page (Penpot frames A–D, G, H, I). One
+// floating panel at a time on desktop, one sheet at a time on mobile; the
+// map never hosts more than one panel's worth of chrome.
 import { browser } from '$app/environment';
 import { writable, type Writable } from 'svelte/store';
 
-function persistedCollapsed(key: string, fallback = false): Writable<boolean> {
+function persistedFlag(key: string, fallback = false): Writable<boolean> {
   let initial = fallback;
   if (browser) {
     try {
@@ -33,11 +33,33 @@ function persistedCollapsed(key: string, fallback = false): Writable<boolean> {
   return store;
 }
 
-export const navCardCollapsed = persistedCollapsed('komorebi:nav-card-collapsed:v1');
-export const resultsPanelCollapsed = persistedCollapsed('komorebi:results-panel-collapsed:v1');
-export const weatherTimelineCollapsed = persistedCollapsed(
-  'komorebi:weather-timeline-collapsed:v1'
-);
+/**
+ * The left panel (desktop) or bottom sheet (mobile):
+ *  none     — frame A, the resting map;
+ *  search   — frame B, under the search pill;
+ *  plan     — frame G, plan a route;
+ *  describe — frame H, describe a ride;
+ *  routes   — frame I, the routes-in-view list.
+ * The route card (frame D) shows whenever a curated route is highlighted.
+ */
+export type ExplorePanel = 'none' | 'search' | 'plan' | 'describe' | 'routes';
+export const explorePanel = writable<ExplorePanel>('none');
+
+// Layers popover (desktop) / sheet (mobile), frame C.
+export const layersOpen = writable<boolean>(false);
+// The time chip expanded into the scrubber.
+export const scrubberOpen = writable<boolean>(false);
+// Menu under the search pill's ☰ (About, Data sources) until frame M ships.
+export const menuOpen = writable<boolean>(false);
+
+// One-line feedback ("Link copied"), cleared by whoever set it.
+export const toast = writable<string | null>(null);
+let toastTimer: ReturnType<typeof setTimeout> | undefined;
+export function showToast(message: string, ms = 2400): void {
+  toast.set(message);
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.set(null), ms);
+}
 
 // The Data sources sheet (frame E). Opened from the attribution pill and from
 // the first-ride disclaimer; not persisted.
@@ -47,7 +69,7 @@ export const dataSourcesOpen = writable<boolean>(false);
 // is set by whoever wants it shown — with an onAccept to continue into the
 // ride once the rider taps "I understand", or without one when simply
 // re-reading it.
-export const firstRideDisclaimerSeen = persistedCollapsed('komorebi:first-ride-disclaimer-seen:v1');
+export const firstRideDisclaimerSeen = persistedFlag('komorebi:first-ride-disclaimer-seen:v1');
 export const firstRideDisclaimerRequest = writable<{ onAccept?: () => void } | null>(null);
 
 /** Show the disclaimer before `ride` runs, or run it straight away once seen. */
@@ -57,3 +79,17 @@ export function requestRide(ride: () => void): void {
   if (seen) ride();
   else firstRideDisclaimerRequest.set({ onAccept: ride });
 }
+
+// Breakpoint the layout switches at: below it the panels become sheets
+// (Penpot mobile frames, 390 wide); at and above it the desktop frames apply.
+export const MOBILE_MAX_PX = 767;
+export const isMobile = writable<boolean>(false);
+if (browser) {
+  const mq = window.matchMedia(`(max-width: ${MOBILE_MAX_PX}px)`);
+  isMobile.set(mq.matches);
+  mq.addEventListener('change', (e) => isMobile.set(e.matches));
+}
+
+// Whether POST /routing/intent is configured on this server (503 otherwise);
+// the search panel greys out "Describe a ride" once it learns it is not.
+export const describeAvailable = writable<boolean>(true);

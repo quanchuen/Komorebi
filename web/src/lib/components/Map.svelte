@@ -17,13 +17,18 @@
     bboxString,
     visibleVenueTypes,
     routeStops,
+    highlightedRouteId,
+    hoveredRouteId,
+    alternativePick,
     VENUE_TYPE_CATEGORIES,
     type VenueType
   } from '$lib/stores/map';
   import { weather } from '$lib/api/client';
+  import { duration } from '$lib/utils/format';
   import {
     buildRouteMarker,
     buildSelectedVenueMarker,
+    LOOP_M,
     markerSizeForZoom,
     metresBetween,
     metresToPolyline,
@@ -42,6 +47,7 @@
     GREENERY_FILL
   } from '$lib/utils/conditionColors';
   import type { RouteConditionSegment } from '$lib/api/types';
+  import type { MapLayer } from '$lib/stores/map';
   import AttributionPill from './AttributionPill.svelte';
   import DataSourcesSheet from './DataSourcesSheet.svelte';
 
@@ -57,7 +63,9 @@
 
   interface Props {
     interactive?: boolean;
-    showControls?: boolean;
+    /** Draw the attribution pill and Data sources sheet inside the map. The
+        explore page places them itself, around its sheets. */
+    attribution?: boolean;
     initialCenter?: [number, number];
     initialZoom?: number;
     conditionSegments?: RouteConditionSegment[];
@@ -72,7 +80,7 @@
 
   let {
     interactive = true,
-    showControls = true,
+    attribution = true,
     initialCenter = [139.6917, 35.6895] as [number, number],
     initialZoom = 12,
     conditionSegments = [],
@@ -90,8 +98,6 @@
   const VENUE_TYPES: VenueType[] = ['konbini', 'cafe', 'water', 'repair'];
   /** Venues within this distance of the selected route stay fully opaque. */
   const ON_ROUTE_M = 150;
-  /** Start and end closer than this are one loop marker. */
-  const LOOP_M = 50;
 
   let container: HTMLDivElement;
   let map: maplibregl.Map;
@@ -342,10 +348,6 @@
       attributionControl: false
     });
 
-    if (showControls) {
-      map.addControl(new maplibregl.NavigationControl(), 'top-right');
-    }
-
     let tileErrorShown = false;
     map.on('error', (e) => {
       if (tileErrorShown) return;
@@ -566,8 +568,42 @@
         }
       }
       selectedVenue = null;
+      // A tap on an alternative's line picks it (frame G).
+      const altLayers = [0, 1, 2]
+        .map((i) => `route-alt-line-${i}`)
+        .filter((id) => map.getLayer(id));
+      const altHit = altLayers.length
+        ? map.queryRenderedFeatures(
+            [
+              [e.point.x - 6, e.point.y - 6],
+              [e.point.x + 6, e.point.y + 6]
+            ],
+            { layers: altLayers }
+          )[0]
+        : undefined;
+      if (altHit && typeof altHit.properties?.profile === 'string') {
+        alternativePick.set(altHit.properties.profile);
+        return;
+      }
+      // A tap on a curated route selects it (frame D) unless a plan is showing.
+      if (map.getLayer('curated-routes') && $routeDisplays.length === 0) {
+        const hit = map.queryRenderedFeatures(
+          [
+            [e.point.x - 6, e.point.y - 6],
+            [e.point.x + 6, e.point.y + 6]
+          ],
+          { layers: ['curated-routes'] }
+        )[0];
+        const id = hit?.properties?.id;
+        if (typeof id === 'string') {
+          highlightedRouteId.set(id);
+          return;
+        }
+      }
       onclick?.({ lng: e.lngLat.lng, lat: e.lngLat.lat });
     });
+    map.on('mouseenter', 'curated-routes', () => (map.getCanvas().style.cursor = 'pointer'));
+    map.on('mouseleave', 'curated-routes', () => (map.getCanvas().style.cursor = ''));
     map.on('mouseenter', 'venue-pins', () => (map.getCanvas().style.cursor = 'pointer'));
     map.on('mouseleave', 'venue-pins', () => (map.getCanvas().style.cursor = ''));
   });
@@ -658,6 +694,7 @@
   onDestroy(() => {
     if (map) {
       clearRouteMarkers();
+      for (const m of timePills) m.remove();
       selectedVenueMarker?.remove();
       mapInstance.set(null);
       map.remove();
@@ -668,16 +705,21 @@
   $effect(() => {
     if (!map || !mapLoaded) return;
     const layers = $visibleLayers;
-    const layerMap: Record<string, string> = {
-      'cycling-roads': 'cycling-roads',
-      landuse: 'landuse-fill',
-      shadows: 'shadow-cells-fill',
-      'rain-cells': 'rain-cells-fill'
+    const planning = $routeDisplays.length > 0;
+    const layerMap: Record<string, string[]> = {
+      'cycling-roads': ['cycling-roads'],
+      greenery: ['landuse-fill'],
+      shadows: ['shadow-cells-fill'],
+      'rain-cells': ['rain-cells-fill'],
+      // Curated routes hide while a plan's alternatives are on the map (frame G).
+      'curated-routes': ['curated-routes-casing', 'curated-routes']
     };
-    for (const [key, layerId] of Object.entries(layerMap)) {
-      const vis = layers.has(key as any) ? 'visible' : 'none';
-      if (map.getLayer(layerId)) {
-        map.setLayoutProperty(layerId, 'visibility', vis);
+    for (const [key, layerIds] of Object.entries(layerMap)) {
+      const on = layers.has(key as MapLayer) && !(key === 'curated-routes' && planning);
+      for (const layerId of layerIds) {
+        if (map.getLayer(layerId)) {
+          map.setLayoutProperty(layerId, 'visibility', on ? 'visible' : 'none');
+        }
       }
     }
   });
@@ -758,7 +800,10 @@
     rainTimer = setTimeout(() => void refreshRainCells(bbox, at), 180);
   });
 
-  // Show all route alternatives on map (dimmed unselected, bright selected)
+  // Route alternatives (frame G): unselected lines in route-muted (the
+  // selected one is the highlight line), each with a time pill at its
+  // midpoint — white with muted text, route blue with white text when selected.
+  let timePills: maplibregl.Marker[] = [];
   $effect(() => {
     if (!map || !mapLoaded) return;
     const alts = $routeDisplays;
@@ -770,12 +815,37 @@
         src.setData({
           type: 'Feature',
           geometry: { type: 'LineString', coordinates: alt.coords },
-          properties: {}
+          properties: { profile: alt.profile }
         });
       } else {
         src.setData({ type: 'FeatureCollection', features: [] });
       }
     }
+    for (const m of timePills) m.remove();
+    timePills = [];
+    // Pills sit at different points along each line so shared stretches
+    // (the alternatives often overlap) never stack two pills.
+    const AT = [0.5, 0.3, 0.7];
+    alts.forEach((alt, i) => {
+      if (alt.coords.length < 2) return;
+      const mid = alt.coords[Math.floor(alt.coords.length * AT[i % AT.length])];
+      const el = document.createElement('button');
+      el.type = 'button';
+      el.className = 'km-timepill';
+      el.dataset.selected = String(alt.selected);
+      el.textContent = duration(alt.durationS);
+      el.setAttribute('aria-label', `${alt.label}: ${duration(alt.durationS)}`);
+      el.setAttribute('aria-pressed', String(alt.selected));
+      el.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        alternativePick.set(alt.profile);
+      });
+      timePills.push(
+        new maplibregl.Marker({ element: el, anchor: 'center', offset: [0, -16] })
+          .setLngLat(mid)
+          .addTo(map)
+      );
+    });
   });
 
   // Curated routes fall back to route-muted when a route is selected or a
@@ -787,14 +857,21 @@
     const alts = $routeDisplays;
     const layers = $visibleLayers;
     const raining = rainHasCells;
+    const hovered = $hoveredRouteId;
     const highlighted = highlightGeometry !== null && highlightGeometry.length > 0;
     const hasHighlight = highlighted || alts.length > 0;
     const dataLayerOn = layers.has('shadows') || (layers.has('rain-cells') && raining);
     if (map.getLayer('curated-routes')) {
+      const muted = hasHighlight || dataLayerOn || hovered !== null;
+      // The hovered list row lifts its line to route blue (frame I).
       map.setPaintProperty(
         'curated-routes',
         'line-color',
-        hasHighlight || dataLayerOn ? ROUTE_MUTED : ROUTE
+        hovered !== null
+          ? ['case', ['==', ['get', 'id'], hovered], ROUTE, ROUTE_MUTED]
+          : muted
+            ? ROUTE_MUTED
+            : ROUTE
       );
     }
   });
@@ -848,15 +925,18 @@
 
   <!-- Attribution grows with the visible data: PLATEAU when shadows or the
        shade overlay show, Open-Meteo when rain cells or a weather overlay show. -->
-  <div class="absolute bottom-3 right-3 z-20">
-    <AttributionPill
-      shade={$visibleLayers.has('shadows') ||
-        ($activeOverlay === 'shade' && conditionSegments.length > 0)}
-      weather={$visibleLayers.has('rain-cells') ||
-        (($activeOverlay === 'rain' || $activeOverlay === 'wind') && conditionSegments.length > 0)}
-    />
-  </div>
-  <DataSourcesSheet />
+  {#if attribution}
+    <div class="absolute bottom-1.5 right-2.5 z-20">
+      <AttributionPill
+        shade={$visibleLayers.has('shadows') ||
+          ($activeOverlay === 'shade' && conditionSegments.length > 0)}
+        weather={$visibleLayers.has('rain-cells') ||
+          (($activeOverlay === 'rain' || $activeOverlay === 'wind') &&
+            conditionSegments.length > 0)}
+      />
+    </div>
+    <DataSourcesSheet />
+  {/if}
 
   {#if tileError}
     <div
@@ -940,6 +1020,32 @@
   :global(.km-marker__badge > svg) {
     width: 64%;
     height: 64%;
+  }
+
+  /* Alternative time pills (frame G): white pill, muted text; the selected
+     one is route blue with white text. */
+  :global(.km-timepill) {
+    height: 28px;
+    padding: 0 10px;
+    border-radius: 999px;
+    border: 1px solid var(--color-line);
+    background: var(--color-surface-base);
+    color: var(--color-text-subtle);
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1;
+    white-space: nowrap;
+    box-shadow: var(--shadow-xs);
+    cursor: pointer;
+  }
+  :global(.km-timepill[data-selected='true']) {
+    background: var(--color-route);
+    border-color: var(--color-route);
+    color: var(--color-on-primary);
+  }
+  :global(.km-timepill:focus-visible) {
+    outline: 2px solid var(--color-focus);
+    outline-offset: 2px;
   }
 
   /* Selected venue: near-black fill, white icon, label chip. */

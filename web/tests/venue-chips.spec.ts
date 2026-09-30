@@ -1,6 +1,7 @@
 // web/tests/venue-chips.spec.ts
 //
-// Opt-in venue pins: the "Show on map" chips are the only way venues appear.
+// Opt-in venue pins: the "Show on map" chips in the search panel (frame B)
+// are the only way venues appear.
 import { test, expect, gotoHydrated } from './helpers/fixtures';
 import { expectLayoutInvariants } from './helpers/layout';
 import { stubApi } from './helpers/api';
@@ -8,6 +9,7 @@ import { stubApi } from './helpers/api';
 test.beforeEach(async ({ page }) => {
   await stubApi(page);
   await gotoHydrated(page, '/');
+  await page.getByRole('searchbox').click();
 });
 
 test('venue chips are off by default, toggle, and meet the layout invariants', async ({ page }) => {
