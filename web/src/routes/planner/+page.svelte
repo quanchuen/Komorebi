@@ -4,6 +4,8 @@
   import PlannerPanel from '$lib/components/PlannerPanel.svelte';
   import MapOverlayToggle from '$lib/components/MapOverlayToggle.svelte';
   import { plannerStops, plannerResult } from '$lib/stores/planner';
+  import { routeStops } from '$lib/stores/map';
+  import { onDestroy } from 'svelte';
   import type { RouteConditionSegment } from '$lib/api/types';
 
   let stopCounter = $state(0);
@@ -30,6 +32,20 @@
   // Directions alternatives carry no per-segment conditions; the overlay stays off here.
   let planConditions: RouteConditionSegment[] = $derived([] as RouteConditionSegment[]);
   let planDistanceM = $derived(($plannerResult?.total_distance_km ?? 0) * 1000);
+
+  // Publish the stops so the map draws start / numbered / end markers.
+  $effect(() => {
+    const stops = $plannerStops;
+    routeStops.set(
+      stops.map((s, i) => ({
+        lat: s.lat,
+        lon: s.lon,
+        kind: i === 0 ? 'start' : i === stops.length - 1 ? 'end' : 'via',
+        index: i
+      }))
+    );
+  });
+  onDestroy(() => routeStops.set([]));
 </script>
 
 <svelte:head>

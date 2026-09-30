@@ -4,6 +4,7 @@
   import Map from '$lib/components/Map.svelte';
   import NavigationPanel from '$lib/components/NavigationPanel.svelte';
   import WeatherTimeline from '$lib/components/WeatherTimeline.svelte';
+  import VenueChips from '$lib/components/VenueChips.svelte';
   import { highlightedRouteId, departureAt, mapInstance } from '$lib/stores/map';
   import { routes as routesApi } from '$lib/api/client';
   import type { RouteConditionSegment } from '$lib/api/types';
@@ -13,6 +14,7 @@
   let highlightedConditions = $state<RouteConditionSegment[]>([]);
   let highlightedDistanceM = $state(0);
   let highlightedGeometry = $state<[number, number][] | null>(null);
+  let highlightedWaypoints = $state<[number, number][]>([]);
   let routeError = $state<string | null>(null);
   let navPanel: NavigationPanel;
 
@@ -30,6 +32,7 @@
     let stale = false;
     if (!id) {
       highlightedGeometry = null;
+      highlightedWaypoints = [];
       highlightedConditions = [];
       highlightedDistanceM = 0;
       routeError = null;
@@ -63,6 +66,10 @@
           highlightedGeometry = null;
         }
         highlightedDistanceM = fullRoute.distanceM;
+        highlightedWaypoints = (fullRoute.waypoints ?? [])
+          .slice()
+          .sort((a, b) => a.sortOrder - b.sortOrder)
+          .map((w) => [w.geometry.coordinates[0], w.geometry.coordinates[1]] as [number, number]);
       })
       .catch((e) => {
         if (stale) return;
@@ -70,6 +77,7 @@
         // would keep the curated routes dimmed under a failed highlight.
         highlightedConditions = [];
         highlightedGeometry = null;
+        highlightedWaypoints = [];
         highlightedDistanceM = 0;
         const msg = e instanceof Error ? e.message : String(e);
         if (msg.includes('Failed to fetch')) routeError = 'Cannot connect to API';
@@ -130,6 +138,7 @@
   <div class="flex-1 relative min-h-0">
     <Map
       highlightGeometry={highlightedGeometry}
+      highlightWaypoints={highlightedWaypoints}
       conditionSegments={highlightedConditions}
       conditionRouteDistanceM={highlightedDistanceM}
       onclick={handleMapClick}
@@ -137,6 +146,12 @@
 
     <!-- Floating navigation panel — inset from edges, doesn't touch bottom -->
     <NavigationPanel bind:this={navPanel} />
+
+    <!-- Opt-in venue pins. Lives here until the search panel (frame B) hosts
+         the SHOW ON MAP chips. -->
+    <div class="absolute bottom-4 left-4 md:left-88 z-10">
+      <VenueChips />
+    </div>
 
     <!-- Route error toast -->
     {#if routeError}

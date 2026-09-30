@@ -15,7 +15,8 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "lighthouse": "lhci autorun"
+    "lighthouse": "lhci autorun",
+    "test:layout": "playwright test"
   },
   "lint-staged": {
     "*.{svelte,ts,js}": [

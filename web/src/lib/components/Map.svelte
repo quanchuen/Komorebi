@@ -13,9 +13,22 @@
     liveNavigationPosition,
     departureAt,
     shadowSlice,
-    bboxString
+    bboxString,
+    visibleVenueTypes,
+    routeStops,
+    VENUE_TYPE_CATEGORIES,
+    type VenueType
   } from '$lib/stores/map';
   import { weather } from '$lib/api/client';
+  import {
+    buildRouteMarker,
+    buildSelectedVenueMarker,
+    markerSizeForZoom,
+    metresBetween,
+    metresToPolyline,
+    renderVenuePinImage,
+    type MarkerSize
+  } from '$lib/utils/mapMarkers';
   import {
     buildLineGradient,
     ROUTE,
@@ -47,6 +60,8 @@
     conditionSegments?: RouteConditionSegment[];
     conditionRouteDistanceM?: number;
     highlightGeometry?: [number, number][] | null;
+    /** Numbered stops along the highlighted route, in order. */
+    highlightWaypoints?: [number, number][];
     routeAlternatives?: RouteDisplay[];
     onclick?: (detail: { lng: number; lat: number }) => void;
     onmoveend?: (detail: { bounds: maplibregl.LngLatBounds }) => void;
@@ -60,10 +75,20 @@
     conditionSegments = [],
     conditionRouteDistanceM = 0,
     highlightGeometry = null,
+    highlightWaypoints = [],
     routeAlternatives = [],
     onclick,
     onmoveend
   }: Props = $props();
+
+  // Venue pin colours for the rasterised symbol icons: surface.base, line and
+  // text.default from app.css. Hex is allowed here (MapLibre paint).
+  const VENUE_PIN_COLORS = { fill: '#FFFFFF', ring: '#E4E4E7', icon: '#18181B' };
+  const VENUE_TYPES: VenueType[] = ['konbini', 'cafe', 'water', 'repair'];
+  /** Venues within this distance of the selected route stay fully opaque. */
+  const ON_ROUTE_M = 150;
+  /** Start and end closer than this are one loop marker. */
+  const LOOP_M = 50;
 
   let container: HTMLDivElement;
   let map: maplibregl.Map;
@@ -108,23 +133,119 @@
         'fill-opacity': 0.15
       },
       layout: { visibility: 'none' as const }
-    },
-    venues: {
-      id: 'venue-circles',
-      type: 'circle' as const,
+    }
+  };
+
+  // Venue pins are a symbol layer over rasterised SVG icons (one per type),
+  // added once the images are ready. Opt-in: the filter is empty until the
+  // rider picks a type.
+  async function addVenuePins() {
+    await Promise.all(
+      VENUE_TYPES.map(async (type) => {
+        const image = await renderVenuePinImage(type, VENUE_PIN_COLORS, 2);
+        if (!map.hasImage(`venue-${type}`)) map.addImage(`venue-${type}`, image, { pixelRatio: 2 });
+      })
+    );
+    if (map.getLayer('venue-pins')) return;
+    const categoryToType: unknown[] = ['match', ['get', 'category']];
+    for (const type of VENUE_TYPES) {
+      categoryToType.push(VENUE_TYPE_CATEGORIES[type], `venue-${type}`);
+    }
+    categoryToType.push('venue-konbini');
+    map.addLayer({
+      id: 'venue-pins',
+      type: 'symbol',
       source: 'martin-venues',
       'source-layer': 'venues',
       minzoom: 13,
-      paint: {
-        'circle-radius': ['interpolate', ['linear'], ['zoom'], 13, 3, 16, 5],
-        'circle-color': '#8b5cf6',
-        'circle-stroke-color': '#1e1b4b',
-        'circle-stroke-width': 1,
-        'circle-opacity': 0.6
+      filter: ['in', ['get', 'category'], ['literal', []]],
+      layout: {
+        'icon-image': categoryToType as never,
+        'icon-size': 1,
+        'icon-allow-overlap': false,
+        'icon-padding': 2,
+        visibility: 'none'
       },
-      layout: { visibility: 'none' as const }
+      paint: { 'icon-opacity': 1 }
+    });
+    venuePinsReady = true;
+  }
+
+  let venuePinsReady = $state(false);
+
+  // Route markers (start / end / loop / numbered stops) are DOM markers so
+  // they can use the chrome tokens; the symbol layer only draws venues.
+  let routeMarkers: maplibregl.Marker[] = [];
+  let markerSize: MarkerSize = 24;
+  let selectedVenue = $state<{
+    lngLat: [number, number];
+    type: VenueType;
+    name: string;
+    osmId: number | null;
+  } | null>(null);
+  let selectedVenueMarker: maplibregl.Marker | null = null;
+  // The line venues are measured against for dimming (the selected route).
+  let activeRouteLine: [number, number][] | null = null;
+  // Sorted on-route osm_ids of the last dimming pass ('' = nothing dimmed).
+  let dimmedKey = '';
+
+  function venueTypeFor(category: unknown): VenueType {
+    for (const type of VENUE_TYPES) {
+      if (VENUE_TYPE_CATEGORIES[type].includes(String(category))) return type;
     }
-  };
+    return 'konbini';
+  }
+
+  function clearRouteMarkers() {
+    for (const m of routeMarkers) m.remove();
+    routeMarkers = [];
+  }
+
+  function addRouteMarker(el: HTMLElement, lngLat: [number, number]) {
+    const marker = new maplibregl.Marker({ element: el, anchor: 'center' })
+      .setLngLat(lngLat)
+      .addTo(map);
+    routeMarkers.push(marker);
+  }
+
+  function applyMarkerSize() {
+    const size = markerSizeForZoom(map.getZoom());
+    if (size === markerSize) return;
+    markerSize = size;
+    for (const m of routeMarkers) m.getElement().dataset.size = String(size);
+  }
+
+  // Dim venues that are off the selected route to 45%. Runs when the map
+  // settles so it sees the tiles that are actually on screen.
+  function refreshVenueDimming() {
+    if (!map.getLayer('venue-pins')) return;
+    const line = activeRouteLine;
+    if (!line || line.length < 2) {
+      if (dimmedKey !== '') {
+        dimmedKey = '';
+        map.setPaintProperty('venue-pins', 'icon-opacity', 1);
+      }
+      return;
+    }
+    const onRoute: number[] = [];
+    for (const f of map.queryRenderedFeatures({ layers: ['venue-pins'] })) {
+      if (f.geometry.type !== 'Point') continue;
+      const id = Number(f.properties?.osm_id);
+      if (!Number.isFinite(id)) continue;
+      const p = f.geometry.coordinates as [number, number];
+      if (metresToPolyline(p, line) <= ON_ROUTE_M) onRoute.push(id);
+    }
+    // Only repaint when the on-route set changed; a repaint fires idle again.
+    const key = onRoute.sort((a, b) => a - b).join(',');
+    if (key === dimmedKey) return;
+    dimmedKey = key;
+    map.setPaintProperty('venue-pins', 'icon-opacity', [
+      'case',
+      ['in', ['get', 'osm_id'], ['literal', onRoute]],
+      1,
+      0.45
+    ]);
+  }
 
   onMount(() => {
     map = new maplibregl.Map({
@@ -356,21 +477,8 @@
         paint: { 'line-width': 5, 'line-color': ROUTE }
       });
 
-      // Planner stops
-      map.addSource('planner-stops', {
-        type: 'geojson',
-        data: { type: 'FeatureCollection', features: [] }
-      });
-      map.addLayer({
-        id: 'planner-stops-circle',
-        type: 'circle',
-        source: 'planner-stops',
-        paint: {
-          'circle-radius': 8,
-          'circle-color': '#38BDF8',
-          'circle-stroke-color': '#0F172A',
-          'circle-stroke-width': 2
-        }
+      void addVenuePins().catch(() => {
+        // Icon rasterisation failed (no canvas); venues stay off.
       });
 
       // Foreground navigation position. Browser location is never persisted.
@@ -401,8 +509,12 @@
         }
       });
 
+      markerSize = markerSizeForZoom(map.getZoom());
       mapLoaded = true;
       mapInstance.set(map);
+      // Dev-only handle for browser tests and manual inspection.
+      if (import.meta.env.DEV)
+        (window as unknown as { __komorebiMap?: maplibregl.Map }).__komorebiMap = map;
       publishBounds(); // seed viewport-driven layers before the first pan
     });
 
@@ -418,10 +530,101 @@
     }
 
     map.on('moveend', publishBounds);
+    map.on('zoom', applyMarkerSize);
+    map.on('idle', refreshVenueDimming);
 
     map.on('click', (e) => {
+      // A tap on a venue pin selects it instead of reaching the page (which
+      // would otherwise drop a planner stop there).
+      if (map.getLayer('venue-pins')) {
+        const hit = map.queryRenderedFeatures(e.point, { layers: ['venue-pins'] })[0];
+        if (hit && hit.geometry.type === 'Point') {
+          const [lng, lat] = hit.geometry.coordinates;
+          const osmId = Number(hit.properties?.osm_id);
+          selectedVenue =
+            selectedVenue && selectedVenue.osmId === osmId
+              ? null
+              : {
+                  lngLat: [lng, lat],
+                  type: venueTypeFor(hit.properties?.category),
+                  name: String(hit.properties?.name ?? ''),
+                  osmId: Number.isFinite(osmId) ? osmId : null
+                };
+          return;
+        }
+      }
+      selectedVenue = null;
       onclick?.({ lng: e.lngLat.lng, lat: e.lngLat.lat });
     });
+    map.on('mouseenter', 'venue-pins', () => (map.getCanvas().style.cursor = 'pointer'));
+    map.on('mouseleave', 'venue-pins', () => (map.getCanvas().style.cursor = ''));
+  });
+
+  // Route markers: the planner's stops when any are set (start, numbered
+  // waypoints, end), otherwise the ends of the highlighted route plus its
+  // waypoints. Start and end within LOOP_M collapse into one loop marker.
+  $effect(() => {
+    if (!map || !mapLoaded) return;
+    const stops = $routeStops;
+    const geom = highlightGeometry;
+    const waypoints = highlightWaypoints;
+    clearRouteMarkers();
+
+    if (stops.length > 0) {
+      const start = stops.find((s) => s.kind === 'start');
+      const end = stops.find((s) => s.kind === 'end');
+      const startLngLat: [number, number] | null = start ? [start.lon, start.lat] : null;
+      const endLngLat: [number, number] | null = end ? [end.lon, end.lat] : null;
+      const loop = startLngLat && endLngLat && metresBetween(startLngLat, endLngLat) < LOOP_M;
+      if (startLngLat) {
+        addRouteMarker(buildRouteMarker(loop ? 'loop' : 'start', markerSize), startLngLat);
+      }
+      if (endLngLat && !loop) addRouteMarker(buildRouteMarker('end', markerSize), endLngLat);
+      for (const s of stops.filter((s) => s.kind === 'via')) {
+        addRouteMarker(buildRouteMarker('waypoint', markerSize, { number: s.index }), [
+          s.lon,
+          s.lat
+        ]);
+      }
+      return;
+    }
+
+    if (geom && geom.length > 1) {
+      const startLngLat = geom[0];
+      const endLngLat = geom[geom.length - 1];
+      const loop = metresBetween(startLngLat, endLngLat) < LOOP_M;
+      addRouteMarker(buildRouteMarker(loop ? 'loop' : 'start', markerSize), startLngLat);
+      if (!loop) addRouteMarker(buildRouteMarker('end', markerSize), endLngLat);
+      waypoints.forEach((wp, i) => {
+        addRouteMarker(buildRouteMarker('waypoint', markerSize, { number: i + 1 }), wp);
+      });
+    }
+  });
+
+  // Opt-in venue pins: filter the symbol layer to the picked types.
+  $effect(() => {
+    if (!map || !mapLoaded || !venuePinsReady) return;
+    const types = $visibleVenueTypes;
+    const categories = [...types].flatMap((t) => VENUE_TYPE_CATEGORIES[t]);
+    map.setFilter('venue-pins', ['in', ['get', 'category'], ['literal', categories]]);
+    map.setLayoutProperty('venue-pins', 'visibility', categories.length > 0 ? 'visible' : 'none');
+    if (categories.length === 0) selectedVenue = null;
+  });
+
+  // The selected venue is a DOM marker (near-black fill, white icon, label
+  // chip) drawn over its pin.
+  $effect(() => {
+    if (!map || !mapLoaded) return;
+    const venue = selectedVenue;
+    selectedVenueMarker?.remove();
+    selectedVenueMarker = null;
+    if (!venue) return;
+    selectedVenueMarker = new maplibregl.Marker({
+      element: buildSelectedVenueMarker(venue.type, venue.name),
+      anchor: 'center'
+    })
+      .setLngLat(venue.lngLat)
+      .addTo(map);
   });
 
   $effect(() => {
@@ -442,6 +645,8 @@
 
   onDestroy(() => {
     if (map) {
+      clearRouteMarkers();
+      selectedVenueMarker?.remove();
       mapInstance.set(null);
       map.remove();
     }
@@ -454,7 +659,6 @@
     const layerMap: Record<string, string> = {
       'cycling-roads': 'cycling-roads',
       landuse: 'landuse-fill',
-      venues: 'venue-circles',
       shadows: 'shadow-cells-fill',
       'rain-cells': 'rain-cells-fill'
     };
@@ -599,6 +803,8 @@
     if (!src) return;
 
     const geom = highlighted !== null && highlighted.length > 0 ? highlighted : planner;
+    activeRouteLine = geom !== null && geom.length > 1 ? geom : null;
+    refreshVenueDimming();
     if (geom !== null && geom.length > 0) {
       src.setData({
         type: 'Feature',
@@ -643,3 +849,110 @@
     </div>
   {/if}
 </div>
+
+<style>
+  /* Route markers (Penpot "Markers"). Global because the elements are built
+     outside Svelte's template; colours come from the app.css tokens. */
+  :global(.km-marker) {
+    width: var(--km-size);
+    height: var(--km-size);
+    --km-size: 24px;
+    --km-ring: 2.5px;
+    filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.14)) drop-shadow(0 0 1px rgba(0, 0, 0, 0.1));
+    pointer-events: none;
+  }
+  :global(.km-marker[data-size='20']) {
+    --km-size: 20px;
+    --km-ring: 2px;
+  }
+  :global(.km-marker[data-size='28']) {
+    --km-size: 28px;
+  }
+  :global(.km-marker__disc) {
+    box-sizing: border-box;
+    width: 100%;
+    height: 100%;
+    border-radius: 999px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--color-surface-base);
+    border: var(--km-ring) solid var(--color-route);
+    color: var(--color-route);
+    font-weight: 600;
+    font-size: calc(var(--km-size) * 0.5);
+    line-height: 1;
+  }
+  :global(.km-marker__disc > svg) {
+    width: 62%;
+    height: 62%;
+  }
+  /* End: route-blue fill, 2px white outer ring, white flag. */
+  :global(.km-marker[data-kind='end'] .km-marker__disc) {
+    background: var(--color-route);
+    border: 2px solid var(--color-route-casing);
+    color: var(--color-on-primary);
+  }
+  /* Waypoints: 22px white, 2px route-blue ring, number in route blue. */
+  :global(.km-marker[data-kind='waypoint']) {
+    --km-size: 22px;
+    --km-ring: 2px;
+  }
+  /* Loop: the start marker plus a small end badge at its top-right. */
+  :global(.km-marker__badge) {
+    position: absolute;
+    top: -22%;
+    right: -22%;
+    width: 58%;
+    height: 58%;
+    border-radius: 999px;
+    background: var(--color-route);
+    border: 1.5px solid var(--color-route-casing);
+    color: var(--color-on-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  :global(.km-marker__badge > svg) {
+    width: 64%;
+    height: 64%;
+  }
+
+  /* Selected venue: near-black fill, white icon, label chip. */
+  :global(.km-venue) {
+    width: 28px;
+    height: 28px;
+    pointer-events: none;
+    filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.14));
+  }
+  :global(.km-venue__disc) {
+    box-sizing: border-box;
+    width: 100%;
+    height: 100%;
+    border-radius: 999px;
+    background: var(--color-primary);
+    border: 1px solid var(--color-primary);
+    color: var(--color-on-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  :global(.km-venue__disc > svg) {
+    width: 60%;
+    height: 60%;
+  }
+  :global(.km-venue__chip) {
+    position: absolute;
+    left: 50%;
+    top: calc(100% + 4px);
+    transform: translateX(-50%);
+    white-space: nowrap;
+    background: var(--color-primary);
+    color: var(--color-on-primary);
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 1;
+    padding: 5px 8px;
+    border-radius: 6px;
+  }
+</style>

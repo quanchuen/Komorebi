@@ -70,3 +70,25 @@ export const liveNavigationPosition = writable<GeolocationCoordinates | null>(nu
 export const bboxString = derived(mapBounds, ($b) =>
   $b ? `${$b.minLon},${$b.minLat},${$b.maxLon},${$b.maxLat}` : null
 );
+
+// Opt-in venue pins. Nothing shows until the rider picks a type; each type
+// maps onto one or more venue categories in the tiles.
+export type VenueType = 'konbini' | 'cafe' | 'water' | 'repair';
+export const VENUE_TYPE_CATEGORIES: Record<VenueType, string[]> = {
+  konbini: ['konbini'],
+  cafe: ['cafe'],
+  water: ['water'],
+  repair: ['bike-repair', 'bike-shop']
+};
+export const visibleVenueTypes = writable<Set<VenueType>>(new Set());
+
+// Stops of the route being planned, published by whichever planner UI is on
+// the page so the map can draw start / waypoint / end markers for them.
+export interface RouteStop {
+  lat: number;
+  lon: number;
+  kind: 'start' | 'via' | 'end';
+  /** 1-based number shown on waypoint markers; unused for start / end. */
+  index: number;
+}
+export const routeStops = writable<RouteStop[]>([]);

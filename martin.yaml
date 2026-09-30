@@ -60,6 +60,7 @@ postgres:
       minzoom: 12
       maxzoom: 18
       properties:
+        osm_id: int8
         name: text
         category: text
         brand: text

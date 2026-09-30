@@ -16,7 +16,8 @@
     selectedRouteGeometry,
     selectedRouteDistanceM,
     activeOverlay,
-    liveNavigationPosition
+    liveNavigationPosition,
+    routeStops
   } from '$lib/stores/map';
   import { discoveryRoutes, discoveryLoading, discoveryError } from '$lib/stores/discovery';
   import { plannerPreferences } from '$lib/stores/planner';
@@ -499,11 +500,25 @@
     liveNavigationPosition.set($foregroundNavigation.position);
   });
 
+  // Publish the resolved stops so the map draws start / waypoint / end
+  // markers for them (numbered vias in order).
+  $effect(() => {
+    let via = 0;
+    routeStops.set(
+      stops.flatMap((s, i) => {
+        if (s.lat === null || s.lon === null) return [];
+        const kind = i === 0 ? 'start' : i === stops.length - 1 ? 'end' : 'via';
+        return [{ lat: s.lat, lon: s.lon, kind, index: kind === 'via' ? ++via : 0 }];
+      })
+    );
+  });
+
   onDestroy(() => {
     clearTimeout(loadDebounce);
     routeLoadSequence += 1;
     stopForegroundNavigation();
     liveNavigationPosition.set(null);
+    routeStops.set([]);
   });
 
   // Close suggestions when clicking outside

@@ -14,6 +14,12 @@
   let route = $derived(data.route);
   let conditions = $derived(data.conditions?.segments ?? []);
   let geometry = $derived(route.geometry.coordinates.map((c) => [c[0], c[1]] as [number, number]));
+  let waypoints = $derived(
+    (route.waypoints ?? [])
+      .slice()
+      .sort((a, b) => a.sortOrder - b.sortOrder)
+      .map((w) => [w.geometry.coordinates[0], w.geometry.coordinates[1]] as [number, number])
+  );
 
   const difficultyColor: Record<string, string> = {
     easy: 'text-easy',
@@ -134,6 +140,7 @@
   <div class="hidden md:block flex-1 relative">
     <Map
       highlightGeometry={geometry}
+      highlightWaypoints={waypoints}
       conditionSegments={conditions}
       conditionRouteDistanceM={route.distanceM}
     />
