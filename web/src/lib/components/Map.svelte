@@ -3,6 +3,7 @@
   import { onMount, onDestroy } from 'svelte';
   import maplibregl from 'maplibre-gl';
   import 'maplibre-gl/dist/maplibre-gl.css';
+  import { env } from '$env/dynamic/public';
   import {
     mapInstance,
     mapBounds,
@@ -98,6 +99,16 @@
   let mapLoaded = $state(false);
 
   const MARTIN_URL = 'http://localhost:3000';
+
+  // CARTO basemaps require a key since August 2026 (free: 5M tiles/month
+  // non-commercial, 1M commercial; carto.com/basemaps/apikey). Read at
+  // runtime so the web container needs no rebuild; without a key the tiles
+  // still load, watermarked "API KEY REQUIRED".
+  const cartoKey = env.PUBLIC_CARTO_API_KEY?.trim();
+  const cartoTiles = ['a', 'b', 'c'].map(
+    (s) =>
+      `https://${s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png${cartoKey ? `?key=${cartoKey}` : ''}`
+  );
 
   // Shadow tiles are sliced per (hour, month); the slider swaps the tile URL.
   // MapLibre needs absolute tile URLs, so resolve the /tiles proxy against the
@@ -258,11 +269,7 @@
         sources: {
           'carto-light': {
             type: 'raster',
-            tiles: [
-              'https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png',
-              'https://b.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png',
-              'https://c.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png'
-            ],
+            tiles: cartoTiles,
             tileSize: 256,
             attribution:
               '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>'

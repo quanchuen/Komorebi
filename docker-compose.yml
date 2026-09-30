@@ -75,6 +75,9 @@ services:
       - API_URL=http://api:8080
       # Server-side proxy target for /tiles/* (see web/src/hooks.server.ts).
       - TILES_URL=http://martin:3000
+      # CARTO basemap key (browser-side; free at carto.com/basemaps/apikey).
+      # Interpolated from the host shell or a root .env file; never commit it.
+      - PUBLIC_CARTO_API_KEY=${PUBLIC_CARTO_API_KEY:-}
     depends_on:
       - api
     restart: unless-stopped
