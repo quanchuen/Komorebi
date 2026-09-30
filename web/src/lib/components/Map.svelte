@@ -16,7 +16,17 @@
     bboxString
   } from '$lib/stores/map';
   import { weather } from '$lib/api/client';
-  import { buildLineGradient } from '$lib/utils/conditionColors';
+  import {
+    buildLineGradient,
+    ROUTE,
+    ROUTE_MUTED,
+    ROUTE_CASING,
+    SHADE_RAMP,
+    RAIN_RAMP,
+    RAIN_STEPS_MMH,
+    CYCLING_INFRA,
+    GREENERY_FILL
+  } from '$lib/utils/conditionColors';
   import type { RouteConditionSegment } from '$lib/api/types';
 
   import type { RouteAlternative } from '$lib/api/types';
@@ -79,10 +89,12 @@
       source: 'martin-roads',
       'source-layer': 'osm_roads',
       filter: ['in', 'highway', 'cycleway', 'path', 'track'],
+      // Neutral zinc so infrastructure never competes with route blue or the
+      // greenery ramp (spec: "Cycling infrastructure layer").
       paint: {
-        'line-color': '#22d3ee',
+        'line-color': CYCLING_INFRA,
         'line-width': ['interpolate', ['linear'], ['zoom'], 10, 0.5, 16, 2],
-        'line-opacity': 0.4
+        'line-opacity': 0.8
       },
       layout: { visibility: 'none' as const }
     },
@@ -92,8 +104,8 @@
       source: 'martin-landuse',
       'source-layer': 'osm_landuse',
       paint: {
-        'fill-color': '#166534',
-        'fill-opacity': 0.12
+        'fill-color': GREENERY_FILL,
+        'fill-opacity': 0.15
       },
       layout: { visibility: 'none' as const }
     },
@@ -165,16 +177,29 @@
             source: 'carto-light',
             paint: { 'raster-opacity': 1 }
           },
-          // 2. Curated routes — subtle, always visible
+          // 2. Curated routes — always visible. Route blue over a white
+          // casing (resting 3px over 6.5px); route-muted when a route is
+          // selected or a data layer is on (see the dimming effect below).
+          {
+            id: 'curated-routes-casing',
+            type: 'line',
+            source: 'martin-routes',
+            'source-layer': 'routes',
+            layout: { 'line-cap': 'round', 'line-join': 'round' },
+            paint: {
+              'line-color': ROUTE_CASING,
+              'line-width': ['interpolate', ['linear'], ['zoom'], 8, 2.5, 14, 6.5]
+            }
+          },
           {
             id: 'curated-routes',
             type: 'line',
             source: 'martin-routes',
             'source-layer': 'routes',
+            layout: { 'line-cap': 'round', 'line-join': 'round' },
             paint: {
-              'line-color': '#10b981',
-              'line-width': ['interpolate', ['linear'], ['zoom'], 8, 1, 14, 3],
-              'line-opacity': 0.5
+              'line-color': ROUTE,
+              'line-width': ['interpolate', ['linear'], ['zoom'], 8, 1, 14, 3]
             }
           }
           // Everything else is added dynamically and hidden by default
@@ -215,24 +240,38 @@
           type: 'fill',
           source: 'shadow-cells',
           'source-layer': 'shadow_cells',
+          // Shade ramp by coverage: a faint sun wash on open cells, then
+          // shadow polygons from partial to deep (darker = deeper shade).
           paint: {
-            'fill-color': '#1e3a8a',
+            'fill-color': [
+              'interpolate',
+              ['linear'],
+              ['get', 'shade_coverage'],
+              0,
+              SHADE_RAMP[0],
+              0.33,
+              SHADE_RAMP[1],
+              0.66,
+              SHADE_RAMP[2],
+              1,
+              SHADE_RAMP[3]
+            ],
             'fill-antialias': false,
             'fill-opacity': [
               'interpolate',
               ['linear'],
               ['get', 'shade_coverage'],
-              0.05,
               0,
-              0.4,
-              0.16,
+              0.1,
+              0.3,
+              0.28,
               1,
-              0.38
+              0.45
             ]
           },
           layout: { visibility: 'none' }
         },
-        'curated-routes'
+        'curated-routes-casing'
       );
 
       map.addSource('rain-cells', {
@@ -244,36 +283,27 @@
           id: 'rain-cells-fill',
           type: 'fill',
           source: 'rain-cells',
+          // Rain ramp by intensity (mm/h): drizzle < 0.5, light 0.5–2,
+          // moderate 2–8, heavy > 8. Filled areas, so it stays apart from
+          // route blue.
           paint: {
             'fill-color': [
-              'interpolate',
-              ['linear'],
+              'step',
               ['get', 'precip'],
-              0.05,
-              '#67e8f9',
-              1,
-              '#6366f1',
-              4,
-              '#4c1d95'
+              RAIN_RAMP.drizzle,
+              RAIN_STEPS_MMH[0],
+              RAIN_RAMP.light,
+              RAIN_STEPS_MMH[1],
+              RAIN_RAMP.moderate,
+              RAIN_STEPS_MMH[2],
+              RAIN_RAMP.heavy
             ],
             'fill-antialias': false,
-            'fill-opacity': [
-              'interpolate',
-              ['linear'],
-              ['get', 'precip'],
-              0,
-              0,
-              0.1,
-              0.12,
-              1,
-              0.3,
-              4,
-              0.45
-            ]
+            'fill-opacity': ['step', ['get', 'precip'], 0, 0.05, 0.4]
           },
           layout: { visibility: 'none' }
         },
-        'curated-routes'
+        'curated-routes-casing'
       );
 
       // Add optional layers (hidden by default)
@@ -281,7 +311,8 @@
         map.addLayer(def as any);
       }
 
-      // Route alternatives (up to 3 dimmed + 1 highlighted)
+      // Route alternatives: unselected ones in route-muted over a white
+      // casing (resting weight); the selected one is drawn by highlight-route.
       for (let i = 0; i < 3; i++) {
         map.addSource(`route-alt-${i}`, {
           type: 'geojson',
@@ -289,15 +320,22 @@
           data: { type: 'FeatureCollection', features: [] }
         });
         map.addLayer({
+          id: `route-alt-casing-${i}`,
+          type: 'line',
+          source: `route-alt-${i}`,
+          layout: { 'line-cap': 'round', 'line-join': 'round' },
+          paint: { 'line-width': 6.5, 'line-color': ROUTE_CASING }
+        });
+        map.addLayer({
           id: `route-alt-line-${i}`,
           type: 'line',
           source: `route-alt-${i}`,
           layout: { 'line-cap': 'round', 'line-join': 'round' },
-          paint: { 'line-width': 3, 'line-color': '#64748b', 'line-opacity': 0.3 }
+          paint: { 'line-width': 3, 'line-color': ROUTE_MUTED }
         });
       }
 
-      // Highlight route source + layer (above alternatives)
+      // Selected route: route blue 5px over a 9px white casing.
       map.addSource('highlight-route', {
         type: 'geojson',
         lineMetrics: true,
@@ -308,14 +346,14 @@
         type: 'line',
         source: 'highlight-route',
         layout: { 'line-cap': 'round', 'line-join': 'round' },
-        paint: { 'line-width': 9, 'line-color': '#172033', 'line-opacity': 0.78 }
+        paint: { 'line-width': 9, 'line-color': ROUTE_CASING }
       });
       map.addLayer({
         id: 'highlight-route-line',
         type: 'line',
         source: 'highlight-route',
         layout: { 'line-cap': 'round', 'line-join': 'round' },
-        paint: { 'line-width': 5, 'line-color': '#38BDF8', 'line-opacity': 0.9 }
+        paint: { 'line-width': 5, 'line-color': ROUTE }
       });
 
       // Planner stops
@@ -448,6 +486,8 @@
   let rainTimer: ReturnType<typeof setTimeout>;
   let rainSeq = 0;
   const rainCache = new Map<string, FeatureCollection>();
+  // Whether the current rain snapshot paints anything; drives route muting.
+  let rainHasCells = $state(false);
 
   async function refreshRainCells(bbox: string, at: string) {
     const src = map.getSource('rain-cells') as maplibregl.GeoJSONSource | undefined;
@@ -490,6 +530,7 @@
       if (seq !== rainSeq) return; // a newer request superseded this one
     }
     src.setData(fc);
+    rainHasCells = fc.features.some((f) => ((f.properties?.precip as number) ?? 0) >= 0.05);
   }
 
   $effect(() => {
@@ -515,25 +556,30 @@
           geometry: { type: 'LineString', coordinates: alt.coords },
           properties: {}
         });
-        map.setPaintProperty(`route-alt-line-${i}`, 'line-color', alt.color);
-        map.setPaintProperty(`route-alt-line-${i}`, 'line-opacity', 0.3);
-        map.setPaintProperty(`route-alt-line-${i}`, 'line-width', 3);
       } else {
         src.setData({ type: 'FeatureCollection', features: [] });
       }
     }
   });
 
-  // Dim curated routes when routes are displayed. Read every input
-  // unconditionally so the effect never drops a dependency behind a
-  // short-circuit and gets stuck dimmed.
+  // Curated routes fall back to route-muted when a route is selected or a
+  // data layer is showing something (shadows, or rain cells that actually
+  // contain rain). Read every input unconditionally so the effect never drops
+  // a dependency behind a short-circuit and gets stuck muted.
   $effect(() => {
     if (!map || !mapLoaded) return;
     const alts = $routeDisplays;
+    const layers = $visibleLayers;
+    const raining = rainHasCells;
     const highlighted = highlightGeometry !== null && highlightGeometry.length > 0;
     const hasHighlight = highlighted || alts.length > 0;
+    const dataLayerOn = layers.has('shadows') || (layers.has('rain-cells') && raining);
     if (map.getLayer('curated-routes')) {
-      map.setPaintProperty('curated-routes', 'line-opacity', hasHighlight ? 0.15 : 0.5);
+      map.setPaintProperty(
+        'curated-routes',
+        'line-color',
+        hasHighlight || dataLayerOn ? ROUTE_MUTED : ROUTE
+      );
     }
   });
 
@@ -568,7 +614,7 @@
           );
         } else {
           map.setPaintProperty('highlight-route-line', 'line-gradient', null);
-          map.setPaintProperty('highlight-route-line', 'line-color', '#38BDF8');
+          map.setPaintProperty('highlight-route-line', 'line-color', ROUTE);
         }
       }
       // Planner geometry keeps the paint set by NavigationPanel (profile
@@ -585,12 +631,14 @@
   {#if tileError}
     <div
       class="absolute bottom-4 left-4 z-10
-                bg-amber-950/90 border border-amber-700 text-amber-300 text-xs
+                bg-warning-surface border border-warning text-warning-strong text-xs
                 px-3 py-2 rounded-md backdrop-blur flex items-center gap-2"
     >
       <span>{tileError}</span>
-      <button onclick={() => (tileError = null)} class="text-amber-500 hover:text-amber-300"
-        >x</button
+      <button
+        onclick={() => (tileError = null)}
+        aria-label="Dismiss"
+        class="text-warning-strong hover:text-text">x</button
       >
     </div>
   {/if}

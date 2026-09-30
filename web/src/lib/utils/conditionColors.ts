@@ -1,61 +1,112 @@
 // web/src/lib/utils/conditionColors.ts
+//
+// The only place besides Map.svelte where map colours are written as hex.
+// Every value mirrors a token in src/app.css (route, shade-*, rain-*, wind-*)
+// so chips and legends match the map. One hue per meaning: routes own blue,
+// each data layer owns one ramp.
 import type { RouteConditionSegment } from '$lib/api/types';
 
 export type OverlayType = 'shade' | 'wind' | 'rain';
 
+/** Routes — curated routes at rest and the selected route. */
+export const ROUTE = '#1A73E8';
+/** Unselected routes when one is selected; all routes when data layers are on. */
+export const ROUTE_MUTED = '#90A4C3';
+/** 1.5–2px each side of every route line. */
+export const ROUTE_CASING = '#FFFFFF';
+/** Hover / pressed. */
+export const ROUTE_PRESSED = '#0B57D0';
+
+/** Shade: sun → deep shade (yellow-300, amber-400, amber-600, amber-800). */
+export const SHADE_RAMP = ['#FDE047', '#FBBF24', '#D97706', '#92400E'] as const;
+
+/** Rain in mm/h: drizzle < 0.5, light 0.5–2, moderate 2–8, heavy > 8. */
+export const RAIN_RAMP = {
+  drizzle: '#BAE6FD',
+  light: '#38BDF8',
+  moderate: '#0891B2',
+  heavy: '#155E75'
+} as const;
+export const RAIN_STEPS_MMH = [0.5, 2, 8] as const;
+
+/** Wind along the rider's heading. Calm and crosswind carry no colour. */
+export const WIND = {
+  tail: '#0D9488',
+  tailLight: '#5EEAD4',
+  headLight: '#FCA5A5',
+  head: '#DC2626'
+} as const;
+/** |wind_benefit| below this is calm: the road shows as road (route blue). */
+export const WIND_CALM = 0.1;
+
+/** Cycling infrastructure — neutral zinc-600 so it never competes with data. */
+export const CYCLING_INFRA = '#52525B';
+/** Greenery fill (green-500) — the greenery ramp's middle step. */
+export const GREENERY_FILL = '#22C55E';
+
+const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
+
+function hexToRgb(hex: string): [number, number, number] {
+  const n = parseInt(hex.slice(1), 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
+function toHex(rgb: [number, number, number]): string {
+  return (
+    '#' +
+    rgb
+      .map((c) =>
+        Math.round(clamp(c, 0, 255))
+          .toString(16)
+          .padStart(2, '0')
+      )
+      .join('')
+      .toUpperCase()
+  );
+}
+
+function lerpHex(a: string, b: string, t: number): string {
+  const [ar, ag, ab] = hexToRgb(a);
+  const [br, bg, bb] = hexToRgb(b);
+  const s = clamp(t, 0, 1);
+  return toHex([ar + (br - ar) * s, ag + (bg - ag) * s, ab + (bb - ab) * s]);
+}
+
+/** Piecewise-linear interpolation across an evenly spaced ramp. */
+function rampColor(ramp: readonly string[], t: number): string {
+  const s = clamp(t, 0, 1) * (ramp.length - 1);
+  const i = Math.min(Math.floor(s), ramp.length - 2);
+  return lerpHex(ramp[i], ramp[i + 1], s - i);
+}
+
 /**
- * Map a 0–1 condition value to an RGB hex color string.
+ * Map a condition value to a hex colour for route-line gradients.
  *
- * Shade:  0 = full sun (yellow #FFD700) → 1 = full shade (deep blue #1E3A8A)
- * Wind:   -1 = headwind (red #EF4444) → 0 = neutral → 1 = tailwind (green #22C55E)
- * Rain:   0 = dry (white #F8FAFC) → 1 = heavy (dark purple #4C1D95)
+ * Shade: 0 = full sun (shade-sun) → 1 = full shade (shade-deep).
+ * Wind:  -1 = headwind (wind-head) → calm = route blue → 1 = tailwind (wind-tail).
+ * Rain:  0 = dry (route blue) → 1 = heavy (rain-heavy), through the rain ramp.
  */
 export function conditionColor(overlay: OverlayType, value: number): string {
-  const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
-
-  function lerp(a: number, b: number, t: number): number {
-    return a + (b - a) * t;
-  }
-
-  function toHex(r: number, g: number, b: number): string {
-    return (
-      '#' +
-      [r, g, b]
-        .map((c) =>
-          Math.round(clamp(c, 0, 255))
-            .toString(16)
-            .padStart(2, '0')
-        )
-        .join('')
-    );
-  }
-
-  if (overlay === 'shade') {
-    const t = clamp(value, 0, 1);
-    // yellow [255,215,0] → deep blue [30,58,138]
-    return toHex(lerp(255, 30, t), lerp(215, 58, t), lerp(0, 138, t));
-  }
+  if (overlay === 'shade') return rampColor(SHADE_RAMP, value);
 
   if (overlay === 'wind') {
-    const t = clamp((value + 1) / 2, 0, 1); // normalize -1..1 → 0..1
-    if (t < 0.5) {
-      // red [239,68,68] → neutral gray [148,163,184]
-      const s = t / 0.5;
-      return toHex(lerp(239, 148, s), lerp(68, 163, s), lerp(68, 184, s));
-    } else {
-      // neutral gray [148,163,184] → green [34,197,94]
-      const s = (t - 0.5) / 0.5;
-      return toHex(lerp(148, 34, s), lerp(163, 197, s), lerp(184, 94, s));
+    const v = clamp(value, -1, 1);
+    if (Math.abs(v) < WIND_CALM) return ROUTE;
+    if (v < 0) {
+      const t = (-v - WIND_CALM) / (1 - WIND_CALM); // 0 at calm edge → 1 at -1
+      return lerpHex(WIND.headLight, WIND.head, t);
     }
+    const t = (v - WIND_CALM) / (1 - WIND_CALM);
+    return lerpHex(WIND.tailLight, WIND.tail, t);
   }
 
   if (overlay === 'rain') {
     const t = clamp(value, 0, 1);
-    // cyan → deep purple; dry segments must remain visible on a pale basemap.
-    return toHex(lerp(8, 88, t), lerp(145, 28, t), lerp(178, 135, t));
+    if (t <= 0) return ROUTE;
+    return rampColor([RAIN_RAMP.drizzle, RAIN_RAMP.light, RAIN_RAMP.moderate, RAIN_RAMP.heavy], t);
   }
 
-  return '#94A3B8'; // slate-400 fallback
+  return ROUTE_MUTED;
 }
 
 /**
@@ -67,7 +118,7 @@ export function buildLineGradient(
   overlay: OverlayType,
   totalDistanceM: number
 ): unknown[] {
-  if (segments.length === 0) return ['rgb', 148, 163, 184];
+  if (segments.length === 0) return ['to-color', ROUTE];
 
   const stops: unknown[] = ['interpolate', ['linear'], ['line-progress']];
 

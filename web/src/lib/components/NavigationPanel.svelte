@@ -6,7 +6,7 @@
   import { resolve } from '$app/paths';
   import { browser } from '$app/environment';
   import { routing, discovery, routes as routesApi } from '$lib/api/client';
-  import { buildLineGradient } from '$lib/utils/conditionColors';
+  import { buildLineGradient, ROUTE } from '$lib/utils/conditionColors';
   import {
     departureAt,
     highlightedRouteId,
@@ -286,12 +286,6 @@
     avoid_main_roads: '🛡'
   };
 
-  const profileColors: Record<string, string> = {
-    suggested: '#38bdf8', // sky-400
-    fast: '#f59e0b', // amber-500
-    avoid_main_roads: '#34d399' // emerald-400
-  };
-
   function updateRouteDisplays() {
     routeDisplays.set(
       alternatives.map((alt) => {
@@ -302,7 +296,7 @@
           coords,
           selected: alt.profile === selectedProfile,
           profile: alt.profile,
-          color: profileColors[alt.profile] ?? '#64748b',
+          color: ROUTE,
           distanceM: alt.total_distance_km * 1000
         };
       })
@@ -465,13 +459,10 @@
     const mapInst = $mapInstance;
     if (mapInst && coords.length > 0) {
       // Geometry is drawn by the Map component from selectedRouteGeometry;
-      // only paint (profile color) is set here — overlay replaces via $effect.
+      // only paint is set here — overlay replaces via $effect. Every
+      // alternative is route blue when selected (one hue per meaning).
       mapInst.setPaintProperty('highlight-route-line', 'line-gradient', null);
-      mapInst.setPaintProperty(
-        'highlight-route-line',
-        'line-color',
-        profileColors[profile] ?? '#38BDF8'
-      );
+      mapInst.setPaintProperty('highlight-route-line', 'line-color', ROUTE);
 
       const lons = coords.map((c) => c[0]);
       const lats = coords.map((c) => c[1]);
@@ -494,13 +485,9 @@
 
     if (!mapInst || !geom || geom.length === 0) return;
     if (!overlay || selectedConditions.length === 0) {
-      // No overlay active — use profile color
+      // No overlay active — plain route blue
       mapInst.setPaintProperty('highlight-route-line', 'line-gradient', null);
-      mapInst.setPaintProperty(
-        'highlight-route-line',
-        'line-color',
-        profileColors[selectedProfile ?? 'suggested'] ?? '#38BDF8'
-      );
+      mapInst.setPaintProperty('highlight-route-line', 'line-color', ROUTE);
       return;
     }
 
@@ -1047,18 +1034,15 @@
                   onclick={() => selectAlternative(alt.profile)}
                   class="w-full px-3 py-2.5 rounded-md text-left transition-colors border
                    {selectedProfile === alt.profile
-                    ? 'border-line text-text'
+                    ? 'bg-surface-tint border-line-strong text-text'
                     : 'bg-surface-base/50 border-line/50 text-text-subtle hover:bg-surface-base hover:text-text'}"
-                  style={selectedProfile === alt.profile
-                    ? `background: ${profileColors[alt.profile]}15; border-color: ${profileColors[alt.profile]}66`
-                    : ''}
                 >
                   <div class="flex items-center gap-2.5">
-                    <!-- Color dot matching map line -->
+                    <!-- Dot matching the map line: route blue selected, muted otherwise -->
                     <div
-                      class="w-3 h-3 rounded-full shrink-0"
-                      style="background: {profileColors[alt.profile] ??
-                        '#64748b'}; opacity: {selectedProfile === alt.profile ? 1 : 0.4}"
+                      class="w-3 h-3 rounded-full shrink-0 {selectedProfile === alt.profile
+                        ? 'bg-route'
+                        : 'bg-route-muted'}"
                     ></div>
                     <span class="text-sm shrink-0">{profileIcons[alt.profile] ?? '🚲'}</span>
                     <div class="flex-1 min-w-0">
