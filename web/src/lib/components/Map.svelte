@@ -586,7 +586,7 @@
     <div
       class="absolute bottom-4 left-4 z-10
                 bg-amber-950/90 border border-amber-700 text-amber-300 text-xs
-                px-3 py-2 rounded-lg backdrop-blur flex items-center gap-2"
+                px-3 py-2 rounded-md backdrop-blur flex items-center gap-2"
     >
       <span>{tileError}</span>
       <button onclick={() => (tileError = null)} class="text-amber-500 hover:text-amber-300"

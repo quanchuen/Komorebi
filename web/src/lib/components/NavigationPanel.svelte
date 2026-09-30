@@ -637,8 +637,8 @@
        the top; it only expands into the vertical stop list when via stops
        exist. Narrow screens: always the vertical list. -->
   <div
-    class="relative z-20 bg-surface/90 backdrop-blur-lg border border-border/50
-              rounded-2xl shadow-2xl pointer-events-auto
+    class="relative z-20 bg-surface-canvas/90 backdrop-blur-lg border border-line/50
+              rounded-lg shadow-lg pointer-events-auto
               xl:absolute xl:top-0 xl:left-1/2 xl:-translate-x-1/2
               {$navCardCollapsed
       ? 'overflow-hidden xl:w-auto xl:min-w-72 xl:max-w-2xl'
@@ -655,7 +655,7 @@
           onclick={() => navCardCollapsed.set(false)}
           aria-expanded="false"
           aria-controls="nav-card-body"
-          class="group block w-full text-text-muted hover:text-text transition-colors"
+          class="group block w-full text-text-subtle hover:text-text transition-colors"
         >
           {#if collapsedEmpty}
             <span class="h-10 px-4 flex items-center justify-center text-xs">Where to?</span>
@@ -667,7 +667,7 @@
             </span>
           {/if}
           <span
-            class="h-6 flex items-center justify-center bg-surface-overlay/40 border-t border-border/50"
+            class="h-6 flex items-center justify-center bg-surface-tint/40 border-t border-line/50"
           >
             <FoldGrabber direction="down" size="sm" />
           </span>
@@ -685,8 +685,8 @@
             </span>
             <button
               onclick={stopForegroundNavigation}
-              class="shrink-0 px-2.5 py-1.5 rounded-lg text-3xs text-text-muted bg-surface-raised/80
-                     border border-border hover:text-text hover:bg-surface-raised">Stop</button
+              class="shrink-0 px-2.5 py-1.5 rounded-md text-3xs text-text-subtle bg-surface-base/80
+                     border border-line hover:text-text hover:bg-surface-base">Stop</button
             >
           </div>
         {/if}
@@ -725,11 +725,11 @@
                     onblur={handleBlur}
                     oninput={(e) => handleInput(i, e)}
                     onkeydown={(e) => handleKeydown(i, e)}
-                    class="w-full bg-surface-raised/80 border text-text text-xs rounded-lg
+                    class="w-full bg-surface-base/80 border text-text text-xs rounded-md
                        px-3 py-2 transition-colors
                        {activeInputIndex === i
-                      ? 'border-accent ring-1 ring-accent/30'
-                      : 'border-border hover:border-border-strong'}
+                      ? 'border-primary ring-1 ring-focus/30'
+                      : 'border-line hover:border-line-strong'}
                        focus:outline-none placeholder:text-text-subtle"
                   />
                   {#if i > 0 && i < stops.length - 1}
@@ -746,18 +746,18 @@
                 {#if activeInputIndex === i && suggestions.length > 0}
                   <div
                     class="absolute top-full left-0 right-0 mt-1 z-50
-                          bg-surface-raised border border-border rounded-lg shadow-xl
+                          bg-surface-base border border-line rounded-md shadow-xl
                           overflow-hidden"
                   >
                     {#each suggestions as s, si}
                       <button
                         onmousedown={() => selectSuggestion(i, s)}
                         onmouseenter={() => (highlightedSuggIdx = si)}
-                        class="w-full text-left px-3 py-2 text-xs transition-colors border-b border-border/50
+                        class="w-full text-left px-3 py-2 text-xs transition-colors border-b border-line/50
                            last:border-b-0
                            {si === highlightedSuggIdx
-                          ? 'bg-accent/30 text-text'
-                          : 'text-text-muted hover:bg-surface-overlay'}"
+                          ? 'bg-surface-tint text-text'
+                          : 'text-text-subtle hover:bg-surface-tint'}"
                       >
                         {s.display_name.split(',').slice(0, 3).join(',')}
                       </button>
@@ -772,37 +772,37 @@
               {#if !hasVias}
                 <!-- Compact horizontal connector for the wide Start → End bar -->
                 <div class="hidden xl:flex items-center gap-1 shrink-0">
-                  <div class="w-3 border-t border-dashed border-border"></div>
+                  <div class="w-3 border-t border-dashed border-line"></div>
                   <button
                     onclick={() => addStopAfter(i)}
                     class="text-3xs text-text-subtle hover:text-warning-strong
-                       bg-surface-raised hover:bg-surface-overlay border border-border
+                       bg-surface-base hover:bg-surface-tint border border-line
                        hover:border-warning/50
                        rounded-full w-5 h-5 flex items-center justify-center
                        transition-colors"
                     aria-label="Add stop">+</button
                   >
-                  <div class="w-3 border-t border-dashed border-border"></div>
+                  <div class="w-3 border-t border-dashed border-line"></div>
                 </div>
               {/if}
               <div class="flex items-center gap-2 my-2 {hasVias ? '' : 'xl:hidden'}">
                 <!-- Vertical dash line under icon column -->
                 <div class="w-5 shrink-0 flex justify-center">
-                  <div class="w-px h-4 border-l border-dashed border-border-strong"></div>
+                  <div class="w-px h-4 border-l border-dashed border-line-strong"></div>
                 </div>
                 <!-- Dashed line + plus button -->
                 <div class="flex-1 flex items-center gap-2">
-                  <div class="flex-1 border-t border-dashed border-border"></div>
+                  <div class="flex-1 border-t border-dashed border-line"></div>
                   <button
                     onclick={() => addStopAfter(i)}
                     class="text-3xs text-text-subtle hover:text-warning-strong
-                       bg-surface-raised hover:bg-surface-overlay border border-border
+                       bg-surface-base hover:bg-surface-tint border border-line
                        hover:border-warning/50
                        rounded-full w-5 h-5 flex items-center justify-center
                        transition-colors"
                     aria-label="Add stop">+</button
                   >
-                  <div class="flex-1 border-t border-dashed border-border"></div>
+                  <div class="flex-1 border-t border-dashed border-line"></div>
                 </div>
               </div>
             {/if}
@@ -814,10 +814,10 @@
           <button
             onclick={doRoute}
             disabled={isRouting}
-            class="w-full mt-3 py-2 rounded-lg text-xs font-semibold transition-colors
+            class="w-full mt-3 py-2 rounded-md text-xs font-semibold transition-colors
                {isRouting
-              ? 'bg-accent-strong text-accent cursor-wait'
-              : 'bg-accent hover:bg-accent-strong text-on-accent'}"
+              ? 'bg-primary-hover text-text-strong cursor-wait'
+              : 'bg-primary hover:bg-primary-hover text-on-primary'}"
           >
             {isRouting ? 'Finding routes...' : 'Route'}
           </button>
@@ -825,13 +825,13 @@
 
         <!-- Route error -->
         {#if routeError}
-          <div class="mt-2 text-xs text-danger bg-danger-surface/50 rounded-lg px-3 py-2">
+          <div class="mt-2 text-xs text-danger bg-danger-surface/50 rounded-md px-3 py-2">
             {routeError}
           </div>
         {/if}
 
         <!-- Natural-language routing -->
-        <div class="mt-3 pt-3 border-t border-border/50">
+        <div class="mt-3 pt-3 border-t border-line/50">
           <form class="flex items-center gap-2" onsubmit={interpretIntent}>
             <input
               type="text"
@@ -839,32 +839,32 @@
               maxlength="500"
               placeholder="Describe your ride — e.g. max shade, out of the wind"
               aria-label="Describe your ride"
-              class="flex-1 min-w-0 bg-surface-raised/80 border border-border text-text text-xs
-                 rounded-lg px-3 py-2 transition-colors hover:border-border-strong
-                 focus:outline-none focus:border-accent placeholder:text-text-subtle"
+              class="flex-1 min-w-0 bg-surface-base/80 border border-line text-text text-xs
+                 rounded-md px-3 py-2 transition-colors hover:border-line-strong
+                 focus:outline-none focus:border-primary placeholder:text-text-subtle"
             />
             <button
               type="submit"
               disabled={intentLoading || !intentText.trim()}
               aria-label="Interpret ride description"
-              class="shrink-0 px-2.5 py-2 rounded-lg text-xs transition-colors border
+              class="shrink-0 px-2.5 py-2 rounded-md text-xs transition-colors border
                  {intentLoading
-                ? 'bg-surface-raised text-text-subtle border-border cursor-wait'
-                : 'bg-surface-raised hover:bg-surface-overlay text-text-muted hover:text-text border-border hover:border-border-strong'}"
+                ? 'bg-surface-base text-text-subtle border-line cursor-wait'
+                : 'bg-surface-base hover:bg-surface-tint text-text-subtle hover:text-text border-line hover:border-line-strong'}"
             >
               {intentLoading ? '…' : '✨'}
             </button>
           </form>
 
           {#if intentError}
-            <div class="mt-2 text-3xs text-danger bg-danger-surface/50 rounded-lg px-3 py-1.5">
+            <div class="mt-2 text-3xs text-danger bg-danger-surface/50 rounded-md px-3 py-1.5">
               {intentError}
             </div>
           {/if}
 
           {#if intentResult}
             <div
-              class="mt-2 bg-surface-raised/60 border border-border/50 rounded-lg px-3 py-2 space-y-1.5"
+              class="mt-2 bg-surface-base/60 border border-line/50 rounded-md px-3 py-2 space-y-1.5"
             >
               <div class="text-2xs text-text">{intentResult.intent.summary}</div>
 
@@ -872,7 +872,7 @@
                 <div class="flex flex-wrap gap-1">
                   {#each intentResult.applied as key (key)}
                     <span
-                      class="text-3xs px-1.5 py-0.5 rounded-full bg-accent/15 text-accent border border-accent/30"
+                      class="text-3xs px-1.5 py-0.5 rounded-full bg-surface-tint text-text-strong border border-line"
                     >
                       {key}
                       {intentResult.preferences[key as 'shade' | 'greenery' | 'wind'].toFixed(1)}
@@ -899,10 +899,10 @@
                 <button
                   onclick={applyIntent}
                   disabled={intentApplied}
-                  class="w-full mt-1 py-1.5 rounded-lg text-3xs font-semibold transition-colors
+                  class="w-full mt-1 py-1.5 rounded-md text-3xs font-semibold transition-colors
                      {intentApplied
-                    ? 'bg-surface-overlay text-text-subtle cursor-default'
-                    : 'bg-accent hover:bg-accent-strong text-on-accent'}"
+                    ? 'bg-surface-tint text-text-subtle cursor-default'
+                    : 'bg-primary hover:bg-primary-hover text-on-primary'}"
                 >
                   {intentApplied
                     ? 'Applied to preferences ✓'
@@ -921,12 +921,12 @@
          if a re-route cleared the alternatives, so the GPS watch and wake lock
          can always be stopped from the UI. -->
         {#if selectedAlt || $foregroundNavigation.status !== 'idle'}
-          <div class="mt-3 pt-3 border-t border-border/50">
+          <div class="mt-3 pt-3 border-t border-line/50">
             {#if $foregroundNavigation.status === 'idle'}
               <button
                 onclick={startForegroundNavigation}
-                class="w-full py-2 rounded-lg text-xs font-semibold bg-success
-                   hover:bg-success-strong text-on-accent transition-colors"
+                class="w-full py-2 rounded-md text-xs font-semibold bg-success
+                   hover:bg-success-strong text-on-primary transition-colors"
               >
                 Start foreground navigation
               </button>
@@ -957,13 +957,13 @@
                 </div>
                 <button
                   onclick={stopForegroundNavigation}
-                  class="shrink-0 px-2.5 py-1.5 rounded-lg text-3xs text-text-muted
-                     border border-border hover:text-text hover:bg-surface-raised">Stop</button
+                  class="shrink-0 px-2.5 py-1.5 rounded-md text-3xs text-text-subtle
+                     border border-line hover:text-text hover:bg-surface-base">Stop</button
                 >
               </div>
               {#if $foregroundNavigation.offRoute}
                 <div
-                  class="mt-2 text-3xs text-warning-strong bg-warning-surface rounded-lg px-2 py-1.5"
+                  class="mt-2 text-3xs text-warning-strong bg-warning-surface rounded-md px-2 py-1.5"
                 >
                   About {Math.round($foregroundNavigation.distanceFromRouteM ?? 0)} m from this route.
                   Recalculate when it is safe to stop.
@@ -984,8 +984,8 @@
             aria-controls="nav-card-body"
             aria-label="Hide trip planner"
             class="group w-full h-7 flex items-center justify-center rounded-b-2xl
-                   bg-surface-overlay/40 border-t border-border/50
-                   hover:bg-surface-overlay/60 transition-colors"
+                   bg-surface-tint/40 border-t border-line/50
+                   hover:bg-surface-tint/60 transition-colors"
           >
             <FoldGrabber direction="up" />
           </button>
@@ -1006,9 +1006,9 @@
       aria-expanded="false"
       aria-controls="results-panel-body"
       class="group self-start pointer-events-auto flex items-stretch overflow-hidden
-             bg-surface/80 backdrop-blur-lg border border-border/50 rounded-2xl shadow-2xl
+             bg-surface-canvas/80 backdrop-blur-lg border border-line/50 rounded-lg shadow-lg
              text-3xs text-text-subtle uppercase tracking-wider
-             hover:text-text-muted hover:bg-surface/95 transition-colors
+             hover:text-text-subtle hover:bg-surface-canvas/95 transition-colors
              xl:absolute xl:top-0 xl:left-0"
     >
       <span class="min-w-10 flex justify-center py-3 px-2">
@@ -1017,17 +1017,15 @@
           ({alternatives.length > 0 ? alternatives.length : filteredRoutes.length})
         </span>
       </span>
-      <span
-        class="w-7 flex items-center justify-center border-l border-border/50 bg-surface-overlay/40"
-      >
+      <span class="w-7 flex items-center justify-center border-l border-line/50 bg-surface-tint/40">
         <FoldGrabber direction="right" />
       </span>
     </button>
   {:else}
     <div
       class="min-h-0 flex pointer-events-auto overflow-hidden
-                bg-surface/80 backdrop-blur-lg border border-border/50
-                rounded-2xl shadow-2xl
+                bg-surface-canvas/80 backdrop-blur-lg border border-line/50
+                rounded-lg shadow-lg
                 xl:absolute xl:top-0 xl:left-0 xl:w-80 xl:max-h-full"
     >
       <div class="flex-1 min-w-0 min-h-0 flex flex-col">
@@ -1047,10 +1045,10 @@
                 {@const summary = conditionsSummary(segs)}
                 <button
                   onclick={() => selectAlternative(alt.profile)}
-                  class="w-full px-3 py-2.5 rounded-lg text-left transition-colors border
+                  class="w-full px-3 py-2.5 rounded-md text-left transition-colors border
                    {selectedProfile === alt.profile
-                    ? 'border-accent/40 text-text'
-                    : 'bg-surface-raised/50 border-border/50 text-text-muted hover:bg-surface-raised hover:text-text'}"
+                    ? 'border-line text-text'
+                    : 'bg-surface-base/50 border-line/50 text-text-subtle hover:bg-surface-base hover:text-text'}"
                   style={selectedProfile === alt.profile
                     ? `background: ${profileColors[alt.profile]}15; border-color: ${profileColors[alt.profile]}66`
                     : ''}
@@ -1086,7 +1084,7 @@
                           ? 'text-wind'
                           : summary.avgWind < -0.1
                             ? 'text-wind-adverse'
-                            : 'text-text-muted'}
+                            : 'text-text-subtle'}
                       >
                         💨 {windLabel(summary.avgWind)}
                       </span>
@@ -1163,8 +1161,8 @@
         aria-controls="results-panel-body"
         aria-label="Hide route list"
         class="group w-7 shrink-0 flex items-center justify-center
-               border-l border-border/50 bg-surface-overlay/40
-               hover:bg-surface-overlay/60 transition-colors"
+               border-l border-line/50 bg-surface-tint/40
+               hover:bg-surface-tint/60 transition-colors"
       >
         <FoldGrabber direction="left" />
       </button>

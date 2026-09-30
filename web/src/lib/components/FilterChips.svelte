@@ -30,8 +30,8 @@
       aria-pressed={$discoveryFilters.difficulty === d.value}
       class="px-3 py-1 rounded-full text-xs font-semibold border transition-colors
              {$discoveryFilters.difficulty === d.value
-        ? 'bg-accent text-on-accent border-transparent'
-        : 'bg-surface-raised text-text-muted border-border hover:bg-surface-overlay'}"
+        ? 'bg-primary text-on-primary border-transparent'
+        : 'bg-surface-base text-text-subtle border-line hover:bg-surface-tint'}"
     >
       {d.label}
     </button>
@@ -42,8 +42,8 @@
     aria-pressed={$discoveryFilters.shade}
     class="px-3 py-1 rounded-full text-xs font-semibold border transition-colors
            {$discoveryFilters.shade
-      ? 'bg-shade text-on-accent border-transparent'
-      : 'bg-surface-raised text-text-muted border-border hover:bg-surface-overlay'}"
+      ? 'bg-shade text-on-primary border-transparent'
+      : 'bg-surface-base text-text-subtle border-line hover:bg-surface-tint'}"
   >
     Shade
   </button>
@@ -53,8 +53,8 @@
     aria-pressed={$discoveryFilters.greenery}
     class="px-3 py-1 rounded-full text-xs font-semibold border transition-colors
            {$discoveryFilters.greenery
-      ? 'bg-greenery text-on-accent border-transparent'
-      : 'bg-surface-raised text-text-muted border-border hover:bg-surface-overlay'}"
+      ? 'bg-greenery text-on-primary border-transparent'
+      : 'bg-surface-base text-text-subtle border-line hover:bg-surface-tint'}"
   >
     Greenery
   </button>

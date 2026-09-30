@@ -42,7 +42,7 @@
     {#if noData}
       <!-- Hollow/flat line for no data -->
       <div
-        class="flex-1 rounded-sm border border-border"
+        class="flex-1 rounded-sm border border-line"
         style="height: 25%; background: transparent;"
       ></div>
     {:else}

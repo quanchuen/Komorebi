@@ -12,7 +12,7 @@
 </script>
 
 <div
-  class="space-y-2 rounded-lg border border-danger/40 bg-danger-surface p-4 text-center"
+  class="space-y-2 rounded-md border border-danger/40 bg-danger-surface p-4 text-center"
   role="alert"
 >
   <div class="text-sm font-medium text-danger">{title}</div>

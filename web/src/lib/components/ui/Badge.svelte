@@ -11,8 +11,8 @@
   let { tone = 'neutral', class: extraClass = '', children }: Props = $props();
 
   const tones: Record<string, string> = {
-    neutral: 'bg-surface-overlay text-text-muted',
-    accent: 'bg-accent/10 text-accent',
+    neutral: 'bg-surface-tint text-text-subtle',
+    accent: 'bg-surface-tint text-text-strong',
     easy: 'bg-easy/10 text-easy',
     moderate: 'bg-moderate/10 text-moderate',
     hard: 'bg-hard/10 text-hard',
