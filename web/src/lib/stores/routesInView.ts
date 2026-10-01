@@ -8,6 +8,26 @@ import { discovery, routes as routesApi } from '$lib/api/client';
 import type { Route, RouteConditionSegment } from '$lib/api/types';
 
 export const routesInView = writable<Route[]>([]);
+
+// The featured set (routes.route.featured), listed under Plan / Describe in
+// the search panel (decided 2026-10-01). Never pinned in the viewport list
+// and not shown at rest; loaded once per departure time.
+export const featuredRoutes = writable<Route[]>([]);
+let featuredFor = '';
+
+export async function refreshFeatured(
+  centre: { lat: number; lon: number },
+  departureAt: string
+): Promise<void> {
+  if (featuredFor === departureAt && get(featuredRoutes).length > 0) return;
+  featuredFor = departureAt;
+  try {
+    const res = await discovery.suggested({ ...centre, departureAt });
+    if (featuredFor === departureAt) featuredRoutes.set(res.routes);
+  } catch {
+    // The section simply stays empty; the viewport list is unaffected.
+  }
+}
 export const routesInViewLoading = writable<boolean>(false);
 export const routesInViewError = writable<string | null>(null);
 

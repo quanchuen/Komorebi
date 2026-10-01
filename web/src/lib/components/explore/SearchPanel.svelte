@@ -7,7 +7,9 @@
   import VenueChips from '$lib/components/VenueChips.svelte';
   import SectionLabel from './SectionLabel.svelte';
   import { recentPlaces, savedRoutes, rememberPlace } from '$lib/stores/recents';
-  import { km } from '$lib/utils/format';
+  import { featuredRoutes } from '$lib/stores/routesInView';
+  import DifficultyBadge from '$lib/components/DifficultyBadge.svelte';
+  import { km, climb } from '$lib/utils/format';
 
   export interface PlaceHit {
     name: string;
@@ -25,6 +27,7 @@
     ondescribe: () => void;
     onplace: (place: PlaceHit) => void;
     onsavedroute: (id: string) => void;
+    onfeatured: (id: string) => void;
   }
 
   let {
@@ -35,7 +38,8 @@
     onplan,
     ondescribe,
     onplace,
-    onsavedroute
+    onsavedroute,
+    onfeatured
   }: Props = $props();
 
   let typing = $derived(query.trim().length > 0);
@@ -90,6 +94,29 @@
       <Icon name="chevronRight" class="size-6 text-text-placeholder" />
     {/if}
   </button>
+
+  {#if !typing && $featuredRoutes.length > 0}
+    <!-- House picks (routes.route.featured), decided 2026-10-01: listed here,
+         never pinned in the viewport list and not shown on the resting map. -->
+    <div class="mx-4 mt-2 h-px bg-hairline"></div>
+    <SectionLabel text="Featured routes" class="px-4 pt-3.5 pb-1" />
+    <ul class="flex flex-col px-2">
+      {#each $featuredRoutes.slice(0, 5) as route (route.id)}
+        <li>
+          <button type="button" onclick={() => onfeatured(route.id)} class="recent-row">
+            <Icon name="route" class="size-6 text-text-subtle" />
+            <span class="flex-1 min-w-0 text-left">
+              <span class="block text-sm font-medium text-text truncate">{route.name}</span>
+              <span class="block text-xs text-text-subtle truncate"
+                >{km(route.distanceM)} · {climb(route.elevationGainM)}</span
+              >
+            </span>
+            <DifficultyBadge difficulty={route.difficulty} />
+          </button>
+        </li>
+      {/each}
+    </ul>
+  {/if}
 
   {#if typing}
     <div class="mx-4 mt-2 h-px bg-hairline"></div>

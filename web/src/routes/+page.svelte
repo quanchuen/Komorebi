@@ -47,6 +47,8 @@
   } from '$lib/stores/ui';
   import {
     routesInView,
+    featuredRoutes,
+    refreshFeatured,
     routeDetails,
     routeConditions,
     refreshRoutesInView,
@@ -61,8 +63,15 @@
 
   let { data }: { data: PageData } = $props();
 
+  // The server render carries the featured set; the client refreshes it
+  // when the departure time changes.
   onMount(() => {
-    if (data.routes.length > 0 && $routesInView.length === 0) routesInView.set(data.routes);
+    if (data.routes.length > 0) featuredRoutes.set(data.routes);
+  });
+  $effect(() => {
+    const dep = $departureAt;
+    const c = $mapCentre ?? { lat: 35.6895, lon: 139.6917 };
+    void refreshFeatured(c, dep);
   });
 
   // --- Search field and panels ------------------------------------------------
@@ -189,7 +198,12 @@
   let selectedRoute = $derived.by(() => {
     const id = $highlightedRouteId;
     if (!id) return null;
-    return $routeDetails.get(id) ?? $routesInView.find((r) => r.id === id) ?? null;
+    return (
+      $routeDetails.get(id) ??
+      $routesInView.find((r) => r.id === id) ??
+      $featuredRoutes.find((r) => r.id === id) ??
+      null
+    );
   });
   let selectedConditions = $derived(
     $highlightedRouteId ? ($routeConditions.get($highlightedRouteId) ?? []) : []
@@ -361,6 +375,7 @@
           ondescribe={openDescribe}
           onplace={goToPlace}
           onsavedroute={selectRoute}
+          onfeatured={selectRoute}
         />
       </div>
     {/if}

@@ -54,6 +54,25 @@ test('frame A: the resting map controls meet the layout invariants', async ({ pa
   await expect(page.getByRole('menu')).toHaveCount(0);
 });
 
+test('frame B: featured routes sit under Plan / Describe and open the route card', async ({
+  page
+}) => {
+  const featured = page.waitForResponse(/\/discover\/suggested/);
+  await gotoHydrated(page, '/');
+  await featured;
+  // Nothing featured shows at rest: no route card, no list.
+  await expect(page.getByRole('heading', { name: 'Imperial Palace Loop' })).toHaveCount(0);
+
+  await page.getByRole('searchbox').click();
+  const panel = page.getByRole('region', { name: 'Search' });
+  await expect(panel.getByText('Featured routes')).toBeVisible();
+  const row = panel.getByRole('button', { name: /Imperial Palace Loop/ });
+  await expectLayoutInvariants(page, row, 'featured row');
+  await expect(row.getByRole('img', { name: 'Difficulty: Easy, 1 of 4' })).toBeVisible();
+  await row.click();
+  await expect(page.getByRole('heading', { name: 'Imperial Palace Loop' })).toBeVisible();
+});
+
 test('frame C: the time chip opens the scrubber; Now and the slider move the departure', async ({
   page
 }) => {
