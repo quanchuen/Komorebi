@@ -1,0 +1,5 @@
+#!/usr/bin/env sh
+# Rebuild the api container of a running `make watch` when switching branches
+# changed it. $3 = 1 for a branch checkout, 0 for a file checkout.
+[ "$3" = "1" ] || exit 0
+exec "$(dirname "$0")/api-rebuild-stamp" "$1" "$2"

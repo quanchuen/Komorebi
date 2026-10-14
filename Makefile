@@ -20,6 +20,7 @@ GITLEAKS         ?= $(shell command -v gitleaks 2>/dev/null || echo $${GOPATH:-$
 
 .PHONY: demo-routes
 .PHONY: hooks gitleaks-install secrets-audit
+.PHONY: watch api-rebuild
 .PHONY: migrate-up migrate-down migrate-create osm-download osm-import osm-update osm-venues osm-all greenery plateau-shadow weather support-up support-stop project-up project-stop stack-up stack-down compose-config dev-run dev-api dev-martin dev-valhalla dev-web test test-unit test-integration test-web test-all web-lint web-lighthouse help
 
 ## Apply pending database migrations
@@ -112,6 +113,14 @@ stack-up:
 ## Stop the complete stack; named data volumes are preserved
 stack-down:
 	$(COMPOSE) down
+
+## Run the full stack under `docker compose watch`: web syncs into a Vite dev server (HMR), api rebuilds on commit
+watch:
+	WEB_TARGET=dev $(COMPOSE) watch
+
+## Rebuild the api container of a running `make watch` now (the git hooks do this on commit)
+api-rebuild:
+	@date > .watch/api.rebuild; echo 'stamped .watch/api.rebuild'
 
 ## Validate the Compose file (including the pipelines profile) without starting containers
 compose-config:

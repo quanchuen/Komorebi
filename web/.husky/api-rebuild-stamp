@@ -1,0 +1,19 @@
+#!/usr/bin/env sh
+# Shared by the post-commit / post-merge / post-checkout hooks (not a hook
+# itself). Touches the stamp that `docker compose watch` rebuilds the api
+# service on (see compose.yml) when <old>..<new> changes anything that ends up
+# in the API image. Test-only changes do not count. Never fails the git
+# operation.
+#
+# usage: api-rebuild-stamp <old-rev> <new-rev>
+old="$1"
+new="$2"
+top="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
+[ -d "$top/.watch" ] || exit 0
+if ! git diff --quiet "$old" "$new" -- \
+    api/go.mod api/go.sum api/Dockerfile api/.dockerignore api/cmd api/internal \
+    ':(exclude,glob)api/**/*_test.go' 2>/dev/null; then
+  date > "$top/.watch/api.rebuild"
+  echo "api changed: stamped .watch/api.rebuild (a running 'make watch' rebuilds the api container)" >&2
+fi
+exit 0

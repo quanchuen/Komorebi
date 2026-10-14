@@ -1,0 +1,5 @@
+#!/usr/bin/env sh
+# Rebuild the api container of a running `make watch` when the commit touched it.
+# The empty tree stands in for the parent of a root commit.
+parent="$(git rev-parse -q --verify HEAD~1 || git hash-object -t tree /dev/null)"
+exec "$(dirname "$0")/api-rebuild-stamp" "$parent" HEAD

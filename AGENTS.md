@@ -20,6 +20,8 @@ make dev-run
 make support-up       # external adapters: Martin + Valhalla
 make project-up       # repository-owned containers: API + Web
 make stack-up         # everything (== docker compose up -d --build)
+make watch            # stack under `docker compose watch`: web HMR sync, api rebuild on commit
+
 # Individual services
 JWT_SECRET=cyclist-map-dev-secret-do-not-use-in-production \
   DATABASE_URL="postgres://osm_dev:osm_dev@localhost:5432/cyclist_map_dev?sslmode=disable" \

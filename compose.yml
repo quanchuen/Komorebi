@@ -5,6 +5,9 @@
 # Postgres is NOT part of this file — bring your own (see README) and point
 # db.env at it. Migrations are applied by the `migrate` one-shot service before
 # the api and martin start, so a fresh checkout is schema-complete on first up.
+#
+# `make watch` runs the same stack under `docker compose watch` (see the
+# `develop` blocks): web gets Vite HMR via file sync, api is rebuilt on commit.
 services:
   migrate:
     image: migrate/migrate:v4.18.3
@@ -34,6 +37,14 @@ services:
       migrate:
         condition: service_completed_successfully
     restart: unless-stopped
+    develop:
+      watch:
+        # Deliberately NOT watching ./api: a rebuild per file save would
+        # restart the API mid-edit. The image is rebuilt only when this stamp
+        # is touched — by the git hooks in web/.husky (commit, merge or branch
+        # switch that changes non-test files under api/) or `make api-rebuild`.
+        - action: rebuild
+          path: ./.watch/api.rebuild
 
   martin:
     image: ghcr.io/maplibre/martin:1.13.0
@@ -68,20 +79,48 @@ services:
     build:
       context: ./web
       dockerfile: Dockerfile
+      # `runtime` is the production adapter-node server; `dev` is the Vite dev
+      # server the watch rules below need (`make watch` sets WEB_TARGET=dev).
+      # NODE_ENV comes from the selected stage.
+      target: ${WEB_TARGET:-runtime}
     ports:
       - "3001:3001"
     environment:
-      - NODE_ENV=production
       - ORIGIN=http://localhost:3001
       - API_URL=http://api:8080
       # Server-side proxy target for /tiles/* (see web/src/hooks.server.ts).
       - TILES_URL=http://martin:3000
+      # Vite dev-server proxy targets (dev target only; see web/vite.config.ts).
+      - API_PROXY_TARGET=http://api:8080
+      - TILES_PROXY_TARGET=http://martin:3000
       # CARTO basemap key (browser-side; free at carto.com/basemaps/apikey).
       # Interpolated from the host shell or a root .env file; never commit it.
       - PUBLIC_CARTO_API_KEY=${PUBLIC_CARTO_API_KEY:-}
     depends_on:
       - api
     restart: unless-stopped
+    develop:
+      # Effective with the `dev` target only: synced files land in the running
+      # Vite server, which hot-reloads them. The runtime image serves a
+      # prebuilt bundle and ignores them.
+      watch:
+        - action: sync
+          path: ./web/src
+          target: /app/src
+        - action: sync
+          path: ./web/static
+          target: /app/static
+        - action: sync+restart
+          path: ./web/vite.config.ts
+          target: /app/vite.config.ts
+        - action: sync+restart
+          path: ./web/svelte.config.js
+          target: /app/svelte.config.js
+        - action: sync+restart
+          path: ./web/tsconfig.json
+          target: /app/tsconfig.json
+        - action: rebuild
+          path: ./web/package-lock.json
 
   plateau_shadow:
     build:

@@ -187,7 +187,18 @@ make support-up             # Martin + Valhalla only; useful for local source de
 make project-up             # Containerized API + Web only; adapters may be unavailable
 make stack-down             # Stop the complete stack, preserving named volumes
 make compose-config         # Validate the Compose file without starting anything
+make watch                  # Whole stack under `docker compose watch` (see below)
 ```
+
+`make watch` uses the `develop` blocks in `compose.yml`:
+
+- **web** is built from the `dev` Dockerfile stage (Vite dev server on `:3001`);
+  edits under `web/src` and `web/static` are synced into the container and
+  hot-reloaded. A `package-lock.json` change rebuilds the image.
+- **api** is *not* rebuilt on every save. It rebuilds when `.watch/api.rebuild`
+  is touched: the git hooks (`make hooks`) do that after a commit, merge, or
+  branch switch that changes non-test files under `api/`, and `make api-rebuild`
+  does it on demand.
 
 Project services intentionally have no Compose dependency on the support
 adapters. Missing adapters must surface as normal API/service errors; this

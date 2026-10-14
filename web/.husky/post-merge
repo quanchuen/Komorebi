@@ -1,0 +1,3 @@
+#!/usr/bin/env sh
+# Rebuild the api container of a running `make watch` when a merge/pull changed it.
+exec "$(dirname "$0")/api-rebuild-stamp" ORIG_HEAD HEAD

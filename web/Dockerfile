@@ -1,8 +1,24 @@
 # web/Dockerfile
-FROM node:22-alpine AS build
+#
+# Stages:
+#   deps    — full node_modules (dev + prod)
+#   dev     — Vite dev server with HMR; used by `make watch` (compose develop)
+#   build   — production build
+#   runtime — adapter-node server (default target, the released image)
+#
+FROM node:22-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
+
+FROM deps AS dev
+ENV NODE_ENV=development
+COPY . .
+EXPOSE 3001
+# Same port as the runtime stage so the compose service definition is shared.
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "3001"]
+
+FROM deps AS build
 COPY . .
 RUN npm run build
 
