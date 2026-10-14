@@ -20,6 +20,12 @@ import (
 	"komorebi/internal/infra/weatherprovider"
 )
 
+// Set at link time by the image build (-ldflags -X; see api/Dockerfile).
+var (
+	version = "dev"
+	commit  = "unknown"
+)
+
 func main() {
 	flag.Usage = func() {
 		out := flag.CommandLine.Output()
@@ -149,7 +155,7 @@ func main() {
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
 
 	go func() {
-		log.Printf("komorebi API listening on :%s", port)
+		log.Printf("komorebi API %s (%s) listening on :%s", version, commit, port)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("server error: %v", err)
 		}

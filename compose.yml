@@ -8,6 +8,9 @@
 #
 # `make watch` runs the same stack under `docker compose watch` (see the
 # `develop` blocks): web gets Vite HMR via file sync, api is rebuilt on commit.
+#
+# This file builds local images only. Published ghcr.io images are defined in
+# docker-bake.hcl (`make image-build` / `make image-push`).
 services:
   migrate:
     image: migrate/migrate:v4.18.3

@@ -200,6 +200,37 @@ make watch                  # Whole stack under `docker compose watch` (see belo
   branch switch that changes non-test files under `api/`, and `make api-rebuild`
   does it on demand.
 
+## Container images
+
+`api` and `web` images are built for `linux/amd64` and `linux/arm64` (the arm64
+image serves both Apple Silicon and 64-bit Raspberry Pi OS) from
+`docker-bake.hcl`, carrying OCI labels (`revision` = commit, `version`,
+`created`, `source`, `licenses`), `KOMOREBI_VERSION` / `KOMOREBI_COMMIT`
+environment variables, an SBOM and SLSA provenance.
+
+| Branch | Repository | Tags |
+|---|---|---|
+| `main` / `master` | `ghcr.io/quanchuen/komorebi/release/{api,web}` | `latest`, `<commit>` — cosign-signed |
+| anything else | `ghcr.io/quanchuen/komorebi/develop/{api,web}` | `<branch>`, `<commit>` |
+
+Nothing is pushed automatically:
+
+```bash
+make image-print            # Show channel, tags and labels for the current checkout
+make image-build            # Build both platforms into the local (containerd) image store
+make image-push             # Build + push; on main also `cosign sign` (needs `docker login ghcr.io`)
+```
+
+The `images` GitHub workflow (manual *Run workflow*, pick the branch) runs the
+same `make image-push` and signs release images keylessly with the workflow's
+OIDC identity. Verify a release image with:
+
+```bash
+cosign verify ghcr.io/quanchuen/komorebi/release/api:latest \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  --certificate-identity-regexp '^https://github.com/quanchuen/Komorebi/\.github/workflows/images\.yml@refs/heads/(main|master)$'
+```
+
 Project services intentionally have no Compose dependency on the support
 adapters. Missing adapters must surface as normal API/service errors; this
 keeps project containers and most tests independently runnable.

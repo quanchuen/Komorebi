@@ -12,6 +12,28 @@ DATABASE_URL   ?= $(MIGRATE_URL)
 API_PORT       ?= 8080
 COMPOSE        ?= docker compose
 
+# Published images (docker-bake.hcl). The branch picks the channel: main/master
+# publish to <registry>/release/* (cosign-signed), everything else to
+# <registry>/develop/*. Nothing is pushed automatically — `make image-push`.
+IMAGE_REGISTRY ?= ghcr.io/quanchuen/komorebi
+GIT_BRANCH     ?= $(shell git rev-parse --abbrev-ref HEAD 2>/dev/null)
+GIT_COMMIT     := $(shell git rev-parse HEAD 2>/dev/null)
+GIT_SHORT      := $(shell git rev-parse --short=12 HEAD 2>/dev/null)
+GIT_DIRTY      := $(if $(shell git status --porcelain 2>/dev/null),-dirty)
+GIT_CREATED    := $(shell git log -1 --format=%cI 2>/dev/null)
+IMAGE_VERSION  := $(shell git describe --tags --always --abbrev=12 2>/dev/null)$(GIT_DIRTY)
+IMAGE_CHANNEL  := $(if $(filter main master,$(GIT_BRANCH)),release,develop)
+BRANCH_SLUG    := $(shell printf '%s' '$(GIT_BRANCH)' | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9._-]/-/g')
+# Immutable per-commit tag plus one moving tag (latest / branch name).
+IMAGE_TAGS     := $(GIT_SHORT)$(GIT_DIRTY),$(if $(filter release,$(IMAGE_CHANNEL)),latest,$(BRANCH_SLUG))
+IMAGE_METADATA := .watch/image-metadata.json
+BAKE = REGISTRY=$(IMAGE_REGISTRY) CHANNEL=$(IMAGE_CHANNEL) TAGS=$(IMAGE_TAGS) \
+	VERSION=$(IMAGE_VERSION) COMMIT=$(GIT_COMMIT) CREATED=$(GIT_CREATED) \
+	REF_NAME=$(GIT_BRANCH) docker buildx bake -f docker-bake.hcl
+# Keyless (Sigstore OIDC) by default; set COSIGN_KEY to sign with a key instead.
+COSIGN     ?= cosign
+COSIGN_KEY ?=
+
 # Secret scanner used by the pre-commit hook and `make secrets-audit`.
 # Pinned; bump deliberately. `go install` verifies the source against
 # sum.golang.org, so no opaque release binary is trusted.
@@ -20,7 +42,7 @@ GITLEAKS         ?= $(shell command -v gitleaks 2>/dev/null || echo $${GOPATH:-$
 
 .PHONY: demo-routes
 .PHONY: hooks gitleaks-install secrets-audit
-.PHONY: watch api-rebuild
+.PHONY: watch api-rebuild image-print image-build image-push
 .PHONY: migrate-up migrate-down migrate-create osm-download osm-import osm-update osm-venues osm-all greenery plateau-shadow weather support-up support-stop project-up project-stop stack-up stack-down compose-config dev-run dev-api dev-martin dev-valhalla dev-web test test-unit test-integration test-web test-all web-lint web-lighthouse help
 
 ## Apply pending database migrations
@@ -121,6 +143,31 @@ watch:
 ## Rebuild the api container of a running `make watch` now (the git hooks do this on commit)
 api-rebuild:
 	@date > .watch/api.rebuild; echo 'stamped .watch/api.rebuild'
+
+## Show the resolved image build (channel, tags, labels) without building
+image-print:
+	$(BAKE) --print
+
+## Build linux/amd64 + linux/arm64 api and web images into the local image store (needs the containerd image store)
+image-build:
+	$(BAKE) --load
+
+## Build and push the images to ghcr.io; main/master go to release/ and are cosign-signed, other branches to develop/
+image-push:
+ifeq ($(IMAGE_CHANNEL),release)
+	@test -z "$(GIT_DIRTY)" || { echo 'refusing to publish a release image from a dirty working tree'; exit 1; }
+	@command -v $(COSIGN) >/dev/null || { echo 'cosign is required to publish release images'; exit 1; }
+endif
+	$(BAKE) --push --metadata-file $(IMAGE_METADATA)
+ifeq ($(IMAGE_CHANNEL),release)
+	@set -eu; for svc in api web; do \
+		digest=$$(jq -er --arg t $$svc '.[$$t]["containerimage.digest"]' $(IMAGE_METADATA)); \
+		echo "cosign sign $(IMAGE_REGISTRY)/release/$$svc@$$digest"; \
+		$(COSIGN) sign --yes $(if $(COSIGN_KEY),--key $(COSIGN_KEY)) \
+			-a commit=$(GIT_COMMIT) -a version=$(IMAGE_VERSION) \
+			"$(IMAGE_REGISTRY)/release/$$svc@$$digest"; \
+	done
+endif
 
 ## Validate the Compose file (including the pipelines profile) without starting containers
 compose-config:

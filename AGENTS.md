@@ -22,6 +22,10 @@ make project-up       # repository-owned containers: API + Web
 make stack-up         # everything (== docker compose up -d --build)
 make watch            # stack under `docker compose watch`: web HMR sync, api rebuild on commit
 
+# Published images (docker-bake.hcl; amd64 + arm64, ghcr.io release/ or develop/ by branch)
+make image-build      # build into the local image store
+make image-push       # push on demand; main/master are cosign-signed
+
 # Individual services
 JWT_SECRET=cyclist-map-dev-secret-do-not-use-in-production \
   DATABASE_URL="postgres://osm_dev:osm_dev@localhost:5432/cyclist_map_dev?sslmode=disable" \
@@ -60,7 +64,8 @@ Integration tests in `infra/postgres/` connect to the real database. They use `T
 service applies pending migrations, then `api`, `web`, `martin`, and `valhalla`
 start (Postgres stays outside Compose; `db.env` points at it). Only
 `plateau_shadow` is behind a profile (`pipelines`). The Compose file is
-`compose.yml`. Project services (`api`,
+`compose.yml`; it builds local images only, while `docker-bake.hcl` owns the
+published multi-platform images. Project services (`api`,
 `web`) declare no dependency on the support adapters (`martin`, `valhalla`) so
 they can be developed and tested independently. The Go module lives in `api/`, which is
 also the API image's build context (`build: ./api`) so no root-level file can
