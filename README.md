@@ -41,16 +41,16 @@ Initial coverage is the Kanto / Tokyo region (OSM data + PLATEAU 3D building sha
 
 | Path | Purpose |
 |------|---------|
-| `cmd/api/` | Go API server entrypoint |
-| `internal/api/` | Chi router + HTTP handlers |
-| `internal/app/` | Application services (RouteService, RoutingService, AuthService, …) |
-| `internal/domain/` | Pure domain types and interfaces — no external imports |
-| `internal/infra/` | Adapters: `postgres/`, `valhalla/`, `openmeteo/`, `tomorrowio/`, `openweathermap/` |
+| `api/cmd/api/` | Go API server entrypoint |
+| `api/internal/api/` | Chi router + HTTP handlers |
+| `api/internal/app/` | Application services (RouteService, RoutingService, AuthService, …) |
+| `api/internal/domain/` | Pure domain types and interfaces — no external imports |
+| `api/internal/infra/` | Adapters: `postgres/`, `valhalla/`, `openmeteo/`, `tomorrowio/`, `openweathermap/` |
 | `web/` | SvelteKit 2 + MapLibre frontend |
 | `migrations/` | golang-migrate SQL files (`000001`–`000021`) |
 | `pipelines/osm_import/` | OSM PBF download and `osm2pgsql` flex import (`kanto.lua`) |
 | `pipelines/greenery/` | Per-edge greenery scoring SQL |
-| `pipelines/weather_fetch/` | Open-Meteo poller (Go) |
+| `api/pipelines/weather_fetch/` | Open-Meteo poller (Go) |
 | `pipelines/plateau_shadow/` | PLATEAU 3D shadow precompute (Python, Docker) |
 | `docs/specs/` | Design documents |
 
@@ -65,7 +65,7 @@ Install before bootstrapping:
 - Go 1.25+
 - Node.js 20+
 - Docker + `docker compose`
-- PostgreSQL 18 with PostGIS 3.6, reachable on `localhost:5432` (Postgres is **not** in `docker-compose.yml` — bring your own, e.g. via Homebrew or a separate container)
+- PostgreSQL 18 with PostGIS 3.6, reachable on `localhost:5432` (Postgres is **not** in `compose.yml` — bring your own, e.g. via Homebrew or a separate container)
 - [`golang-migrate`](https://github.com/golang-migrate/migrate) CLI
 - `osm2pgsql` 1.10+
 - [`martin`](https://martin.maplibre.org/installation.html) CLI on `$PATH`
@@ -198,7 +198,7 @@ Individual local processes and containers:
 ```bash
 JWT_SECRET=cyclist-map-dev-secret-do-not-use-in-production \
   DATABASE_URL="postgres://osm_dev:osm_dev@localhost:5432/cyclist_map_dev?sslmode=disable" \
-  go run ./cmd/api                          # API on :8080
+  go -C api run ./cmd/api                   # API on :8080
 
 make dev-martin                             # Martin support container on :3000
 make dev-valhalla                           # Valhalla support container on :8002
@@ -238,7 +238,7 @@ without a reachable database. Test stubs are hand-written—no mocking library.
 ## Build
 
 ```bash
-go build ./cmd/api
+go -C api build ./cmd/api
 cd web && npm run build
 ```
 
@@ -253,10 +253,10 @@ cd web && npm run build
 
 Komorebi is **open-core**:
 
-- The reusable backend — `internal/domain/`, `internal/app/`, `internal/infra/`,
-  `pipelines/`, and `migrations/` — is licensed under the
+- The reusable backend — `api/internal/domain/`, `api/internal/app/`, `api/internal/infra/`,
+  `pipelines/`, `api/pipelines/`, and `migrations/` — is licensed under the
   [Apache License 2.0](LICENSE-APACHE).
-- The deployable application — `cmd/`, `internal/api/`, and `web/` — is
+- The deployable application — `api/cmd/`, `api/internal/api/`, and `web/` — is
   licensed under the [GNU Affero General Public License v3.0](LICENSE).
 
 See [`LICENSING.md`](LICENSING.md) for the full layout and the dependency rule

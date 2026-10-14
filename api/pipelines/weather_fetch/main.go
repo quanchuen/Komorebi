@@ -1,4 +1,4 @@
-// pipelines/weather_fetch/main.go
+// api/pipelines/weather_fetch/main.go
 //
 // # Weather Fetch Pipeline
 //

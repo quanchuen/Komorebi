@@ -20,17 +20,16 @@ make dev-run
 make support-up       # external adapters: Martin + Valhalla
 make project-up       # repository-owned containers: API + Web
 make stack-up         # everything (== docker compose up -d --build)
-
 # Individual services
 JWT_SECRET=cyclist-map-dev-secret-do-not-use-in-production \
   DATABASE_URL="postgres://osm_dev:osm_dev@localhost:5432/cyclist_map_dev?sslmode=disable" \
-  go run ./cmd/api                          # Go API on :8080
+  go -C api run ./cmd/api                   # Go API on :8080
 martin --config martin.yaml                 # Vector tiles on :3000
 docker compose up valhalla                  # Routing engine on :8002
 cd web && npm run dev                       # SvelteKit on :5173
 
 # Build
-go build ./cmd/api
+go -C api build ./cmd/api
 cd web && npm run build
 ```
 
@@ -41,8 +40,8 @@ make test                                   # Fast tests; no external services
 make test-unit                              # Explicit unit/HTTP-adapter boundary
 TEST_DB_DSN="$DATABASE_URL" make test-integration
 make test-web                               # Frontend checks + build
-go test ./internal/app -run TestAuth        # Single test pattern
-go test -v ./internal/infra/postgres        # Verbose, one package
+go -C api test ./internal/app -run TestAuth # Single test pattern
+go -C api test -v ./internal/infra/postgres # Verbose, one package
 cd web && npm run check                     # Svelte type checking
 make hooks                                  # Install pre-commit hook (gitleaks secret scan + lint-staged)
 make secrets-audit                          # gitleaks over the full git history
@@ -58,11 +57,14 @@ Integration tests in `infra/postgres/` connect to the real database. They use `T
 `docker compose up --build` starts the whole application: a one-shot `migrate`
 service applies pending migrations, then `api`, `web`, `martin`, and `valhalla`
 start (Postgres stays outside Compose; `db.env` points at it). Only
-`plateau_shadow` is behind a profile (`pipelines`). Project services (`api`,
+`plateau_shadow` is behind a profile (`pipelines`). The Compose file is
+`compose.yml`. Project services (`api`,
 `web`) declare no dependency on the support adapters (`martin`, `valhalla`) so
-they can be developed and tested independently. The root `.dockerignore` is an
-allow-list (`go.mod`, `go.sum`, `cmd/`, `internal/`) — add to it if the Go
-build ever needs another path.
+they can be developed and tested independently. The Go module lives in `api/`, which is
+also the API image's build context (`build: ./api`) so no root-level file can
+leak into the image. `api/.dockerignore` is an allow-list (`go.mod`, `go.sum`,
+`cmd/`, `internal/`) — add to it if the Go build ever needs another path. Run
+Go commands with `go -C api …` or from inside `api/`.
 
 ## Database
 
@@ -80,10 +82,10 @@ Migrations use golang-migrate, numbered `000001`–`000024`. Four schemas: `rout
 
 **Hexagonal DDD** with four layers:
 
-- **`internal/domain/`** — Pure Go types, interfaces, business rules. Zero external imports. Existing bounded contexts: `route`, `community`, `environment`, `plan`, `discovery`; `exploration` is proposed for user-specific explored-road knowledge. Route Planning owns personalized routing policy. See `docs/adr/`.
-- **`internal/app/`** — Application services orchestrating domain objects. Each context has a service (e.g., `RouteService`, `RoutingService`, `AuthService`).
-- **`internal/infra/`** — Adapter implementations: `postgres/` (repositories), `valhalla/` (routing client), `openmeteo/` (weather client), `tomorrowio/`, `openweathermap/`, `anthropic/` (route-intent LLM adapter, ADR 0003).
-- **`internal/api/`** — HTTP handlers + chi router. Thin layer: parse request, call service, write JSON.
+- **`api/internal/domain/`** — Pure Go types, interfaces, business rules. Zero external imports. Existing bounded contexts: `route`, `community`, `environment`, `plan`, `discovery`; `exploration` is proposed for user-specific explored-road knowledge. Route Planning owns personalized routing policy. See `docs/adr/`.
+- **`api/internal/app/`** — Application services orchestrating domain objects. Each context has a service (e.g., `RouteService`, `RoutingService`, `AuthService`).
+- **`api/internal/infra/`** — Adapter implementations: `postgres/` (repositories), `valhalla/` (routing client), `openmeteo/` (weather client), `tomorrowio/`, `openweathermap/`, `anthropic/` (route-intent LLM adapter, ADR 0003).
+- **`api/internal/api/`** — HTTP handlers + chi router. Thin layer: parse request, call service, write JSON.
 
 **Key domain concepts:**
 - `Route` (aggregate root) has `Waypoints`, `Segments`, `Tags`. States: Draft → Published → Archived.
@@ -91,7 +93,7 @@ Migrations use golang-migrate, numbered `000001`–`000024`. Four schemas: `rout
 - `EnvironmentService` computes time-projected conditions (shade, wind, rain, UV, greenery, signals) per segment using the speed model to project arrival times.
 - `RoutingService.GetDirections()` calls Valhalla with 3 profiles in parallel (Suggested, Fast, Avoid Main Roads).
 
-**Wiring:** `cmd/api/main.go` constructs all repos → services → handlers → chi router. No DI framework.
+**Wiring:** `api/cmd/api/main.go` constructs all repos → services → handlers → chi router. No DI framework.
 
 ## Environment Variables
 
@@ -129,7 +131,7 @@ bootstrap runs) live in the separate `~/src/komorebi-workflows` repository
 (Temporal); this repo's Makefile remains the single owner of what each
 pipeline does.
 
-## API Endpoints (internal/api/router.go)
+## API Endpoints (api/internal/api/router.go)
 
 **Public:** GET routes, GET discover/nearby|viewport|suggested, GET venues/tags, POST auth/register|login|refresh, GET weather/point, GET weather/grid, POST routing/directions, POST routing/intent, POST routing/conditions, GET routes/:id/conditions
 

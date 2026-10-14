@@ -19,7 +19,7 @@ regexTarget = "match"
 regexes = [
   # Local-only JWT signing key used by Makefile / db.env / docs; not valid anywhere real.
   '''cyclist-map-dev-secret-do-not-use-in-production''',
-  # Fixture constant in internal/app/auth_service_test.go and its design plan.
+  # Fixture constant in api/internal/app/auth_service_test.go and its design plan.
   '''test-secret-key-at-least-32-chars-long''',
   # Placeholder used in docs/plans examples.
   '''dev-secret-32-chars-padding-here''',

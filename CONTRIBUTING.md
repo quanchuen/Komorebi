@@ -20,10 +20,10 @@ name and the date, and state in the PR description:
 
 ## Which license covers your change
 
-See [`LICENSING.md`](LICENSING.md). In short: changes under `internal/domain/`,
-`internal/app/`, `internal/infra/`, `pipelines/`, and `migrations/` are
-Apache-2.0; changes under `cmd/`, `internal/api/`, and `web/` are AGPL-3.0.
-**Do not** add imports from `cmd/` or `internal/api/` into the engine packages —
+See [`LICENSING.md`](LICENSING.md). In short: changes under `api/internal/domain/`,
+`api/internal/app/`, `api/internal/infra/`, `pipelines/`, `api/pipelines/`, and `migrations/` are
+Apache-2.0; changes under `api/cmd/`, `api/internal/api/`, and `web/` are AGPL-3.0.
+**Do not** add imports from `api/cmd/` or `api/internal/api/` into the engine packages —
 that boundary is what keeps the engine permissively licensed.
 
 ## Development
@@ -35,7 +35,7 @@ architecture and conventions.
 make test                     # Fast tests without external services
 make test-web                 # Frontend checks and production build
 TEST_DB_DSN="$DATABASE_URL" make test-integration
-go build ./cmd/api && (cd web && npm run build)
+go -C api build ./cmd/api && (cd web && npm run build)
 ```
 
 Use `make support-up` for Martin and Valhalla, `make project-up` for the
@@ -59,5 +59,5 @@ scans the whole history.
 
 - One logical change per PR.
 - Tests for new behavior.
-- `go vet ./...` and `gofmt` clean.
+- `go -C api vet ./...` and `gofmt` clean.
 - Reference the design spec (`docs/specs/`) when changing modeled behavior.

@@ -37,7 +37,7 @@ migrate-create:
 
 ## Re-seed demo routes via the reroute tool (requires DB + Valhalla)
 demo-routes:
-	DATABASE_URL="$(DATABASE_URL)" VALHALLA_URL="$${VALHALLA_URL:-http://localhost:8002}" go run ./cmd/reroute-demo
+	DATABASE_URL="$(DATABASE_URL)" VALHALLA_URL="$${VALHALLA_URL:-http://localhost:8002}" go -C api run ./cmd/reroute-demo
 
 ## Download Kanto PBF from Geofabrik
 osm-download:
@@ -80,7 +80,7 @@ greenery:
 
 ## Fetch hourly weather from Open-Meteo for Tokyo area grid
 weather:
-	DATABASE_URL="$(MIGRATE_URL)" go run ./pipelines/weather_fetch/
+	DATABASE_URL="$(MIGRATE_URL)" go -C api run ./pipelines/weather_fetch/
 
 ## Run PLATEAU shadow precompute pipeline (requires Docker; uses pipelines profile)
 WARDS ?= chiyoda,minato,shibuya
@@ -122,13 +122,13 @@ dev-run: support-up
 	@set -eu; \
 	api_pid=''; web_pid=''; \
 	trap 'test -z "$$api_pid" || kill "$$api_pid" 2>/dev/null || true; test -z "$$web_pid" || kill "$$web_pid" 2>/dev/null || true' INT TERM EXIT; \
-	JWT_SECRET=$(DEV_JWT_SECRET) DATABASE_URL="$(DATABASE_URL)" PORT=$(API_PORT) go run ./cmd/api & api_pid=$$!; \
+	JWT_SECRET=$(DEV_JWT_SECRET) DATABASE_URL="$(DATABASE_URL)" PORT=$(API_PORT) go -C api run ./cmd/api & api_pid=$$!; \
 	(cd web && npm run dev) & web_pid=$$!; \
 	wait
 
 ## Start only the local Go API (support services optional)
 dev-api:
-	JWT_SECRET=$(DEV_JWT_SECRET) DATABASE_URL="$(DATABASE_URL)" PORT=$(API_PORT) go run ./cmd/api
+	JWT_SECRET=$(DEV_JWT_SECRET) DATABASE_URL="$(DATABASE_URL)" PORT=$(API_PORT) go -C api run ./cmd/api
 
 ## Start only Vite; API-backed screens require make dev-api in another terminal
 dev-web:
@@ -149,14 +149,14 @@ test: test-unit
 
 ## Go tests for domain/app/api and HTTP adapters only
 test-unit:
-	go test ./cmd/... ./internal/domain/... ./internal/app/... ./internal/api/... \
+	go -C api test ./cmd/... ./internal/domain/... ./internal/app/... ./internal/api/... \
 		./internal/infra/valhalla/... ./internal/infra/openmeteo/... \
 		./internal/infra/openweathermap/... ./internal/infra/tomorrowio/...
 
 ## PostGIS repository tests; requires an explicit TEST_DB_DSN
 test-integration:
 	@test -n "$(TEST_DB_DSN)" || { echo 'TEST_DB_DSN is required'; exit 2; }
-	TEST_DB_DSN="$(TEST_DB_DSN)" go test -v ./internal/infra/postgres/...
+	TEST_DB_DSN="$(TEST_DB_DSN)" go -C api test -v ./internal/infra/postgres/...
 
 ## Frontend type, lint, formatting, token, and production-build checks
 test-web:

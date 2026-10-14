@@ -1,0 +1,9 @@
+# Build context for the Go API image is this directory only (compose:
+# `build: ./api`), so nothing else in the repository — env files, pipeline
+# caches, web/, .git — can reach the image. Still an allow-list: a stray
+# local file dropped in api/ (.env, built binary) stays out too.
+*
+!go.mod
+!go.sum
+!cmd
+!internal

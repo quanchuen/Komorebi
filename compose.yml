@@ -18,7 +18,8 @@ services:
     command: ['exec migrate -path /migrations -database "$$DATABASE_URL" up']
 
   api:
-    build: .
+    build:
+      context: ./api
     ports:
       - "8080:8080"
     env_file:

@@ -1,5 +1,5 @@
 # Compiled binaries
-/api
+/api/api
 *.exe
 *.dll
 *.so
