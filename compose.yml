@@ -36,6 +36,9 @@ services:
         required: false
     environment:
       VALHALLA_URL: http://valhalla:8002
+      # Local-only default, the same dev secret the Makefile injects for
+      # `make dev-run` / `make dev-api`. Export JWT_SECRET to override it.
+      JWT_SECRET: ${JWT_SECRET:-cyclist-map-dev-secret-do-not-use-in-production}
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -90,15 +93,20 @@ services:
       - "3001:3001"
     environment:
       - ORIGIN=http://localhost:3001
-      - API_URL=http://api:8080
-      # Server-side proxy target for /tiles/* (see web/src/hooks.server.ts).
+      # Server-side proxy targets (see web/src/hooks.server.ts). WEB_API_URL
+      # lets `make dev-api` point the container at an API running on the host.
+      - API_URL=${WEB_API_URL:-http://api:8080}
       - TILES_URL=http://martin:3000
       # Vite dev-server proxy targets (dev target only; see web/vite.config.ts).
-      - API_PROXY_TARGET=http://api:8080
+      - API_PROXY_TARGET=${WEB_API_URL:-http://api:8080}
       - TILES_PROXY_TARGET=http://martin:3000
       # CARTO basemap key (browser-side; free at carto.com/basemaps/apikey).
       # Interpolated from the host shell or a root .env file; never commit it.
       - PUBLIC_CARTO_API_KEY=${PUBLIC_CARTO_API_KEY:-}
+    # host.docker.internal resolves natively on Docker Desktop; this maps it on
+    # Linux too (needed when WEB_API_URL points at a host process).
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       - api
     restart: unless-stopped

@@ -173,7 +173,7 @@ endif
 compose-config:
 	$(COMPOSE) --profile pipelines config --quiet
 
-## Start support containers plus local API and Vite dev servers; Ctrl-C stops local processes
+## API and web both on the host; Martin and Valhalla run as containers. Ctrl-C stops the host processes
 dev-run: support-up
 	@set -eu; \
 	api_pid=''; web_pid=''; \
@@ -182,14 +182,15 @@ dev-run: support-up
 	(cd web && npm run dev) & web_pid=$$!; \
 	wait
 
-## Start only the local Go API (support services optional)
-dev-api:
+## API on the host (go run); web, Martin and Valhalla run as containers
+dev-api: support-up
+	WEB_API_URL=http://host.docker.internal:$(API_PORT) $(COMPOSE) up -d --build --no-deps web
+	@echo 'web container is on http://localhost:3001 (proxying /api to this host API)'
 	JWT_SECRET=$(DEV_JWT_SECRET) DATABASE_URL="$(DATABASE_URL)" PORT=$(API_PORT) go -C api run ./cmd/api
 
-## Start only Vite; API-backed screens require make dev-api in another terminal
-dev-web:
-	@curl -fsS http://127.0.0.1:$(API_PORT)/api/v1/routes >/dev/null 2>&1 || \
-		echo 'warning: API is not reachable on :$(API_PORT); run "make dev-api" or use "make dev-run"'
+## Web on the host (Vite + HMR); API, Martin and Valhalla run as containers
+dev-web: support-up
+	$(COMPOSE) up -d --build api
 	cd web && npm run dev
 
 ## Start only Martin (plus the one-shot migrate service it depends on)

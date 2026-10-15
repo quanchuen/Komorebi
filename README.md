@@ -247,16 +247,20 @@ make dev-valhalla                           # Valhalla support container on :800
 cd web && npm run dev                       # SvelteKit on :5173
 ```
 
-`make dev-web` starts only Vite. The page shell works independently, but
-API-backed discovery and routing requests will show connection errors unless an
-API is already running on port 8080. Use `make dev-run` for the normal integrated
-source-development workflow, or run these in separate terminals:
+The `dev-*` targets are hybrid: the part you are working on runs on the host
+from source, everything else runs as containers (`make support-up` always brings
+up Martin and Valhalla first).
 
 ```bash
-make support-up
-make dev-api
-make dev-web
+make dev-run    # API and web on the host (API :8080, Vite :5173)
+make dev-web    # web on the host (Vite :5173); API in a container on :8080
+make dev-api    # API on the host (:8080); web in a container on :3001
 ```
+
+`make dev-api` starts the `web` container with `WEB_API_URL` pointing at
+`host.docker.internal`, so its `/api` proxy reaches the host API. Only one API
+may own port 8080 at a time, so stop the `api` container (`make project-stop`)
+before switching from `dev-web` to `dev-api`.
 
 ## Testing
 
