@@ -2,6 +2,7 @@ package valhalla_test
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -170,6 +171,13 @@ func TestClient_Route_ValhallaError(t *testing.T) {
 	_, err := client.Route(stops, valhalla.ProfileSuggested)
 	if err == nil {
 		t.Fatal("expected error for Valhalla 400 response, got nil")
+	}
+	var re *valhalla.RequestError
+	if !errors.As(err, &re) {
+		t.Fatalf("expected *valhalla.RequestError, got %T: %v", err, err)
+	}
+	if re.Status != http.StatusBadRequest || re.Code != valhalla.CodeNoPath || re.Message != "No path found" {
+		t.Errorf("RequestError = %+v, want status 400, code 442, message %q", re, "No path found")
 	}
 }
 

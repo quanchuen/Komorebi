@@ -296,6 +296,11 @@
       $visibleLayers.has('wind') ||
       ($activeOverlay !== null && selectedConditions.length > 0)
   );
+  // Desktop: a panel or route card is open in the left column, so the
+  // expanded scrubber centres on the map area beside it.
+  let desktopPanelOpen = $derived(
+    !$isMobile && ($explorePanel !== 'none' || (!!$highlightedRouteId && !!selectedRoute))
+  );
   // Mobile: the resting sheet is 140px; panels are taller. The attribution
   // and the docked scrubber sit just above whichever sheet is open.
   let sheetOffset = $derived(
@@ -459,18 +464,26 @@
       </div>
     {/if}
   {:else}
-    <!-- Bottom row: peek (left) · time chip (centre) · attribution (right). -->
-    <div class="absolute left-4 bottom-4 z-20 flex flex-col items-start gap-2">
-      {#if $scrubberOpen}
+    <!-- Bottom row: peek (left) · time chip (centre) · attribution (right).
+         The chip expands in place: the scrubber is centred on the map, or on
+         the map area beside the panel column while a panel is open (decided
+         2026-10-15; Penpot draws it bottom-left). -->
+    {#if $scrubberOpen}
+      <div
+        class="absolute left-1/2 -translate-x-1/2 bottom-4 z-20 flex flex-col items-center gap-2 w-180 scrubber-dock
+               {desktopPanelOpen ? 'scrubber-dock-beside-panel' : ''}"
+      >
         <Legend />
-        <div class="w-180 scrubber-dock">
+        <div class="w-full">
           <TimeScrubber />
         </div>
-      {:else if $explorePanel === 'none' && !$highlightedRouteId}
-        <RoutesPeek onopen={() => explorePanel.set('routes')} />
+      </div>
+    {:else}
+      {#if $explorePanel === 'none' && !$highlightedRouteId}
+        <div class="absolute left-4 bottom-4 z-20">
+          <RoutesPeek onopen={() => explorePanel.set('routes')} />
+        </div>
       {/if}
-    </div>
-    {#if !$scrubberOpen}
       <div class="absolute left-1/2 -translate-x-1/2 bottom-2 z-20">
         <TimeChip {routeWind} />
       </div>
@@ -520,7 +533,16 @@
   .dock-sheet-tall {
     bottom: calc(72dvh + 12px);
   }
+  /* Desktop: the 720px scrubber is centred and stays clear of the zoom stack
+     at the right (16 + 44 + 12 = 72px) on both sides. */
   .scrubber-dock {
-    max-width: calc(100vw - 2rem);
+    max-width: calc(100vw - 2 * 72px);
+  }
+  /* While a panel is open it is centred on the free map area between the
+     400px panel column (16px gutter + 16px gap = 432px) and that right band:
+     centre = (432px + 100vw - 72px) / 2. */
+  .scrubber-dock-beside-panel {
+    left: calc(50% + 180px);
+    max-width: calc(100vw - 504px);
   }
 </style>

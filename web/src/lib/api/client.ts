@@ -25,6 +25,44 @@ import { apiRouteToRoute, discoveryRouteToRoute } from './types';
 
 const BASE = '/api/v1';
 
+/**
+ * A non-2xx answer from the API. `status` lets callers tell a request the
+ * server rejected (4xx) from an outage (5xx); `detail` is the server's own
+ * `error` message when the body carried one. The message keeps the
+ * `METHOD path failed: status text` form that existing callers match on.
+ */
+export class ApiError extends Error {
+  constructor(
+    readonly status: number,
+    message: string,
+    readonly detail: string | null
+  ) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
+
+async function fail(method: string, path: string, res: Response): Promise<never> {
+  let detail: string | null = null;
+  try {
+    const body: unknown = await res.json();
+    if (
+      body &&
+      typeof body === 'object' &&
+      typeof (body as { error?: unknown }).error === 'string'
+    ) {
+      detail = (body as { error: string }).error;
+    }
+  } catch {
+    // No JSON body (a proxy error page, an empty response).
+  }
+  throw new ApiError(
+    res.status,
+    `${method} ${path} failed: ${res.status} ${res.statusText}`,
+    detail
+  );
+}
+
 async function get<T>(path: string, params?: Record<string, string | number>): Promise<T> {
   const url = new URL(path, 'http://localhost'); // URL for param building only
   if (params) {
@@ -33,7 +71,7 @@ async function get<T>(path: string, params?: Record<string, string | number>): P
     }
   }
   const res = await fetch(`${BASE}${url.pathname}${url.search}`);
-  if (!res.ok) throw new Error(`GET ${path} failed: ${res.status} ${res.statusText}`);
+  if (!res.ok) await fail('GET', path, res);
   return res.json() as Promise<T>;
 }
 
@@ -43,7 +81,7 @@ async function post<T>(path: string, body: unknown): Promise<T> {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body)
   });
-  if (!res.ok) throw new Error(`POST ${path} failed: ${res.status} ${res.statusText}`);
+  if (!res.ok) await fail('POST', path, res);
   return res.json() as Promise<T>;
 }
 

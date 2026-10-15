@@ -1,6 +1,7 @@
 package app_test
 
 import (
+	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -139,5 +140,38 @@ func TestRoutingService_GetDirections_MultiStop(t *testing.T) {
 	// Full geometry should concatenate both legs' shapes
 	if len(alt.GeoJSON.Coordinates) < 3 {
 		t.Errorf("expected merged geometry with at least 3 points, got %d", len(alt.GeoJSON.Coordinates))
+	}
+}
+
+func TestRoutingService_GetDirections_ClassifiesRejectedStops(t *testing.T) {
+	cases := []struct {
+		name string
+		code int
+		want error
+	}{
+		{"no road near a stop", valhalla.CodeNoEdgesNearLocation, app.ErrStopOffRoad},
+		{"no path between stops", valhalla.CodeNoPath, app.ErrNoRoute},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			fake := &fakeValhallaClient{err: &valhalla.RequestError{Status: 400, Code: tc.code, Message: tc.name}}
+			svc := app.NewRoutingService(fake)
+			_, err := svc.GetDirections(app.DirectionsRequest{Stops: twoStopPlan(), DepartureAt: time.Now()})
+			if !errors.Is(err, tc.want) {
+				t.Fatalf("err = %v, want %v", err, tc.want)
+			}
+		})
+	}
+}
+
+func TestRoutingService_GetDirections_EngineFailureStaysUnclassified(t *testing.T) {
+	fake := &fakeValhallaClient{err: errors.New("dial tcp 127.0.0.1:8002: connect: connection refused")}
+	svc := app.NewRoutingService(fake)
+	_, err := svc.GetDirections(app.DirectionsRequest{Stops: twoStopPlan(), DepartureAt: time.Now()})
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if errors.Is(err, app.ErrStopOffRoad) || errors.Is(err, app.ErrNoRoute) {
+		t.Fatalf("connection failure must not read as a rejected stop: %v", err)
 	}
 }

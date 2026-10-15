@@ -145,3 +145,32 @@ func TestRoutingHandler_Directions_ServiceError(t *testing.T) {
 		t.Errorf("expected 502, got %d", w.Code)
 	}
 }
+
+func TestRoutingHandler_Directions_RejectedStopsAre422(t *testing.T) {
+	cases := []struct {
+		name string
+		err  error
+		want string
+	}{
+		{"stop off road", app.ErrStopOffRoad, `{"error":"No road near one of the stops.`},
+		{"no route", app.ErrNoRoute, `{"error":"No bicycle route between these stops."`},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			fake := &fakeRoutingService{err: fmt.Errorf("routing: all profiles failed: %w", tc.err)}
+			handler := api.NewRoutingHandler(fake)
+
+			req := httptest.NewRequest(http.MethodPost, "/api/v1/routing/directions", bytes.NewReader(validDirectionsBody()))
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+			handler.Directions(w, req)
+
+			if w.Code != http.StatusUnprocessableEntity {
+				t.Fatalf("status = %d, want 422; body %s", w.Code, w.Body.String())
+			}
+			if !bytes.HasPrefix(w.Body.Bytes(), []byte(tc.want)) {
+				t.Errorf("body = %s, want prefix %s", w.Body.String(), tc.want)
+			}
+		})
+	}
+}

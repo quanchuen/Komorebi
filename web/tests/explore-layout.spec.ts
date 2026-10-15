@@ -84,6 +84,17 @@ test('frame C: the time chip opens the scrubber; Now and the slider move the dep
   await expectLayoutInvariants(page, slider, 'time slider');
   await expectLayoutInvariants(page, scrubber.getByRole('button', { name: 'Now' }), 'Now');
 
+  // Desktop: the scrubber expands in place of the centred time chip, so its
+  // centre is the map's centre (no panel is open here). Mobile docks it
+  // edge to edge above the sheet instead.
+  if (test.info().project.name === 'desktop-chromium') {
+    const box = await scrubber.boundingBox();
+    const viewport = page.viewportSize();
+    expect(box).not.toBeNull();
+    expect(viewport).not.toBeNull();
+    expect(Math.abs(box!.x + box!.width / 2 - viewport!.width / 2)).toBeLessThanOrEqual(1);
+  }
+
   // End moves to the far end of the 24-hour window; Now brings it back to
   // within the first hour (values are minutes from the current hour).
   await slider.focus();

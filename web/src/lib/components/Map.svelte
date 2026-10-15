@@ -96,6 +96,12 @@
   // text.default from app.css. Hex is allowed here (MapLibre paint).
   const VENUE_PIN_COLORS = { fill: '#FFFFFF', ring: '#E4E4E7', icon: '#18181B' };
   const VENUE_TYPES: VenueType[] = ['konbini', 'cafe', 'water', 'repair'];
+  /**
+   * Pins draw from this zoom, the same as the tile source and the home view,
+   * so turning a chip on at rest has a visible effect (at 13 the resting map
+   * showed nothing). Picking a type further out eases in to here.
+   */
+  const VENUE_MIN_ZOOM = 12;
   /** Venues within this distance of the selected route stay fully opaque. */
   const ON_ROUTE_M = 150;
 
@@ -176,7 +182,7 @@
       type: 'symbol',
       source: 'martin-venues',
       'source-layer': 'venues',
-      minzoom: 13,
+      minzoom: VENUE_MIN_ZOOM,
       filter: ['in', ['get', 'category'], ['literal', []]],
       layout: {
         'icon-image': categoryToType as never,
@@ -657,6 +663,7 @@
     map.setFilter('venue-pins', ['in', ['get', 'category'], ['literal', categories]]);
     map.setLayoutProperty('venue-pins', 'visibility', categories.length > 0 ? 'visible' : 'none');
     if (categories.length === 0) selectedVenue = null;
+    else if (map.getZoom() < VENUE_MIN_ZOOM) map.easeTo({ zoom: VENUE_MIN_ZOOM, duration: 300 });
   });
 
   // The selected venue is a DOM marker (near-black fill, white icon, label

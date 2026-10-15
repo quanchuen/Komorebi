@@ -120,6 +120,18 @@ func (h *RoutingHandler) Directions(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
+		// The engine answered but rejected the stops: the rider can fix
+		// these, so they are 422s with a plain message. Only a failure to
+		// get an answer at all is the 502 the web reads as "engine down".
+		if errors.Is(err, app.ErrStopOffRoad) {
+			writeError(w, http.StatusUnprocessableEntity,
+				"No road near one of the stops. Move it onto a public road inside the covered area.")
+			return
+		}
+		if errors.Is(err, app.ErrNoRoute) {
+			writeError(w, http.StatusUnprocessableEntity, "No bicycle route between these stops.")
+			return
+		}
 		writeError(w, http.StatusBadGateway, "routing engine error")
 		return
 	}

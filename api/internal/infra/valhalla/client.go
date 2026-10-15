@@ -14,6 +14,27 @@ import (
 // ErrTooFewLocations is returned when fewer than 2 stops are provided.
 var ErrTooFewLocations = errors.New("valhalla: at least 2 locations required")
 
+// Valhalla error codes (valhalla/baldr/errorcode_util.h) that callers tell
+// apart: a stop the engine cannot snap to any road in its tile set, versus
+// stops it knows but cannot connect.
+const (
+	CodeNoEdgesNearLocation = 171 // "No suitable edges near location"
+	CodeNoPath              = 442 // "No path could be found for input"
+)
+
+// RequestError is a non-200 answer from Valhalla: Status is the HTTP status
+// (400 for a request the engine rejected), Code its own error_code and
+// Message its text. A connection failure is not a RequestError.
+type RequestError struct {
+	Status  int
+	Code    int
+	Message string
+}
+
+func (e *RequestError) Error() string {
+	return fmt.Sprintf("valhalla: http %d: %s (code %d)", e.Status, e.Message, e.Code)
+}
+
 // Location is a lat/lon coordinate to route through.
 type Location struct {
 	Lat float64
@@ -168,7 +189,7 @@ func (c *Client) Route(stops []Location, profile RouteProfile) (*RouteResult, er
 			ErrorCode int    `json:"error_code"`
 		}
 		_ = json.NewDecoder(resp.Body).Decode(&errBody)
-		return nil, fmt.Errorf("valhalla: http %d: %s (code %d)", resp.StatusCode, errBody.Error, errBody.ErrorCode)
+		return nil, &RequestError{Status: resp.StatusCode, Code: errBody.ErrorCode, Message: errBody.Error}
 	}
 
 	var raw struct {

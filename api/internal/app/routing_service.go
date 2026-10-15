@@ -14,6 +14,30 @@ import (
 // ErrTooFewDirectionStops is returned when a directions request has fewer than 2 stops.
 var ErrTooFewDirectionStops = errors.New("routing: at least 2 stops required")
 
+// ErrStopOffRoad is returned when the routing engine has no road near one of
+// the stops: it lies outside the engine's tile set (the deployment's OSM
+// extract) or far from any way. The rider can fix this; it is not an outage.
+var ErrStopOffRoad = errors.New("routing: no road near one of the stops")
+
+// ErrNoRoute is returned when the engine knows every stop but found no
+// bicycle path connecting them.
+var ErrNoRoute = errors.New("routing: no route between the stops")
+
+// classifyRouterError turns a request Valhalla rejected (HTTP 4xx) into
+// ErrStopOffRoad or ErrNoRoute, keeping the engine's answer in the chain.
+// Any other failure (connection refused, 5xx, bad JSON) is returned as is,
+// so callers still report it as an engine error.
+func classifyRouterError(err error) error {
+	var re *valhalla.RequestError
+	if !errors.As(err, &re) || re.Status < 400 || re.Status >= 500 {
+		return err
+	}
+	if re.Code == valhalla.CodeNoEdgesNearLocation {
+		return fmt.Errorf("%w: %v", ErrStopOffRoad, err)
+	}
+	return fmt.Errorf("%w: %v", ErrNoRoute, err)
+}
+
 // ValhallaRouter is the interface the RoutingService uses to call the routing engine.
 type ValhallaRouter interface {
 	Route(stops []valhalla.Location, profile valhalla.RouteProfile) (*valhalla.RouteResult, error)
@@ -140,7 +164,7 @@ func (s *RoutingService) GetDirections(req DirectionsRequest) (*MultiDirectionsR
 	}
 
 	if received == 0 {
-		return nil, fmt.Errorf("routing: all profiles failed: %w", firstErr)
+		return nil, fmt.Errorf("routing: all profiles failed: %w", classifyRouterError(firstErr))
 	}
 
 	// Filter out empty slots (failed profiles)

@@ -12,7 +12,7 @@
   import { replaceState } from '$app/navigation';
   import { resolve } from '$app/paths';
   import { browser } from '$app/environment';
-  import { routing } from '$lib/api/client';
+  import { ApiError, routing } from '$lib/api/client';
   import type { RouteAlternative, RouteConditionSegment } from '$lib/api/types';
   import Icon from '$lib/components/ui/Icon.svelte';
   import IconButton from '$lib/components/ui/IconButton.svelte';
@@ -320,13 +320,19 @@
       alternatives = [];
       clearMap();
       const msg = e instanceof Error ? e.message : String(e);
+      const api = e instanceof ApiError ? e : null;
+      // 422 is a request the engine rejected (a stop off any road it knows,
+      // no path between the stops) and carries the reason; only a 5xx means
+      // the engine itself could not be reached.
       routeError = msg.includes('Failed to fetch')
         ? "Can't reach Komorebi — showing the map only."
-        : msg.includes('502')
+        : api && api.status >= 500
           ? 'The routing engine is not running.'
-          : msg.includes('422') || msg.includes('400')
-            ? 'No route found. Move a stop onto a public road.'
-            : 'No route found between these stops.';
+          : api?.status === 422 && api.detail
+            ? api.detail
+            : api?.status === 422 || api?.status === 400
+              ? 'No route found. Move a stop onto a public road.'
+              : 'No route found between these stops.';
     } finally {
       isRouting = false;
     }
