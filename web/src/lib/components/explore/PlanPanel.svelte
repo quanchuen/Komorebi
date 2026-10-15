@@ -35,6 +35,7 @@
   import { plannerPreferences } from '$lib/stores/planner';
   import { isMobile, requestRide, scrubberOpen, showToast } from '$lib/stores/ui';
   import { rememberPlace, savedPlans, toggleSavedPlan } from '$lib/stores/recents';
+  import { searchPlaces, type PlaceHit } from '$lib/geocode';
   import {
     foregroundNavigation,
     setNavigationRoute,
@@ -70,27 +71,25 @@
 
   let stops = $state<PlanStop[]>([newStop(), newStop()]);
 
-  // --- Place lookup (Nominatim) ------------------------------------------
+  // --- Place lookup (Nominatim + GSI, see $lib/geocode) ------------------
   let activeInputIndex = $state<number | null>(null);
-  let suggestions = $state<{ display_name: string; lat: string; lon: string }[]>([]);
+  let suggestions = $state<PlaceHit[]>([]);
   let highlightedSuggIdx = $state(-1);
   let searchDebounce: ReturnType<typeof setTimeout>;
+  let searchSeq = 0;
   let inputRefs: HTMLInputElement[] = [];
 
   async function searchAddress(query: string) {
-    if (query.length < 3) {
+    const seq = ++searchSeq;
+    if (query.trim().length < 3) {
       suggestions = [];
       return;
     }
-    try {
-      const res = await fetch(
-        `/nominatim/search?format=json&q=${encodeURIComponent(query)}&limit=5&countrycodes=jp&accept-language=en`
-      );
-      suggestions = res.ok ? await res.json() : [];
-    } catch {
-      suggestions = [];
-    }
-    highlightedSuggIdx = -1;
+    await searchPlaces(query, (hits) => {
+      if (seq !== searchSeq) return;
+      suggestions = hits;
+      highlightedSuggIdx = -1;
+    });
   }
 
   function handleInput(index: number, e: Event) {
@@ -116,15 +115,12 @@
     }
   }
 
-  function selectSuggestion(index: number, s: { display_name: string; lat: string; lon: string }) {
-    const lat = parseFloat(s.lat);
-    const lon = parseFloat(s.lon);
-    const parts = s.display_name.split(',').map((p) => p.trim());
-    const name = parts[0];
+  function selectSuggestion(index: number, s: PlaceHit) {
+    const { lat, lon, name } = s;
     stops = stops.map((st, i) =>
       i === index ? { ...st, lat, lon, label: name, query: name } : st
     );
-    rememberPlace({ name, detail: parts.slice(1, 3).join(' · '), lat, lon });
+    rememberPlace(s);
     suggestions = [];
     activeInputIndex = null;
     focusNextEmpty(index);
@@ -510,7 +506,7 @@
           aria-label="Place suggestions"
           class="absolute left-0 right-0 top-full mt-1 z-50 overflow-hidden rounded-md bg-surface-base border border-line shadow-lg"
         >
-          {#each suggestions as s, si (s.display_name)}
+          {#each suggestions as s, si (s.name + s.lat)}
             <li>
               <button
                 type="button"
@@ -523,7 +519,8 @@
                   ? 'bg-surface-tint text-text'
                   : 'text-text-subtle hover:bg-surface-tint'}"
               >
-                {s.display_name.split(',').slice(0, 3).join(',')}
+                <span class="block truncate">{s.name}</span>
+                <span class="block truncate text-xs text-text-subtle">{s.detail}</span>
               </button>
             </li>
           {/each}

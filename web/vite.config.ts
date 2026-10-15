@@ -15,6 +15,11 @@ export default defineConfig({
         target: 'https://nominatim.openstreetmap.org',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/nominatim/, '')
+      },
+      '/gsi': {
+        target: 'https://msearch.gsi.go.jp',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/gsi/, '')
       }
     }
   }

@@ -11,7 +11,8 @@
   import AttributionPill from '$lib/components/AttributionPill.svelte';
   import DataSourcesSheet from '$lib/components/DataSourcesSheet.svelte';
   import SearchPill from '$lib/components/explore/SearchPill.svelte';
-  import SearchPanel, { type PlaceHit } from '$lib/components/explore/SearchPanel.svelte';
+  import SearchPanel from '$lib/components/explore/SearchPanel.svelte';
+  import { searchPlaces, type PlaceHit } from '$lib/geocode';
   import MenuPopover from '$lib/components/explore/MenuPopover.svelte';
   import MapControls from '$lib/components/explore/MapControls.svelte';
   import LayersPanel from '$lib/components/explore/LayersPanel.svelte';
@@ -97,21 +98,8 @@
     placesTimer = setTimeout(async () => {
       const seq = ++placesSeq;
       try {
-        const res = await fetch(
-          `/nominatim/search?format=json&q=${encodeURIComponent(q)}&limit=5&countrycodes=jp&accept-language=en`
-        );
-        const hits: { display_name: string; lat: string; lon: string }[] = res.ok
-          ? await res.json()
-          : [];
-        if (seq !== placesSeq) return;
-        places = hits.map((h) => {
-          const parts = h.display_name.split(',').map((p) => p.trim());
-          return {
-            name: parts[0],
-            detail: parts.slice(1, 3).join(' · '),
-            lat: Number(h.lat),
-            lon: Number(h.lon)
-          };
+        await searchPlaces(q, (hits) => {
+          if (seq === placesSeq) places = hits;
         });
       } catch {
         if (seq === placesSeq) places = [];

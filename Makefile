@@ -217,7 +217,7 @@ test-integration:
 
 ## Frontend type, lint, formatting, token, and production-build checks
 test-web:
-	cd web && npm run check && npm run lint && npm run format:check && npm run check:tokens && npm run build
+	cd web && npm run check && npm run lint && npm run format:check && npm run check:tokens && npm run test:unit && npm run build
 
 ## Run unit, integration, and web checks
 test-all: test-unit test-integration test-web

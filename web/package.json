@@ -13,6 +13,7 @@
     "check:ci": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --threshold warning",
     "check:tokens": "node scripts/check-design-tokens.mjs",
     "lint": "eslint .",
+    "test:unit": "node --test 'src/**/*.test.ts'",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lighthouse": "lhci autorun",

@@ -1,7 +1,7 @@
 <!-- web/src/lib/components/explore/SearchPanel.svelte -->
 <!-- Frame B: one panel under the search pill. Empty field: Plan a route,
-     Describe a ride, SHOW ON MAP, RECENT. With text: PLACES (Nominatim
-     matches) replace RECENT (Penpot mobile B). -->
+     Describe a ride, SHOW ON MAP, RECENT. With text: PLACES (geocoder
+     matches, see $lib/geocode) replace RECENT (Penpot mobile B). -->
 <script lang="ts">
   import Icon from '$lib/components/ui/Icon.svelte';
   import VenueChips from '$lib/components/VenueChips.svelte';
@@ -10,13 +10,7 @@
   import { featuredRoutes } from '$lib/stores/routesInView';
   import DifficultyBadge from '$lib/components/DifficultyBadge.svelte';
   import { km, climb } from '$lib/utils/format';
-
-  export interface PlaceHit {
-    name: string;
-    detail: string;
-    lat: number;
-    lon: number;
-  }
+  import type { PlaceHit } from '$lib/geocode';
 
   interface Props {
     query: string;
