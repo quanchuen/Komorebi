@@ -15,7 +15,6 @@ type stubUserRepo struct {
 	users   map[string]*community.User
 	byEmail map[string]*community.User
 	hashes  map[string]string // userID → password_hash
-	hashErr error
 }
 
 func newStubUserRepo() *stubUserRepo {
@@ -26,12 +25,13 @@ func newStubUserRepo() *stubUserRepo {
 	}
 }
 
-func (s *stubUserRepo) Create(u *community.User) error {
+func (s *stubUserRepo) Create(u *community.User, hash string) error {
 	if _, exists := s.byEmail[u.Email]; exists {
 		return app.ErrEmailTaken
 	}
 	s.users[u.ID] = u
 	s.byEmail[u.Email] = u
+	s.hashes[u.ID] = hash
 	return nil
 }
 
@@ -51,35 +51,12 @@ func (s *stubUserRepo) GetByEmail(email string) (*community.User, error) {
 	return u, nil
 }
 
-func (s *stubUserRepo) SetPasswordHash(userID, hash string) error {
-	if s.hashErr != nil {
-		return s.hashErr
-	}
-	s.hashes[userID] = hash
-	return nil
-}
-
 func (s *stubUserRepo) GetPasswordHash(userID string) (string, error) {
 	h, ok := s.hashes[userID]
 	if !ok {
 		return "", app.ErrUserNotFound
 	}
 	return h, nil
-}
-
-func (s *stubUserRepo) Update(u *community.User) error {
-	s.users[u.ID] = u
-	return nil
-}
-
-func (s *stubUserRepo) Delete(id string) error {
-	u, ok := s.users[id]
-	if !ok {
-		return app.ErrUserNotFound
-	}
-	delete(s.byEmail, u.Email)
-	delete(s.users, id)
-	return nil
 }
 
 // --- tests ---
@@ -124,21 +101,6 @@ func TestRegister_DuplicateEmail(t *testing.T) {
 	_, err := svc.Register("Kenji", "yuki@example.com", "password2")
 	if !errors.Is(err, app.ErrEmailTaken) {
 		t.Errorf("expected ErrEmailTaken, got %v", err)
-	}
-}
-
-func TestRegister_HashFailureRemovesUser(t *testing.T) {
-	svc, repo := newTestAuthService(t)
-	repo.hashErr = errors.New("disk full")
-	if _, err := svc.Register("Yuki", "yuki@example.com", "password1"); err == nil {
-		t.Fatal("expected error when password hash cannot be stored")
-	}
-	if len(repo.users) != 0 {
-		t.Errorf("expected user to be removed after hash failure, got %d users", len(repo.users))
-	}
-	repo.hashErr = nil
-	if _, err := svc.Register("Yuki", "yuki@example.com", "password1"); err != nil {
-		t.Errorf("expected email to be reusable after cleanup, got %v", err)
 	}
 }
 

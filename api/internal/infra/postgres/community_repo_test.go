@@ -18,7 +18,7 @@ func TestContributionRepo_Create(t *testing.T) {
 	contribRepo := postgres.NewContributionRepo(pool)
 
 	u, _ := community.NewUser("Rider A", uniqueEmail(t))
-	_ = userRepo.Create(u)
+	_ = userRepo.Create(u, "")
 	t.Cleanup(func() { _ = userRepo.Delete(u.ID) })
 
 	c := community.NewContribution(u.ID, [][3]float64{
@@ -53,7 +53,7 @@ func TestReviewRepo_CreateAndList(t *testing.T) {
 	routeID := seedRouteID(t, pool)
 
 	u, _ := community.NewUser("Reviewer", uniqueEmail(t))
-	_ = userRepo.Create(u)
+	_ = userRepo.Create(u, "")
 	t.Cleanup(func() { _ = userRepo.Delete(u.ID) })
 
 	rev, err := community.NewReview(u.ID, routeID, 4, "Great ride!")
@@ -93,7 +93,7 @@ func TestRideLogRepo_CreateAndListByUser(t *testing.T) {
 	routeID := seedRouteID(t, pool)
 
 	u, _ := community.NewUser("Rider C", uniqueEmail(t))
-	_ = userRepo.Create(u)
+	_ = userRepo.Create(u, "")
 	t.Cleanup(func() { _ = userRepo.Delete(u.ID) })
 
 	rl, err := community.NewRideLog(u.ID, routeID, int(time.Now().Unix()), 3600)
@@ -123,7 +123,7 @@ func TestRideLogRepo_WithGPXTrack(t *testing.T) {
 
 	routeID := seedRouteID(t, pool)
 	u, _ := community.NewUser("Rider D", uniqueEmail(t))
-	_ = userRepo.Create(u)
+	_ = userRepo.Create(u, "")
 	t.Cleanup(func() { _ = userRepo.Delete(u.ID) })
 
 	rl, _ := community.NewRideLog(u.ID, routeID, int(time.Now().Unix()), 1800)

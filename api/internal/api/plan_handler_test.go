@@ -34,7 +34,7 @@ func (s *stubPlanDirector) GetPlan(_ string) (*plan.RoutePlan, error) {
 func (s *stubPlanDirector) AddStop(_ app.AddStopRequest) (*plan.RoutePlan, error) {
 	return s.plan, s.err
 }
-func (s *stubPlanDirector) RemoveStop(_, _ string) (*plan.RoutePlan, error) {
+func (s *stubPlanDirector) RemoveStop(_, _, _ string) (*plan.RoutePlan, error) {
 	return s.plan, s.err
 }
 func (s *stubPlanDirector) AddTask(_ app.AddTaskRequest) (*plan.RoutePlan, error) {

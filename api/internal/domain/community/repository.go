@@ -2,10 +2,8 @@ package community
 
 // UserRepository defines persistence operations for User aggregates.
 type UserRepository interface {
-	Create(u *User) error
+	Create(u *User, passwordHash string) error
 	GetByID(id string) (*User, error)
-	Update(u *User) error
-	Delete(id string) error
 }
 
 // ReviewRepository defines persistence for route reviews.

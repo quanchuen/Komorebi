@@ -18,7 +18,7 @@ type PlanDirector interface {
 	CreatePlan(req app.CreatePlanRequest) (*plan.RoutePlan, error)
 	GetPlan(id string) (*plan.RoutePlan, error)
 	AddStop(req app.AddStopRequest) (*plan.RoutePlan, error)
-	RemoveStop(planID, stopID string) (*plan.RoutePlan, error)
+	RemoveStop(planID, stopID, userID string) (*plan.RoutePlan, error)
 	AddTask(req app.AddTaskRequest) (*plan.RoutePlan, error)
 }
 
@@ -211,6 +211,7 @@ func (h *PlanHandler) AddStop(w http.ResponseWriter, r *http.Request) {
 
 	p, err := h.svc.AddStop(app.AddStopRequest{
 		PlanID: planID,
+		UserID: UserIDFromContext(r.Context()),
 		Stop: plan.StopPoint{
 			Lat:  req.Lat,
 			Lon:  req.Lon,
@@ -233,7 +234,7 @@ func (h *PlanHandler) RemoveStop(w http.ResponseWriter, r *http.Request) {
 	planID := chi.URLParam(r, "id")
 	stopID := chi.URLParam(r, "stop_id")
 
-	p, err := h.svc.RemoveStop(planID, stopID)
+	p, err := h.svc.RemoveStop(planID, stopID, UserIDFromContext(r.Context()))
 	if err != nil {
 		if errors.Is(err, app.ErrPlanNotFound) {
 			writeError(w, http.StatusNotFound, "plan not found")
@@ -260,6 +261,7 @@ func (h *PlanHandler) AddTask(w http.ResponseWriter, r *http.Request) {
 
 	p, err := h.svc.AddTask(app.AddTaskRequest{
 		PlanID:      planID,
+		UserID:      UserIDFromContext(r.Context()),
 		Description: req.Description,
 		Hashtag:     req.Hashtag,
 	})

@@ -34,7 +34,6 @@ type TokenPair struct {
 type AuthUserRepo interface {
 	community.UserRepository
 	GetByEmail(email string) (*community.User, error)
-	SetPasswordHash(userID, hash string) error
 	GetPasswordHash(userID string) (string, error)
 }
 
@@ -59,7 +58,7 @@ func NewAuthService(repo AuthUserRepo, secret string, accessTTL, refreshTTL time
 	}, nil
 }
 
-// Register creates a new user, hashes the password, and persists both.
+// Register creates a new user and persists it with its password hash.
 func (s *AuthService) Register(displayName, email, password string) (*community.User, error) {
 	if password == "" {
 		return nil, ErrWeakPassword
@@ -72,12 +71,8 @@ func (s *AuthService) Register(displayName, email, password string) (*community.
 	if err != nil {
 		return nil, fmt.Errorf("auth: bcrypt: %w", err)
 	}
-	if err := s.repo.Create(u); err != nil {
+	if err := s.repo.Create(u, string(hash)); err != nil {
 		return nil, err // ErrEmailTaken propagates unchanged
-	}
-	if err := s.repo.SetPasswordHash(u.ID, string(hash)); err != nil {
-		_ = s.repo.Delete(u.ID) // do not leave an email taken by a user with no password
-		return nil, fmt.Errorf("auth: store password hash: %w", err)
 	}
 	return u, nil
 }

@@ -10,17 +10,17 @@ Please see my upcoming blog post on the whole process of taming AI into doing th
 
 ## Disclaimer
 
-This is a weekend hack, not a vetted navigation product. Routes come out of an automated router on top of OSM data and may send you down roads that are private, restricted, closed, unsafe, illegal for bicycles, or simply don't exist on the ground anymore. Greenery, shade, weather, and green-wave scoring are all best-effort estimates — treat them as hints, not facts.
+This is a weekend hack, not a vetted navigation product. Routes come out of an automated router on top of OSM data and may send you down roads that are private, restricted, closed, unsafe, illegal for bicycles, or simply don't exist on the ground anymore. Shade and weather scoring are best-effort estimates — treat them as hints, not facts.
 
 Use your own judgment. Obey local traffic laws, posted signs, and physical reality over anything this app tells you. If a route looks wrong, it probably is — turn around. I take no responsibility for where you end up.
 
 ## Introduction
 
-Environment-aware cycling route platform — routes you through shade, greenery, and good weather windows. Tokyo seed.
+Environment-aware cycling route platform — routes you through shade and good weather windows. Tokyo seed.
 
 > *Komorebi* (木漏れ日) — the play of sunlight filtering through leaves.
 
-An open-source, self-hosted route discovery and planning service for recreational and touring cyclists. Users browse curated routes, contribute their own, and plan rides with routing that scores segments by **shade, greenery, wind, rain, UV, traffic signals, and green-wave (グリーンウェーブ) corridors** at the rider's projected arrival time — not just the current weather at the start.
+An open-source, self-hosted route discovery and planning service for recreational and touring cyclists. Users browse curated routes, contribute their own, and plan rides with routing that scores segments by **shade, wind, rain, and traffic signals** at the rider's projected arrival time — not just the current weather at the start.
 
 Initial coverage is the Kanto / Tokyo region (OSM data + PLATEAU 3D building shadows). The architecture is designed to extend to any city with OSM coverage and an hourly weather feed.
 
@@ -109,7 +109,7 @@ make osm-all          # download Kanto PBF → osm2pgsql import → extract venu
 
 Subtargets if you want them individually: `make osm-download`, `make osm-import`, `make osm-venues`.
 
-**4. Compute greenery scores (~5–15 min)**
+**4. Compute greenery scores (~5–15 min; data only, nothing reads `environment.greenery_edge` yet)**
 
 ```bash
 make greenery
@@ -148,7 +148,7 @@ with `make support-stop`.
 |---------|-----|
 | Web (Vite) | http://localhost:5173 |
 | API | http://localhost:8080 |
-| Martin tiles | http://localhost:3000 |
+| Martin tiles | http://localhost:3000 (the browser fetches them via `/tiles` on the web origin) |
 | Valhalla | http://localhost:8002 |
 
 ## Environment variables

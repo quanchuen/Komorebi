@@ -23,12 +23,12 @@ func NewUserRepo(pool *pgxpool.Pool) *UserRepo {
 }
 
 // Create inserts a new user. Returns app.ErrEmailTaken on UNIQUE violation.
-func (r *UserRepo) Create(u *community.User) error {
+func (r *UserRepo) Create(u *community.User, passwordHash string) error {
 	ctx := context.Background()
 	_, err := r.pool.Exec(ctx, `
-		INSERT INTO community.user (id, display_name, email, avatar_url, created_at)
-		VALUES ($1::uuid, $2, $3, $4, $5)
-	`, u.ID, u.DisplayName, u.Email, nullableStr(u.AvatarURL), u.CreatedAt)
+		INSERT INTO community.user (id, display_name, email, avatar_url, created_at, password_hash)
+		VALUES ($1::uuid, $2, $3, $4, $5, $6)
+	`, u.ID, u.DisplayName, u.Email, nullableStr(u.AvatarURL), u.CreatedAt, passwordHash)
 	if err != nil {
 		if isUniqueViolation(err) {
 			return app.ErrEmailTaken
@@ -72,18 +72,6 @@ func (r *UserRepo) GetByEmail(email string) (*community.User, error) {
 	return u, nil
 }
 
-// SetPasswordHash writes (or overwrites) the bcrypt hash for the given user.
-func (r *UserRepo) SetPasswordHash(userID, hash string) error {
-	ctx := context.Background()
-	_, err := r.pool.Exec(ctx, `
-		UPDATE community.user SET password_hash = $2 WHERE id = $1::uuid
-	`, userID, hash)
-	if err != nil {
-		return fmt.Errorf("UserRepo.SetPasswordHash: %w", err)
-	}
-	return nil
-}
-
 // GetPasswordHash retrieves the bcrypt hash for the given user.
 func (r *UserRepo) GetPasswordHash(userID string) (string, error) {
 	ctx := context.Background()
@@ -100,20 +88,8 @@ func (r *UserRepo) GetPasswordHash(userID string) (string, error) {
 	return hash, nil
 }
 
-// Update replaces display_name and avatar_url for an existing user.
-func (r *UserRepo) Update(u *community.User) error {
-	ctx := context.Background()
-	_, err := r.pool.Exec(ctx, `
-		UPDATE community.user SET display_name = $2, avatar_url = $3
-		WHERE id = $1::uuid
-	`, u.ID, u.DisplayName, nullableStr(u.AvatarURL))
-	if err != nil {
-		return fmt.Errorf("UserRepo.Update: %w", err)
-	}
-	return nil
-}
-
 // Delete removes a user by ID (cascades to reviews, ride_logs, contributions).
+// Only integration tests call it, for cleanup.
 func (r *UserRepo) Delete(id string) error {
 	ctx := context.Background()
 	_, err := r.pool.Exec(ctx, `DELETE FROM community.user WHERE id = $1::uuid`, id)

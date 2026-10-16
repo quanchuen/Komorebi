@@ -37,12 +37,14 @@ type CreatePlanRequest struct {
 // AddStopRequest holds inputs for adding a stop.
 type AddStopRequest struct {
 	PlanID string
+	UserID string
 	Stop   plan.StopPoint
 }
 
 // AddTaskRequest holds inputs for adding a task.
 type AddTaskRequest struct {
 	PlanID      string
+	UserID      string
 	Description string
 	Hashtag     string
 }
@@ -123,12 +125,9 @@ func (s *PlanService) GetPlan(id string) (*plan.RoutePlan, error) {
 
 // AddStop appends a stop to the plan and triggers a re-route.
 func (s *PlanService) AddStop(req AddStopRequest) (*plan.RoutePlan, error) {
-	p, err := s.repo.GetByID(req.PlanID)
+	p, err := s.loadOwned(req.PlanID, req.UserID)
 	if err != nil {
-		if errors.Is(err, ErrNotFound) {
-			return nil, ErrPlanNotFound
-		}
-		return nil, fmt.Errorf("load plan for AddStop: %w", err)
+		return nil, err
 	}
 
 	stop := req.Stop
@@ -149,13 +148,10 @@ func (s *PlanService) AddStop(req AddStopRequest) (*plan.RoutePlan, error) {
 }
 
 // RemoveStop removes a stop from the plan, renumbers sort_order, and triggers re-route.
-func (s *PlanService) RemoveStop(planID, stopID string) (*plan.RoutePlan, error) {
-	p, err := s.repo.GetByID(planID)
+func (s *PlanService) RemoveStop(planID, stopID, userID string) (*plan.RoutePlan, error) {
+	p, err := s.loadOwned(planID, userID)
 	if err != nil {
-		if errors.Is(err, ErrNotFound) {
-			return nil, ErrPlanNotFound
-		}
-		return nil, fmt.Errorf("load plan for RemoveStop: %w", err)
+		return nil, err
 	}
 
 	p.RemoveStop(stopID)
@@ -173,12 +169,9 @@ func (s *PlanService) RemoveStop(planID, stopID string) (*plan.RoutePlan, error)
 
 // AddTask appends a task, resolves its hashtag if present, and persists.
 func (s *PlanService) AddTask(req AddTaskRequest) (*plan.RoutePlan, error) {
-	p, err := s.repo.GetByID(req.PlanID)
+	p, err := s.loadOwned(req.PlanID, req.UserID)
 	if err != nil {
-		if errors.Is(err, ErrNotFound) {
-			return nil, ErrPlanNotFound
-		}
-		return nil, fmt.Errorf("load plan for AddTask: %w", err)
+		return nil, err
 	}
 
 	hashtag := req.Hashtag
@@ -205,6 +198,22 @@ func (s *PlanService) AddTask(req AddTaskRequest) (*plan.RoutePlan, error) {
 }
 
 // --- internal helpers ---
+
+// loadOwned loads a plan for mutation. A plan owned by someone else reads as
+// not found so the response does not reveal that it exists.
+func (s *PlanService) loadOwned(planID, userID string) (*plan.RoutePlan, error) {
+	p, err := s.repo.GetByID(planID)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return nil, ErrPlanNotFound
+		}
+		return nil, fmt.Errorf("load plan: %w", err)
+	}
+	if p.UserID != userID {
+		return nil, ErrPlanNotFound
+	}
+	return p, nil
+}
 
 // reroute calls Valhalla with the suggested profile and stores the computed WKT.
 func (s *PlanService) reroute(p *plan.RoutePlan) error {

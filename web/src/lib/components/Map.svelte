@@ -356,7 +356,8 @@
     map.on('error', (e) => {
       if (tileErrorShown) return;
       const msg = e.error?.message ?? '';
-      if (msg.includes('Failed to fetch')) {
+      // Proxied tiles fail with an AJAXError naming the URL, not a network error.
+      if (msg.includes('Failed to fetch') || msg.includes('/tiles/')) {
         tileError = 'Tile server offline. Run: make dev-martin';
         tileErrorShown = true;
       }

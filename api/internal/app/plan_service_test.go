@@ -125,6 +125,7 @@ func TestPlanService_AddStop_TriggersUpdate(t *testing.T) {
 	// Add first stop.
 	_, err = svc.AddStop(app.AddStopRequest{
 		PlanID: p.ID,
+		UserID: "user-1",
 		Stop:   plan.StopPoint{Lat: 35.6762, Lon: 139.6503, Type: plan.StopManual},
 	})
 	if err != nil {
@@ -134,6 +135,7 @@ func TestPlanService_AddStop_TriggersUpdate(t *testing.T) {
 	// Add second stop (triggers reroute attempt, non-fatal).
 	updated, err := svc.AddStop(app.AddStopRequest{
 		PlanID: p.ID,
+		UserID: "user-1",
 		Stop:   plan.StopPoint{Lat: 35.6895, Lon: 139.6917, Type: plan.StopManual},
 	})
 	if err != nil {
@@ -152,16 +154,18 @@ func TestPlanService_RemoveStop(t *testing.T) {
 
 	p, _ = svc.AddStop(app.AddStopRequest{
 		PlanID: p.ID,
+		UserID: "user-1",
 		Stop:   plan.StopPoint{Lat: 35.6762, Lon: 139.6503, Type: plan.StopManual},
 	})
 	stopID := p.Stops[0].ID
 
 	p, _ = svc.AddStop(app.AddStopRequest{
 		PlanID: p.ID,
+		UserID: "user-1",
 		Stop:   plan.StopPoint{Lat: 35.6895, Lon: 139.6917, Type: plan.StopManual},
 	})
 
-	result, err := svc.RemoveStop(p.ID, stopID)
+	result, err := svc.RemoveStop(p.ID, stopID, "user-1")
 	if err != nil {
 		t.Fatalf("RemoveStop: %v", err)
 	}
@@ -174,6 +178,22 @@ func TestPlanService_RemoveStop(t *testing.T) {
 	}
 }
 
+func TestPlanService_AddStop_OtherUserGetsNotFound(t *testing.T) {
+	repo := newStubPlanRepo()
+	svc := app.NewPlanService(repo, &stubRouteReader{}, noOpRoutingService(), noOpResolutionSvc())
+
+	p, _ := svc.CreatePlan(app.CreatePlanRequest{UserID: "user-1", SpeedModel: plan.SpeedModelFlat})
+
+	_, err := svc.AddStop(app.AddStopRequest{
+		PlanID: p.ID,
+		UserID: "user-2",
+		Stop:   plan.StopPoint{Lat: 35.6762, Lon: 139.6503, Type: plan.StopManual},
+	})
+	if !errors.Is(err, app.ErrPlanNotFound) {
+		t.Errorf("expected ErrPlanNotFound for another user's plan, got %v", err)
+	}
+}
+
 func TestPlanService_AddTask_NoRoute_StaysUnresolved(t *testing.T) {
 	repo := newStubPlanRepo()
 	svc := app.NewPlanService(repo, &stubRouteReader{}, noOpRoutingService(), noOpResolutionSvc())
@@ -182,6 +202,7 @@ func TestPlanService_AddTask_NoRoute_StaysUnresolved(t *testing.T) {
 
 	result, err := svc.AddTask(app.AddTaskRequest{
 		PlanID:      p.ID,
+		UserID:      "user-1",
 		Description: "Stop at #cafe",
 	})
 	if err != nil {

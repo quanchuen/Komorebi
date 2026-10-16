@@ -97,7 +97,7 @@ Migrations use golang-migrate, numbered `000001`–`000025`. Four schemas: `rout
 **Key domain concepts:**
 - `Route` (aggregate root) has `Waypoints`, `Segments`, `Tags`. `status` column (draft/published/archived) is set by migrations; the HTTP API is read-only for routes.
 - `RoutePlan` holds ordered `StopPoints` + `PlanTasks` with hashtag venue resolution (#konbini, #cafe).
-- `EnvironmentService` computes time-projected conditions (shade, wind, rain, UV, greenery, signals) per segment using the speed model to project arrival times.
+- `EnvironmentService` computes time-projected conditions (shade, wind, rain, signals) per segment using the speed model to project arrival times.
 - `RoutingService.GetDirections()` calls Valhalla with 3 profiles in parallel (Suggested, Fast, Avoid Main Roads).
 
 **Wiring:** `api/cmd/api/main.go` constructs all repos → services → handlers → chi router. No DI framework.
@@ -121,7 +121,7 @@ Migrations use golang-migrate, numbered `000001`–`000025`. Four schemas: `rout
 
 ```bash
 make osm-all          # Download Kanto PBF + import + extract venues (~15 min)
-make greenery         # Compute greenery scores for 2.3M road edges (~10 min)
+make greenery         # Compute greenery scores for 2.3M road edges (~10 min; data only, not read by the API yet)
 make weather          # Fetch hourly weather grid from Open-Meteo (recurring; cron-worthy)
 make plateau-shadow   # Precompute building shadows (Docker, Python)
 ```

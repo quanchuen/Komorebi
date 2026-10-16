@@ -20,12 +20,13 @@ func newStubAuthRepo() *stubAuthRepo {
 	}
 }
 
-func (s *stubAuthRepo) Create(u *community.User) error {
+func (s *stubAuthRepo) Create(u *community.User, hash string) error {
 	if _, exists := s.byEmail[u.Email]; exists {
 		return app.ErrEmailTaken
 	}
 	s.users[u.ID] = u
 	s.byEmail[u.Email] = u
+	s.hashes[u.ID] = hash
 	return nil
 }
 
@@ -45,30 +46,10 @@ func (s *stubAuthRepo) GetByEmail(email string) (*community.User, error) {
 	return u, nil
 }
 
-func (s *stubAuthRepo) SetPasswordHash(userID, hash string) error {
-	s.hashes[userID] = hash
-	return nil
-}
-
 func (s *stubAuthRepo) GetPasswordHash(userID string) (string, error) {
 	h, ok := s.hashes[userID]
 	if !ok {
 		return "", app.ErrUserNotFound
 	}
 	return h, nil
-}
-
-func (s *stubAuthRepo) Update(u *community.User) error {
-	s.users[u.ID] = u
-	return nil
-}
-
-func (s *stubAuthRepo) Delete(id string) error {
-	u, ok := s.users[id]
-	if !ok {
-		return app.ErrUserNotFound
-	}
-	delete(s.byEmail, u.Email)
-	delete(s.users, id)
-	return nil
 }
