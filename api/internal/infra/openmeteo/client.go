@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -143,7 +144,8 @@ func (c *Client) FetchGrid(ctx context.Context, minLat, maxLat, minLon, maxLon, 
 		for lon := minLon; lon <= maxLon+1e-9; lon += stepDeg {
 			cells, err := c.FetchPoint(ctx, round6(lat), round6(lon))
 			if err != nil {
-				return nil, fmt.Errorf("openmeteo: grid point %v,%v: %w", lat, lon, err)
+				log.Printf("openmeteo: grid point %v,%v: %v (skipping)", lat, lon, err)
+				continue
 			}
 			all = append(all, cells...)
 			// Polite rate-limiting: 50 ms between requests.
@@ -153,6 +155,9 @@ func (c *Client) FetchGrid(ctx context.Context, minLat, maxLat, minLon, maxLon, 
 			case <-time.After(50 * time.Millisecond):
 			}
 		}
+	}
+	if len(all) == 0 {
+		return nil, fmt.Errorf("openmeteo: every grid point failed")
 	}
 	return all, nil
 }

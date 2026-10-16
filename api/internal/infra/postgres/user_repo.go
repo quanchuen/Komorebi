@@ -47,7 +47,7 @@ func (r *UserRepo) GetByID(id string) (*community.User, error) {
 	`, id)
 	u, err := scanUser(row)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if isNotFound(err) {
 			return nil, app.ErrUserNotFound
 		}
 		return nil, fmt.Errorf("UserRepo.GetByID: %w", err)
@@ -92,7 +92,7 @@ func (r *UserRepo) GetPasswordHash(userID string) (string, error) {
 		SELECT password_hash FROM community.user WHERE id = $1::uuid
 	`, userID).Scan(&hash)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if isNotFound(err) {
 			return "", app.ErrUserNotFound
 		}
 		return "", fmt.Errorf("UserRepo.GetPasswordHash: %w", err)

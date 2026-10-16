@@ -37,12 +37,11 @@ jobs:
       - name: Design-token guard
         run: npm run check:tokens
 
-      # a11y/compiler warnings fail here. Non-blocking for now: the repo has
-      # pre-existing svelte-check errors (API type mismatches) unrelated to the
-      # design system. Flip to blocking once those are resolved.
       - name: Type check (a11y warnings = errors)
         run: npm run check:ci
-        continue-on-error: true
+
+      - name: Unit tests
+        run: npm run test:unit
 
       - name: Build
         run: npm run build

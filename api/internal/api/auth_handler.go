@@ -57,7 +57,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case errors.Is(err, app.ErrWeakPassword):
 			writeError(w, http.StatusBadRequest, err.Error())
-		case errors.Is(err, community.ErrEmptyDisplayName):
+		case errors.Is(err, community.ErrEmptyDisplayName), errors.Is(err, community.ErrEmptyEmail):
 			writeError(w, http.StatusBadRequest, err.Error())
 		case errors.Is(err, app.ErrEmailTaken):
 			writeError(w, http.StatusConflict, err.Error())

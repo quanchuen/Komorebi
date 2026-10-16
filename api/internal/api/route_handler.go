@@ -9,7 +9,6 @@ import (
 
 	"komorebi/internal/app"
 	"komorebi/internal/domain/route"
-	"komorebi/internal/infra/postgres"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -33,27 +32,6 @@ type segmentJSON struct {
 	SurfaceType  string       `json:"surface_type"`
 	GradePercent float64      `json:"grade_percent"`
 	SegmentOrder int          `json:"segment_order"`
-}
-
-type createRouteRequest struct {
-	Name        string         `json:"name"`
-	Description string         `json:"description"`
-	Difficulty  string         `json:"difficulty"`
-	CreatorID   string         `json:"creator_id"`
-	Geometry    [][3]float64   `json:"geometry"`
-	DistanceM   float64        `json:"distance_m"`
-	ElevGainM   float64        `json:"elevation_gain_m"`
-	ElevLossM   float64        `json:"elevation_loss_m"`
-	Waypoints   []waypointJSON `json:"waypoints"`
-	Segments    []segmentJSON  `json:"segments"`
-	Tags        []string       `json:"tags"`
-}
-
-type updateRouteRequest struct {
-	Name        string   `json:"name"`
-	Description string   `json:"description"`
-	Difficulty  string   `json:"difficulty"`
-	Tags        []string `json:"tags"`
 }
 
 type routeResponse struct {
@@ -86,62 +64,12 @@ type errorResponse struct {
 
 // --- Handler methods ---
 
-// Create handles POST /api/v1/routes.
-func (h *RouteHandler) Create(w http.ResponseWriter, r *http.Request) {
-	var req createRouteRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-	if req.Name == "" {
-		writeError(w, http.StatusBadRequest, "name is required")
-		return
-	}
-
-	wps := make([]route.Waypoint, len(req.Waypoints))
-	for i, wp := range req.Waypoints {
-		wps[i] = route.Waypoint{
-			Name:      wp.Name,
-			Type:      route.WaypointType(wp.Type),
-			Lat:       wp.Lat,
-			Lon:       wp.Lon,
-			SortOrder: wp.SortOrder,
-		}
-	}
-
-	segs := make([]route.Segment, len(req.Segments))
-	for i, seg := range req.Segments {
-		segs[i] = route.Segment{
-			Geometry:     seg.Geometry,
-			SurfaceType:  route.SurfaceType(seg.SurfaceType),
-			GradePercent: seg.GradePercent,
-			SegmentOrder: seg.SegmentOrder,
-		}
-	}
-
-	rt, err := h.svc.CreateRoute(
-		req.Name, req.Description, route.Difficulty(req.Difficulty), req.CreatorID,
-		req.Geometry, req.DistanceM, req.ElevGainM, req.ElevLossM,
-		wps, segs, req.Tags,
-	)
-	if err != nil {
-		if errors.Is(err, route.ErrEmptyName) {
-			writeError(w, http.StatusBadRequest, err.Error())
-			return
-		}
-		writeError(w, http.StatusInternalServerError, "failed to create route")
-		return
-	}
-
-	writeJSON(w, http.StatusCreated, toRouteResponse(rt))
-}
-
 // Get handles GET /api/v1/routes/{id}.
 func (h *RouteHandler) Get(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	rt, err := h.svc.GetRoute(id)
 	if err != nil {
-		if errors.Is(err, postgres.ErrNotFound) {
+		if errors.Is(err, app.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "route not found")
 			return
 		}
@@ -219,51 +147,6 @@ func (h *RouteHandler) List(w http.ResponseWriter, r *http.Request) {
 		resp.Routes[i] = toRouteResponse(rt)
 	}
 	writeJSON(w, http.StatusOK, resp)
-}
-
-// Update handles PATCH /api/v1/routes/{id}.
-func (h *RouteHandler) Update(w http.ResponseWriter, r *http.Request) {
-	id := chi.URLParam(r, "id")
-
-	var req updateRouteRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	rt, err := h.svc.UpdateRoute(id, req.Name, req.Description, route.Difficulty(req.Difficulty), req.Tags)
-	if err != nil {
-		if errors.Is(err, postgres.ErrNotFound) {
-			writeError(w, http.StatusNotFound, "route not found")
-			return
-		}
-		if errors.Is(err, route.ErrEmptyName) {
-			writeError(w, http.StatusBadRequest, err.Error())
-			return
-		}
-		writeError(w, http.StatusInternalServerError, "failed to update route")
-		return
-	}
-	writeJSON(w, http.StatusOK, toRouteResponse(rt))
-}
-
-// Archive handles DELETE /api/v1/routes/{id} (soft delete via Archive transition).
-func (h *RouteHandler) Archive(w http.ResponseWriter, r *http.Request) {
-	id := chi.URLParam(r, "id")
-	_, err := h.svc.ArchiveRoute(id)
-	if err != nil {
-		if errors.Is(err, postgres.ErrNotFound) {
-			writeError(w, http.StatusNotFound, "route not found")
-			return
-		}
-		if errors.Is(err, route.ErrInvalidTransition) {
-			writeError(w, http.StatusBadRequest, err.Error())
-			return
-		}
-		writeError(w, http.StatusInternalServerError, "failed to archive route")
-		return
-	}
-	w.WriteHeader(http.StatusNoContent)
 }
 
 // --- helper utilities ---

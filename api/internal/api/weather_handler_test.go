@@ -25,15 +25,9 @@ func (f *fakeWeatherRepo) Upsert(_ []environment.WeatherGrid) error { return nil
 func (f *fakeWeatherRepo) AtPoint(_, _ float64, _ time.Time) (*environment.WeatherGrid, error) {
 	return f.cell, f.err
 }
-func (f *fakeWeatherRepo) AlongRoute(_ []environment.WeatherSegmentQuery) ([]environment.WeatherGrid, error) {
-	return nil, nil
-}
-func (f *fakeWeatherRepo) DeleteBefore(_ time.Time) error                        { return nil }
-func (f *fakeWeatherRepo) UpsertMinutely(_ []environment.MinutelyPrecip) error   { return nil }
-func (f *fakeWeatherRepo) MinutelyAt(_, _ float64, _, _ time.Time) ([]environment.MinutelyPrecip, error) {
-	return nil, nil
-}
-func (f *fakeWeatherRepo) DeleteMinutelyBefore(_ time.Time) error { return nil }
+func (f *fakeWeatherRepo) DeleteBefore(_ time.Time) error                      { return nil }
+func (f *fakeWeatherRepo) UpsertMinutely(_ []environment.MinutelyPrecip) error { return nil }
+func (f *fakeWeatherRepo) DeleteMinutelyBefore(_ time.Time) error              { return nil }
 func (f *fakeWeatherRepo) GridInBBox(_ context.Context, _ [4]float64, _ time.Time) ([]environment.WeatherGrid, error) {
 	return f.grid, f.err
 }

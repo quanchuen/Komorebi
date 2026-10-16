@@ -38,7 +38,7 @@ postgres:
 
     routes:
       schema: routes
-      table: route
+      table: curated_route  # view: published, non-demo routes only (migration 000025)
       srid: 4326
       geometry_column: geometry
       geometry_type: LINESTRING

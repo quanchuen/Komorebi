@@ -6,8 +6,11 @@ package openweathermap
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"log"
 	"net/http"
+	"net/url"
 	"time"
 
 	"komorebi/internal/domain/environment"
@@ -39,17 +42,17 @@ func (c *Client) Name() string { return "openweathermap" }
 
 // FetchMinutely returns per-minute precipitation for the next 60 min via One Call API.
 func (c *Client) FetchMinutely(ctx context.Context, lat, lon float64) ([]environment.MinutelyPrecip, error) {
-	url := fmt.Sprintf("%s?lat=%f&lon=%f&exclude=current,hourly,daily,alerts&units=metric&appid=%s",
+	u := fmt.Sprintf("%s?lat=%f&lon=%f&exclude=current,hourly,daily,alerts&units=metric&appid=%s",
 		c.baseURL, lat, lon, c.apiKey)
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
 	if err != nil {
 		return nil, err
 	}
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("openweathermap minutely: %w", err)
+		return nil, fmt.Errorf("openweathermap minutely: %w", stripURL(err))
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
@@ -81,17 +84,17 @@ func (c *Client) FetchMinutely(ctx context.Context, lat, lon float64) ([]environ
 var _ environment.WeatherFetcher = (*Client)(nil)
 
 func (c *Client) FetchPoint(ctx context.Context, lat, lon float64) ([]environment.WeatherGrid, error) {
-	url := fmt.Sprintf("%s?lat=%f&lon=%f&exclude=current,minutely,daily,alerts&units=metric&appid=%s",
+	u := fmt.Sprintf("%s?lat=%f&lon=%f&exclude=current,minutely,daily,alerts&units=metric&appid=%s",
 		c.baseURL, lat, lon, c.apiKey)
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
 	if err != nil {
 		return nil, err
 	}
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("openweathermap: %w", err)
+		return nil, fmt.Errorf("openweathermap: %w", stripURL(err))
 	}
 	defer resp.Body.Close()
 
@@ -113,7 +116,8 @@ func (c *Client) FetchGrid(ctx context.Context, minLat, maxLat, minLon, maxLon, 
 		for lon := minLon; lon <= maxLon+1e-9; lon += stepDeg {
 			cells, err := c.FetchPoint(ctx, lat, lon)
 			if err != nil {
-				return nil, fmt.Errorf("openweathermap: grid %f,%f: %w", lat, lon, err)
+				log.Printf("openweathermap: grid point %f,%f: %v (skipping)", lat, lon, err)
+				continue
 			}
 			all = append(all, cells...)
 			select {
@@ -123,15 +127,28 @@ func (c *Client) FetchGrid(ctx context.Context, minLat, maxLat, minLon, maxLon, 
 			}
 		}
 	}
+	if len(all) == 0 {
+		return nil, fmt.Errorf("openweathermap: every grid point failed")
+	}
 	return all, nil
+}
+
+// stripURL unwraps a *url.Error so the API key in the query string never
+// reaches logs or error messages.
+func stripURL(err error) error {
+	var ue *url.Error
+	if errors.As(err, &ue) {
+		return ue.Err
+	}
+	return err
 }
 
 // --- response types ---
 
 type oneCallResponse struct {
 	Hourly []struct {
-		Dt        int64   `json:"dt"`        // Unix timestamp
-		Temp      float64 `json:"temp"`      // Celsius (units=metric)
+		Dt        int64   `json:"dt"`         // Unix timestamp
+		Temp      float64 `json:"temp"`       // Celsius (units=metric)
 		WindSpeed float64 `json:"wind_speed"` // m/s
 		WindDeg   float64 `json:"wind_deg"`   // degrees
 		Rain      *struct {

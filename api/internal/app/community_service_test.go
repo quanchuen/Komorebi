@@ -16,16 +16,6 @@ func (s *stubContribRepo) Create(c *community.Contribution) error {
 	s.items = append(s.items, c)
 	return nil
 }
-func (s *stubContribRepo) GetByID(id string) (*community.Contribution, error) {
-	for _, c := range s.items {
-		if c.ID == id {
-			return c, nil
-		}
-	}
-	return nil, app.ErrUserNotFound
-}
-func (s *stubContribRepo) Update(c *community.Contribution) error { return nil }
-func (s *stubContribRepo) Delete(id string) error                 { return nil }
 
 type stubReviewRepo struct{ items []*community.Review }
 
@@ -33,7 +23,6 @@ func (s *stubReviewRepo) Create(r *community.Review) error {
 	s.items = append(s.items, r)
 	return nil
 }
-func (s *stubReviewRepo) GetByID(id string) (*community.Review, error) { return nil, nil }
 func (s *stubReviewRepo) ListByRoute(routeID string) ([]*community.Review, error) {
 	var out []*community.Review
 	for _, r := range s.items {
@@ -43,7 +32,6 @@ func (s *stubReviewRepo) ListByRoute(routeID string) ([]*community.Review, error
 	}
 	return out, nil
 }
-func (s *stubReviewRepo) Delete(id string) error { return nil }
 
 type stubRideLogRepo struct{ items []*community.RideLog }
 
@@ -51,7 +39,6 @@ func (s *stubRideLogRepo) Create(rl *community.RideLog) error {
 	s.items = append(s.items, rl)
 	return nil
 }
-func (s *stubRideLogRepo) GetByID(id string) (*community.RideLog, error) { return nil, nil }
 func (s *stubRideLogRepo) ListByUser(userID string) ([]*community.RideLog, error) {
 	var out []*community.RideLog
 	for _, rl := range s.items {
@@ -61,10 +48,6 @@ func (s *stubRideLogRepo) ListByUser(userID string) ([]*community.RideLog, error
 	}
 	return out, nil
 }
-func (s *stubRideLogRepo) ListByRoute(routeID string) ([]*community.RideLog, error) {
-	return nil, nil
-}
-func (s *stubRideLogRepo) Delete(id string) error { return nil }
 
 // --- tests ---
 

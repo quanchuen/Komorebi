@@ -36,42 +36,6 @@ func TestNewRoute_EmptyName(t *testing.T) {
 	}
 }
 
-func TestRoute_PublishFromDraft(t *testing.T) {
-	r, _ := route.NewRoute("Test Route", "desc", route.DifficultyEasy, "user-1")
-	if err := r.Publish(); err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
-	if r.Status != route.StatusPublished {
-		t.Errorf("expected Published, got %v", r.Status)
-	}
-}
-
-func TestRoute_PublishTwiceError(t *testing.T) {
-	r, _ := route.NewRoute("Test Route", "desc", route.DifficultyEasy, "user-1")
-	_ = r.Publish()
-	if err := r.Publish(); err != route.ErrInvalidTransition {
-		t.Errorf("expected ErrInvalidTransition, got %v", err)
-	}
-}
-
-func TestRoute_ArchiveFromPublished(t *testing.T) {
-	r, _ := route.NewRoute("Test Route", "desc", route.DifficultyEasy, "user-1")
-	_ = r.Publish()
-	if err := r.Archive(); err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
-	if r.Status != route.StatusArchived {
-		t.Errorf("expected Archived, got %v", r.Status)
-	}
-}
-
-func TestRoute_ArchiveFromDraftError(t *testing.T) {
-	r, _ := route.NewRoute("Test Route", "desc", route.DifficultyEasy, "user-1")
-	if err := r.Archive(); err != route.ErrInvalidTransition {
-		t.Errorf("expected ErrInvalidTransition, got %v", err)
-	}
-}
-
 func TestRoute_AddWaypoint(t *testing.T) {
 	r, _ := route.NewRoute("Test Route", "desc", route.DifficultyEasy, "user-1")
 	wp := route.Waypoint{

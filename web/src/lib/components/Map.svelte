@@ -110,8 +110,6 @@
   let tileError = $state<string | null>(null);
   let mapLoaded = $state(false);
 
-  const MARTIN_URL = 'http://localhost:3000';
-
   // CARTO basemaps require a key since August 2026 (free: 5M tiles/month
   // non-commercial, 1M commercial; carto.com/basemaps/apikey). Read at
   // runtime so the web container needs no rebuild; without a key the tiles
@@ -288,25 +286,25 @@
           },
           'martin-roads': {
             type: 'vector',
-            tiles: [`${MARTIN_URL}/osm_roads/{z}/{x}/{y}`],
+            tiles: [`${window.location.origin}/tiles/osm_roads/{z}/{x}/{y}`],
             minzoom: 8,
             maxzoom: 18
           },
           'martin-landuse': {
             type: 'vector',
-            tiles: [`${MARTIN_URL}/osm_landuse/{z}/{x}/{y}`],
+            tiles: [`${window.location.origin}/tiles/osm_landuse/{z}/{x}/{y}`],
             minzoom: 10,
             maxzoom: 18
           },
           'martin-routes': {
             type: 'vector',
-            tiles: [`${MARTIN_URL}/routes/{z}/{x}/{y}`],
+            tiles: [`${window.location.origin}/tiles/routes/{z}/{x}/{y}`],
             minzoom: 8,
             maxzoom: 18
           },
           'martin-venues': {
             type: 'vector',
-            tiles: [`${MARTIN_URL}/venues/{z}/{x}/{y}`],
+            tiles: [`${window.location.origin}/tiles/venues/{z}/{x}/{y}`],
             minzoom: 12,
             maxzoom: 18
           }
@@ -358,7 +356,7 @@
     map.on('error', (e) => {
       if (tileErrorShown) return;
       const msg = e.error?.message ?? '';
-      if (msg.includes('Failed to fetch') || msg.includes('localhost:3000')) {
+      if (msg.includes('Failed to fetch')) {
         tileError = 'Tile server offline. Run: make dev-martin';
         tileErrorShown = true;
       }

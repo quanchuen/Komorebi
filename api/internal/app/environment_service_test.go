@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"komorebi/internal/domain/environment"
 	"komorebi/internal/domain/plan"
 	"komorebi/internal/domain/route"
 )
@@ -18,7 +17,6 @@ type stubEnvRepo struct {
 	windBearing float64
 	precipMMH   float64
 	signals     int
-	greenWave   *environment.GreenWaveResult
 }
 
 func (s *stubEnvRepo) ShadeForPoint(_ context.Context, _, _ float64, _ time.Time) float64 {
@@ -27,12 +25,8 @@ func (s *stubEnvRepo) ShadeForPoint(_ context.Context, _, _ float64, _ time.Time
 func (s *stubEnvRepo) WeatherForPoint(_ context.Context, _, _ float64, _ time.Time) (float64, float64, float64) {
 	return s.windSpeedMS, s.windBearing, s.precipMMH
 }
-func (s *stubEnvRepo) GreeneryForWay(_ context.Context, _ int64) float64 { return 0 }
 func (s *stubEnvRepo) SignalsAlongSegment(_ context.Context, _ string, _ float64) int {
 	return s.signals
-}
-func (s *stubEnvRepo) GreenWaveForSegment(_ context.Context, _ string) *environment.GreenWaveResult {
-	return s.greenWave
 }
 
 func makeTestRoute(gradePercent float64) *route.Route {

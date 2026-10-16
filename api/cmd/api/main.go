@@ -99,7 +99,6 @@ func main() {
 	envRepo := postgres.NewEnvironmentRepo(pool)
 	envSvc := app.NewEnvironmentService(app.NewEnvironmentQuerierWithLiveWeather(envRepo, weatherSvc))
 	conditionsHandler := api.NewConditionsHandler(routeRepo, envSvc)
-	previewHandler := api.NewPreviewHandler(envRepo)
 
 	routingSvc := app.NewRoutingService(valhallaClient)
 	routingHandler := api.NewRoutingHandler(routingSvc)
@@ -139,7 +138,7 @@ func main() {
 	communitySvc := app.NewCommunityService(contribRepo, reviewRepo, rideLogRepo)
 	communityHandler := api.NewCommunityHandler(communitySvc)
 
-	router := api.NewRouter(routeSvc, discoverySvc, venueSvc, routingHandler, routingIntentHandler, weatherHandler, conditionsHandler, previewHandler, planHandler, authSvc, communityHandler)
+	router := api.NewRouter(routeSvc, discoverySvc, venueSvc, routingHandler, routingIntentHandler, weatherHandler, conditionsHandler, planHandler, authSvc, communityHandler)
 
 	// Start HTTP server
 	srv := &http.Server{

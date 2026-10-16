@@ -12,7 +12,7 @@ import (
 
 // --- ContributionRepo ---
 
-func TestContributionRepo_CreateAndGet(t *testing.T) {
+func TestContributionRepo_Create(t *testing.T) {
 	pool := testPool(t)
 	userRepo := postgres.NewUserRepo(pool)
 	contribRepo := postgres.NewContributionRepo(pool)
@@ -29,40 +29,16 @@ func TestContributionRepo_CreateAndGet(t *testing.T) {
 	if err := contribRepo.Create(c); err != nil {
 		t.Fatalf("Create: %v", err)
 	}
-	t.Cleanup(func() { _ = contribRepo.Delete(c.ID) })
+	// Cleanup: deleting the user cascades to the contribution.
 
-	got, err := contribRepo.GetByID(c.ID)
+	var status string
+	err := pool.QueryRow(context.Background(),
+		`SELECT status FROM community.contribution WHERE id = $1::uuid`, c.ID).Scan(&status)
 	if err != nil {
-		t.Fatalf("GetByID: %v", err)
+		t.Fatalf("select contribution: %v", err)
 	}
-	if got.UserID != u.ID {
-		t.Errorf("UserID: want %q, got %q", u.ID, got.UserID)
-	}
-	if got.Status != community.StatusPending {
-		t.Errorf("Status: want pending, got %v", got.Status)
-	}
-}
-
-func TestContributionRepo_Update(t *testing.T) {
-	pool := testPool(t)
-	userRepo := postgres.NewUserRepo(pool)
-	contribRepo := postgres.NewContributionRepo(pool)
-
-	u, _ := community.NewUser("Rider B", uniqueEmail(t))
-	_ = userRepo.Create(u)
-	t.Cleanup(func() { _ = userRepo.Delete(u.ID) })
-
-	c := community.NewContribution(u.ID, nil, nil)
-	_ = contribRepo.Create(c)
-	t.Cleanup(func() { _ = contribRepo.Delete(c.ID) })
-
-	_ = c.Approve("looks good")
-	if err := contribRepo.Update(c); err != nil {
-		t.Fatalf("Update: %v", err)
-	}
-	got, _ := contribRepo.GetByID(c.ID)
-	if got.Status != community.StatusApproved {
-		t.Errorf("Status after approve: %v", got.Status)
+	if status != string(community.StatusPending) {
+		t.Errorf("Status: want pending, got %v", status)
 	}
 }
 
@@ -87,7 +63,6 @@ func TestReviewRepo_CreateAndList(t *testing.T) {
 	if err := reviewRepo.Create(rev); err != nil {
 		t.Fatalf("Create: %v", err)
 	}
-	t.Cleanup(func() { _ = reviewRepo.Delete(rev.ID) })
 
 	list, err := reviewRepo.ListByRoute(routeID)
 	if err != nil {
@@ -128,7 +103,6 @@ func TestRideLogRepo_CreateAndListByUser(t *testing.T) {
 	if err := rideLogRepo.Create(rl); err != nil {
 		t.Fatalf("Create: %v", err)
 	}
-	t.Cleanup(func() { _ = rideLogRepo.Delete(rl.ID) })
 
 	list, err := rideLogRepo.ListByUser(u.ID)
 	if err != nil {
@@ -160,13 +134,12 @@ func TestRideLogRepo_WithGPXTrack(t *testing.T) {
 	if err := rideLogRepo.Create(rl); err != nil {
 		t.Fatalf("Create with GPX: %v", err)
 	}
-	t.Cleanup(func() { _ = rideLogRepo.Delete(rl.ID) })
 
-	got, err := rideLogRepo.GetByID(rl.ID)
-	if err != nil {
-		t.Fatalf("GetByID: %v", err)
+	list, err := rideLogRepo.ListByUser(u.ID)
+	if err != nil || len(list) != 1 {
+		t.Fatalf("ListByUser: %v (%d logs)", err, len(list))
 	}
-	if len(got.GPXTrack) == 0 {
+	if len(list[0].GPXTrack) == 0 {
 		t.Error("expected GPX track to be stored and retrieved")
 	}
 }

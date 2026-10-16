@@ -34,6 +34,19 @@ func TestNewUser_EmptyName(t *testing.T) {
 	}
 }
 
+func TestNewUser_NormalisesEmail(t *testing.T) {
+	u, err := community.NewUser("Yuki", "  Yuki@Example.COM ")
+	if err != nil {
+		t.Fatalf("NewUser: %v", err)
+	}
+	if u.Email != "yuki@example.com" {
+		t.Errorf("expected normalised email, got %q", u.Email)
+	}
+	if _, err := community.NewUser("Yuki", "   "); err != community.ErrEmptyEmail {
+		t.Errorf("expected ErrEmptyEmail, got %v", err)
+	}
+}
+
 // Review tests
 
 func TestNewReview_Valid(t *testing.T) {

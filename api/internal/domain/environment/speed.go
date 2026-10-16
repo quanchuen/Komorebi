@@ -35,20 +35,9 @@ func AdjustedSpeedKmh(gradePercent float64) float64 {
 	return baseSpeedKmh
 }
 
-// GreenWaveOverride indicates a green wave is active and provides its target speed.
-type GreenWaveOverride struct {
-	TargetSpeedKmh float64
-}
-
-// SegmentETASeconds estimates travel time in seconds for a segment.
-//
-// If a GreenWaveOverride is provided, the green wave speed is used and signal
-// penalties are ignored. Otherwise, the provided speedKmh is used and each
-// signal adds 30 seconds.
-func SegmentETASeconds(distanceKm, speedKmh float64, signals int, gw *GreenWaveOverride) float64 {
-	if gw != nil {
-		return (distanceKm / gw.TargetSpeedKmh) * 3600
-	}
+// SegmentETASeconds estimates travel time in seconds for a segment at
+// speedKmh; each signal adds 30 seconds.
+func SegmentETASeconds(distanceKm, speedKmh float64, signals int) float64 {
 	travelTime := (distanceKm / speedKmh) * 3600
 	signalDelay := float64(signals) * signalPenaltyS
 	return travelTime + signalDelay

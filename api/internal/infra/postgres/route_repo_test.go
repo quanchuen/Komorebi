@@ -2,10 +2,12 @@ package postgres_test
 
 import (
 	"context"
+	"errors"
 	"os"
 	"testing"
 	"time"
 
+	"komorebi/internal/app"
 	"komorebi/internal/domain/route"
 	"komorebi/internal/infra/postgres"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -74,7 +76,7 @@ func TestRouteRepo_CreateGetDelete(t *testing.T) {
 	if err := repo.Create(rt); err != nil {
 		t.Fatalf("Create: %v", err)
 	}
-	t.Cleanup(func() { _ = repo.Delete(rt.ID) })
+	t.Cleanup(func() { _, _ = pool.Exec(context.Background(), "DELETE FROM routes.route WHERE id = $1::uuid", rt.ID) })
 
 	// GetByID
 	got, err := repo.GetByID(rt.ID)
@@ -101,39 +103,6 @@ func TestRouteRepo_CreateGetDelete(t *testing.T) {
 	}
 }
 
-func TestRouteRepo_Update(t *testing.T) {
-	pool := testPool(t)
-	repo := postgres.NewRouteRepo(pool)
-
-	rt := sampleRoute(t)
-	if err := repo.Create(rt); err != nil {
-		t.Fatalf("Create: %v", err)
-	}
-	t.Cleanup(func() { _ = repo.Delete(rt.ID) })
-
-	// Update metadata and publish
-	if err := rt.UpdateMetadata("Updated Name", "New desc", route.DifficultyHard, []string{"mountain"}); err != nil {
-		t.Fatalf("UpdateMetadata: %v", err)
-	}
-	if err := repo.Update(rt); err != nil {
-		t.Fatalf("Update: %v", err)
-	}
-
-	got, err := repo.GetByID(rt.ID)
-	if err != nil {
-		t.Fatalf("GetByID after update: %v", err)
-	}
-	if got.Name != "Updated Name" {
-		t.Errorf("Name after update: got %q want %q", got.Name, "Updated Name")
-	}
-	if got.Difficulty != route.DifficultyHard {
-		t.Errorf("Difficulty after update: got %q want hard", got.Difficulty)
-	}
-	if len(got.Tags) != 1 || got.Tags[0] != "mountain" {
-		t.Errorf("Tags after update: got %v", got.Tags)
-	}
-}
-
 func TestRouteRepo_List(t *testing.T) {
 	pool := testPool(t)
 	repo := postgres.NewRouteRepo(pool)
@@ -145,12 +114,12 @@ func TestRouteRepo_List(t *testing.T) {
 	if err := repo.Create(rt1); err != nil {
 		t.Fatalf("Create rt1: %v", err)
 	}
-	t.Cleanup(func() { _ = repo.Delete(rt1.ID) })
+	t.Cleanup(func() { _, _ = pool.Exec(context.Background(), "DELETE FROM routes.route WHERE id = $1::uuid", rt1.ID) })
 
 	if err := repo.Create(rt2); err != nil {
 		t.Fatalf("Create rt2: %v", err)
 	}
-	t.Cleanup(func() { _ = repo.Delete(rt2.ID) })
+	t.Cleanup(func() { _, _ = pool.Exec(context.Background(), "DELETE FROM routes.route WHERE id = $1::uuid", rt2.ID) })
 
 	// List with tag filter - should find only rt1
 	result, err := repo.List(route.ListParams{Tags: []string{"scenic"}, Limit: 10})
@@ -189,8 +158,14 @@ func TestRouteRepo_NotFound(t *testing.T) {
 	pool := testPool(t)
 	repo := postgres.NewRouteRepo(pool)
 
-	_, err := repo.GetByID("00000000-0000-0000-0000-000000000000")
-	if err == nil {
-		t.Fatal("expected error for non-existent route")
+	for _, id := range []string{"00000000-0000-0000-0000-000000000000", "not-a-uuid"} {
+		if _, err := repo.GetByID(id); !errors.Is(err, app.ErrNotFound) {
+			t.Errorf("GetByID(%q): want app.ErrNotFound, got %v", id, err)
+		}
+	}
+	// List endpoints report a malformed id as empty, not as a 500.
+	reviews, err := postgres.NewReviewRepo(pool).ListByRoute("not-a-uuid")
+	if err != nil || len(reviews) != 0 {
+		t.Errorf("ListByRoute(not-a-uuid): want empty, got %v, %v", reviews, err)
 	}
 }

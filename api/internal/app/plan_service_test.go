@@ -50,11 +50,6 @@ func (s *stubPlanRepo) Update(p *plan.RoutePlan) error {
 	return nil
 }
 
-func (s *stubPlanRepo) Delete(id string) error {
-	delete(s.plans, id)
-	return nil
-}
-
 type stubRouteReader struct {
 	route *routedomain.Route
 	err   error

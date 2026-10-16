@@ -36,6 +36,10 @@ func (h *WeatherHandler) AtPoint(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid lon", http.StatusBadRequest)
 		return
 	}
+	if lat < -90 || lat > 90 || lon < -180 || lon > 180 {
+		http.Error(w, "lat/lon out of range", http.StatusBadRequest)
+		return
+	}
 	t := time.Now().UTC()
 	if atStr := q.Get("at"); atStr != "" {
 		t, err = time.Parse(time.RFC3339, atStr)
@@ -104,6 +108,10 @@ func (h *WeatherHandler) Grid(w http.ResponseWriter, r *http.Request) {
 	var bbox [4]float64
 	if _, err := fmt.Sscanf(bboxStr, "%f,%f,%f,%f", &bbox[0], &bbox[1], &bbox[2], &bbox[3]); err != nil {
 		writeError(w, http.StatusBadRequest, "bbox must be minLon,minLat,maxLon,maxLat")
+		return
+	}
+	if bbox[0] < -180 || bbox[2] > 180 || bbox[1] < -90 || bbox[3] > 90 || bbox[0] > bbox[2] || bbox[1] > bbox[3] {
+		writeError(w, http.StatusBadRequest, "bbox out of range")
 		return
 	}
 

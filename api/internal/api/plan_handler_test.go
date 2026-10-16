@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -18,11 +19,13 @@ import (
 // --- stub plan director ---
 
 type stubPlanDirector struct {
-	plan *plan.RoutePlan
-	err  error
+	plan    *plan.RoutePlan
+	err     error
+	created app.CreatePlanRequest
 }
 
-func (s *stubPlanDirector) CreatePlan(_ app.CreatePlanRequest) (*plan.RoutePlan, error) {
+func (s *stubPlanDirector) CreatePlan(req app.CreatePlanRequest) (*plan.RoutePlan, error) {
+	s.created = req
 	return s.plan, s.err
 }
 func (s *stubPlanDirector) GetPlan(_ string) (*plan.RoutePlan, error) {
@@ -52,8 +55,9 @@ func TestPlanHandler_CreatePlan_OK(t *testing.T) {
 	stub := &stubPlanDirector{plan: sampleHandlerPlan()}
 	h := api.NewPlanHandler(stub)
 
-	body := `{"user_id":"user-1","speed_model":"flat"}`
+	body := `{"speed_model":"flat"}`
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/plans", bytes.NewBufferString(body))
+	req = ctxWithUser(req, "user-1")
 	req.Header.Set("Content-Type", "application/json")
 	rr := httptest.NewRecorder()
 
@@ -69,21 +73,8 @@ func TestPlanHandler_CreatePlan_OK(t *testing.T) {
 	if resp["id"] == nil {
 		t.Error("expected id in response")
 	}
-}
-
-func TestPlanHandler_CreatePlan_MissingUserID(t *testing.T) {
-	stub := &stubPlanDirector{plan: sampleHandlerPlan()}
-	h := api.NewPlanHandler(stub)
-
-	body := `{"speed_model":"flat"}`
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/plans", bytes.NewBufferString(body))
-	req.Header.Set("Content-Type", "application/json")
-	rr := httptest.NewRecorder()
-
-	h.CreatePlan(rr, req)
-
-	if rr.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400, got %d", rr.Code)
+	if stub.created.UserID != "user-1" {
+		t.Errorf("expected user from context, got %q", stub.created.UserID)
 	}
 }
 
@@ -242,8 +233,9 @@ func TestPlanHandler_CreatePlanFromRoute_OK(t *testing.T) {
 	r := chi.NewRouter()
 	r.Post("/api/v1/routes/{id}/plans", h.CreatePlanFromRoute)
 
-	body := `{"user_id":"user-1","speed_model":"flat"}`
+	body := `{"speed_model":"flat"}`
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/routes/route-123/plans", bytes.NewBufferString(body))
+	req = ctxWithUser(req, "user-1")
 	req.Header.Set("Content-Type", "application/json")
 	rr := httptest.NewRecorder()
 	r.ServeHTTP(rr, req)
@@ -260,13 +252,31 @@ func TestPlanHandler_CreatePlanFromRoute_ServiceError(t *testing.T) {
 	r := chi.NewRouter()
 	r.Post("/api/v1/routes/{id}/plans", h.CreatePlanFromRoute)
 
-	body := `{"user_id":"user-1"}`
+	body := `{}`
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/routes/route-123/plans", bytes.NewBufferString(body))
+	req = ctxWithUser(req, "user-1")
 	req.Header.Set("Content-Type", "application/json")
 	rr := httptest.NewRecorder()
 	r.ServeHTTP(rr, req)
 
 	if rr.Code != http.StatusInternalServerError {
 		t.Fatalf("expected 500, got %d", rr.Code)
+	}
+}
+
+func TestPlanHandler_CreatePlanFromRoute_RouteNotFound(t *testing.T) {
+	stub := &stubPlanDirector{err: fmt.Errorf("load source route: %w", app.ErrNotFound)}
+	h := api.NewPlanHandler(stub)
+
+	r := chi.NewRouter()
+	r.Post("/api/v1/routes/{id}/plans", h.CreatePlanFromRoute)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/routes/not-a-uuid/plans", bytes.NewBufferString(`{}`))
+	req = ctxWithUser(req, "user-1")
+	rr := httptest.NewRecorder()
+	r.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d", rr.Code)
 	}
 }

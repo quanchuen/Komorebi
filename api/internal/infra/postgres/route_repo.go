@@ -10,13 +10,22 @@ import (
 	"strings"
 	"time"
 
+	"komorebi/internal/app"
 	"komorebi/internal/domain/route"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// ErrNotFound is returned when a requested route does not exist.
-var ErrNotFound = errors.New("not found")
+// ErrNotFound is the app-level sentinel so services can match it with errors.Is.
+var ErrNotFound = app.ErrNotFound
+
+// isNotFound reports a missing row, or an id that is not a valid UUID
+// (SQLSTATE 22P02), both of which the API reports as 404 / empty.
+func isNotFound(err error) bool {
+	var pgErr *pgconn.PgError
+	return errors.Is(err, pgx.ErrNoRows) || (errors.As(err, &pgErr) && pgErr.Code == "22P02")
+}
 
 // RouteRepo implements route.Repository using PostgreSQL + PostGIS.
 type RouteRepo struct {
@@ -106,7 +115,7 @@ func (r *RouteRepo) GetByID(id string) (*route.Route, error) {
 
 	rt, err := scanRoute(row)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if isNotFound(err) {
 			return nil, ErrNotFound
 		}
 		return nil, fmt.Errorf("GetByID: %w", err)
@@ -133,45 +142,6 @@ func (r *RouteRepo) GetByID(id string) (*route.Route, error) {
 	return rt, nil
 }
 
-// Update replaces all route fields, waypoints, segments and tags in a transaction.
-func (r *RouteRepo) Update(rt *route.Route) error {
-	ctx := context.Background()
-	return r.withTx(ctx, func(tx pgx.Tx) error {
-		wkt := coordsToWKT(rt.Geometry)
-		_, err := tx.Exec(ctx, `
-			UPDATE routes.route SET
-				name = $2,
-				description = $3,
-				geometry = ST_GeomFromText($4, 4326),
-				distance_m = $5,
-				elevation_gain_m = $6,
-				elevation_loss_m = $7,
-				difficulty = $8::routes.difficulty,
-				status = $9::routes.route_status,
-				updated_at = $10
-			WHERE id = $1::uuid
-		`, rt.ID, rt.Name, rt.Description, wkt,
-			rt.DistanceM, rt.ElevationGainM, rt.ElevationLossM,
-			string(rt.Difficulty), string(rt.Status), rt.UpdatedAt)
-		if err != nil {
-			return fmt.Errorf("update route: %w", err)
-		}
-		for _, tbl := range []string{"routes.waypoint", "routes.route_segment", "routes.route_tag"} {
-			if _, err := tx.Exec(ctx, fmt.Sprintf("DELETE FROM %s WHERE route_id = $1::uuid", tbl), rt.ID); err != nil {
-				return fmt.Errorf("delete from %s: %w", tbl, err)
-			}
-		}
-		if err := insertWaypoints(ctx, tx, rt.ID, rt.Waypoints); err != nil {
-			return err
-		}
-		if err := insertSegments(ctx, tx, rt.ID, rt.Segments); err != nil {
-			return err
-		}
-		return insertTags(ctx, tx, rt.ID, rt.Tags)
-	})
-}
-
-// List returns a filtered, paginated list of routes.
 // UpdateElevation writes only the elevation-derived columns. Unlike Update it
 // never rewrites name/status/tags/waypoints/segments, so a read-path backfill
 // cannot clobber a concurrent edit, and concurrent backfills are idempotent.
@@ -308,13 +278,6 @@ func (r *RouteRepo) List(params route.ListParams) (route.ListResult, error) {
 	}
 
 	return route.ListResult{Routes: routes, NextCursor: nextCursor}, nil
-}
-
-// Delete removes a route by ID (cascades to child tables).
-func (r *RouteRepo) Delete(id string) error {
-	ctx := context.Background()
-	_, err := r.pool.Exec(ctx, "DELETE FROM routes.route WHERE id = $1::uuid", id)
-	return err
 }
 
 // --- helpers ---

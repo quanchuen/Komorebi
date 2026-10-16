@@ -9,13 +9,6 @@ import type {
   RouteIntentResponse,
   RoutingPreferences,
   ReviewListResponse,
-  Review,
-  RoutePlan,
-  StopPoint,
-  PlanTask,
-  Venue,
-  VenueTag,
-  DiscoverNearbyParams,
   DiscoverViewportParams,
   DiscoverSuggestedParams,
   DiscoveryListResponse,
@@ -88,15 +81,6 @@ async function post<T>(path: string, body: unknown): Promise<T> {
 // --- Routes ---
 
 export const routes = {
-  list: (params?: { bbox?: string; difficulty?: string; tags?: string; cursor?: string }) =>
-    get<{ routes: ApiRoute[]; next_cursor?: string }>(
-      '/routes',
-      params as Record<string, string>
-    ).then((raw) => ({
-      routes: (raw.routes ?? []).map(apiRouteToRoute),
-      nextCursor: raw.next_cursor ?? null
-    })),
-
   get: (id: string) => get<ApiRoute>(`/routes/${id}`).then(apiRouteToRoute),
 
   conditions: (id: string, departureAt: string, speedModel = 'elevation') =>
@@ -117,9 +101,6 @@ async function getDiscoveryRoutes(
 }
 
 export const discovery = {
-  nearby: (p: DiscoverNearbyParams) =>
-    getDiscoveryRoutes('/discover/nearby', { lat: p.lat, lon: p.lon, radius_km: p.radiusKm }),
-
   viewport: (p: DiscoverViewportParams) =>
     getDiscoveryRoutes('/discover/viewport', { bbox: p.bbox }),
 
@@ -149,10 +130,7 @@ export const routing = {
       elevation_profile: elevationProfile,
       departure_at: departureAt,
       speed_model: 'elevation'
-    }),
-
-  conditionsPreview: (bbox: string, departureAt: string) =>
-    get<{ features: unknown[] }>('/routing/conditions/preview', { bbox, departure_at: departureAt })
+    })
 };
 
 // --- Weather ---
@@ -161,53 +139,9 @@ export const weather = {
   grid: (bbox: string, at: string) => get<WeatherGridResponse>('/weather/grid', { bbox, at })
 };
 
-// --- Venues ---
-
-export const venues = {
-  alongRoute: (routeId: string, type?: string, bufferM = 200) =>
-    get<{ venues: Venue[] }>('/venues/along-route', {
-      route_id: routeId,
-      ...(type && { type }),
-      buffer_m: bufferM
-    }),
-
-  tags: () => get<{ tags: VenueTag[] }>('/venues/tags')
-};
-
 // --- Reviews ---
 
 export const reviews = {
   list: (routeId: string, cursor?: string) =>
-    get<ReviewListResponse>(`/routes/${routeId}/reviews`, cursor ? { cursor } : undefined),
-
-  create: (routeId: string, rating: number, body: string) =>
-    post<Review>(`/routes/${routeId}/reviews`, { rating, body })
-};
-
-// --- Plans ---
-
-export const plans = {
-  createFromRoute: (routeId: string, departureAt: string) =>
-    post<RoutePlan>(`/routes/${routeId}/plans`, { departure_at: departureAt }),
-
-  create: (departureAt: string, shadeWeight: number, greeneryWeight: number, windWeight: number) =>
-    post<RoutePlan>('/plans', {
-      departure_at: departureAt,
-      shade_weight: shadeWeight,
-      greenery_weight: greeneryWeight,
-      wind_weight: windWeight
-    }),
-
-  get: (id: string) => get<RoutePlan>(`/plans/${id}`),
-
-  addStop: (planId: string, stop: { lat: number; lon: number; type: 'manual' }) =>
-    post<StopPoint>(`/plans/${planId}/stops`, stop),
-
-  addTask: (planId: string, description: string, hashtag?: string) =>
-    post<PlanTask>(`/plans/${planId}/tasks`, { description, ...(hashtag && { hashtag }) }),
-
-  removeStop: async (planId: string, stopId: string): Promise<void> => {
-    const res = await fetch(`${BASE}/plans/${planId}/stops/${stopId}`, { method: 'DELETE' });
-    if (!res.ok) throw new Error(`DELETE stop failed: ${res.status}`);
-  }
+    get<ReviewListResponse>(`/routes/${routeId}/reviews`, cursor ? { cursor } : undefined)
 };

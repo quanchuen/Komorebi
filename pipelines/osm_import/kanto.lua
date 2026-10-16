@@ -102,9 +102,36 @@ local poi_highway = {
     traffic_signals = true,
 }
 
--- Ways → roads table
+-- Green areas and water we score roads against.
+local function is_green_area(t)
+    if t.landuse == 'forest' or t.landuse == 'grass'
+       or t.landuse == 'meadow' or t.landuse == 'farmland' then return true end
+    if t.leisure == 'park' or t.leisure == 'nature_reserve' then return true end
+    return t.natural ~= nil
+end
+
+local function insert_landuse(t, geom)
+    tables.landuse:insert({
+        name    = t.name,
+        landuse = t.landuse,
+        leisure = t.leisure,
+        natural_ = t.natural,
+        tags    = t,
+        geom    = geom,
+    })
+end
+
+-- Ways → roads table (and closed ways / tree rows → landuse table)
 function osm2pgsql.process_way(object)
-    local hw = object.tags.highway
+    local t = object.tags
+    -- Most parks, woods and ponds are closed ways, not multipolygon relations.
+    if object.is_closed and is_green_area(t) then
+        insert_landuse(t, object:as_polygon())
+    elseif t.natural == 'tree_row' then
+        insert_landuse(t, object:as_linestring())
+    end
+
+    local hw = t.highway
     if hw == nil or not highway_keep[hw] then return end
 
     tables.roads:insert({
@@ -160,24 +187,6 @@ end
 -- Relations/areas → landuse table
 function osm2pgsql.process_relation(object)
     local t = object.tags
-    if t.type ~= 'multipolygon' then return end
-
-    local keep = false
-    if t.landuse and (t.landuse == 'forest' or t.landuse == 'grass'
-                      or t.landuse == 'meadow' or t.landuse == 'farmland') then
-        keep = true
-    end
-    if t.leisure == 'park' or t.leisure == 'nature_reserve' then keep = true end
-    if t.natural then keep = true end
-
-    if not keep then return end
-
-    tables.landuse:insert({
-        name    = t.name,
-        landuse = t.landuse,
-        leisure = t.leisure,
-        natural_ = t.natural,
-        tags    = t,
-        geom    = object:as_multipolygon(),
-    })
+    if t.type ~= 'multipolygon' or not is_green_area(t) then return end
+    insert_landuse(t, object:as_multipolygon())
 end

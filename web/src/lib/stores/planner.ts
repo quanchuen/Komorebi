@@ -1,7 +1,7 @@
 // web/src/lib/stores/planner.ts
 import { browser } from '$app/environment';
 import { writable, type Writable } from 'svelte/store';
-import type { RoutePlan, RouteAlternative, RoutingPreferences } from '$lib/api/types';
+import type { RoutingPreferences } from '$lib/api/types';
 
 const RIDER_PREFERENCES_KEY = 'komorebi:rider-preferences:v1';
 
@@ -51,17 +51,4 @@ function persistedRoutingPreferences(): Writable<RoutingPreferences> {
   return store;
 }
 
-export interface PlannerStop {
-  id: string; // local UUID before plan is created
-  lat: number;
-  lon: number;
-  label: string;
-}
-
-export const plannerStops = writable<PlannerStop[]>([]);
 export const plannerPreferences = persistedRoutingPreferences();
-export const plannerResult = writable<RouteAlternative | null>(null);
-export const plannerPlan = writable<RoutePlan | null>(null);
-export const plannerLoading = writable<boolean>(false);
-export const plannerError = writable<string | null>(null);
-export const plannerTaskInput = writable<string>('');

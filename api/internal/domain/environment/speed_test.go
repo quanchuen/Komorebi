@@ -53,18 +53,8 @@ func TestAdjustedSpeedKmh_SteepDownhillCapped(t *testing.T) {
 func TestSegmentETASeconds_ThreeSignals(t *testing.T) {
 	// distanceKm=2, speedKmh=15, signals=3, no green wave
 	// time = (2/15)*3600 + 3*30 = 480 + 90 = 570
-	got := environment.SegmentETASeconds(2.0, 15.0, 3, nil)
+	got := environment.SegmentETASeconds(2.0, 15.0, 3)
 	if !approxEqual(got, 570.0, 0.001) {
 		t.Errorf("3 signals: expected 570.0, got %v", got)
-	}
-}
-
-func TestSegmentETASeconds_GreenWaveOverride(t *testing.T) {
-	// distanceKm=2, green wave speed=20, signals ignored
-	// time = (2/20)*3600 = 360
-	gw := &environment.GreenWaveOverride{TargetSpeedKmh: 20.0}
-	got := environment.SegmentETASeconds(2.0, 15.0, 5, gw)
-	if !approxEqual(got, 360.0, 0.001) {
-		t.Errorf("green wave: expected 360.0, got %v", got)
 	}
 }

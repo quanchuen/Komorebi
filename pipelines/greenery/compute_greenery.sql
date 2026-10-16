@@ -23,13 +23,23 @@ SELECT
     r.way_id,
     LEAST(1.0,
         (CASE WHEN park.area_id IS NOT NULL THEN 0.4 ELSE 0.0 END) +
-        (CASE WHEN r.tags->>'natural' = 'tree_row'    THEN 0.3 ELSE 0.0 END) +
+        (CASE WHEN trees.area_id IS NOT NULL THEN 0.3 ELSE 0.0 END) +
         (CASE WHEN forest.area_id IS NOT NULL THEN 0.2 ELSE 0.0 END) +
         (CASE WHEN water.area_id  IS NOT NULL THEN 0.1 ELSE 0.0 END)
     ) AS greenery_score,
-    COALESCE(r.tags->>'natural' = 'tree_row', false)  AS tree_lined,
+    (trees.area_id IS NOT NULL)                       AS tree_lined,
     (park.area_id IS NOT NULL)                        AS park_adjacent
 FROM osm.roads r
+
+-- tree_lined: a natural=tree_row way (its own OSM way, imported into
+-- osm.landuse as a line) runs within ~25 m of the road
+LEFT JOIN LATERAL (
+    SELECT l.area_id
+    FROM osm.landuse l
+    WHERE l.natural_ = 'tree_row'
+      AND ST_DWithin(r.geom, l.geom, 0.00025)
+    LIMIT 1
+) trees ON true
 
 -- park_adjacent: road centroid within 100 m of a park polygon
 LEFT JOIN LATERAL (

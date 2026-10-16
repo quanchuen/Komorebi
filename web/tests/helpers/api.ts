@@ -106,7 +106,7 @@ export async function stubApi(page: Page) {
     return route.fulfill({ status: 404, contentType: 'application/json', body: '{}' });
   });
   // Tiles and the basemap are not under test; fail them fast and quietly.
-  await page.route(/basemaps\.cartocdn\.com|localhost:3000|\/tiles\//, (route) => route.abort());
+  await page.route(/basemaps\.cartocdn\.com|\/tiles\//, (route) => route.abort());
   // Place search (Nominatim through the Vite proxy) is stubbed too.
   await page.route('**/nominatim/**', (route) =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(PLACES) })

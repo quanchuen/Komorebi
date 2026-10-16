@@ -219,12 +219,6 @@ export function discoveryRouteToRoute(dr: DiscoveryRoute): Route {
   };
 }
 
-export interface DiscoverNearbyParams {
-  lat: number;
-  lon: number;
-  radiusKm: number;
-}
-
 export interface DiscoverViewportParams {
   bbox: string; // "minLon,minLat,maxLon,maxLat"
 }
@@ -308,23 +302,6 @@ export interface RouteIntentResponse {
   unsupported: string[];
 }
 
-// --- Venues ---
-
-export interface VenueTag {
-  hashtag: string;
-  description: string;
-  isBrand: boolean;
-}
-
-export interface Venue {
-  id: string;
-  osmId: number;
-  geometry: GeoPoint;
-  name: string;
-  category: string;
-  brand: string | null;
-}
-
 // --- Reviews ---
 
 export interface Review {
@@ -339,43 +316,4 @@ export interface Review {
 export interface ReviewListResponse {
   reviews: Review[];
   nextCursor: string | null;
-}
-
-// --- Plans ---
-
-export type StopPointType = 'manual' | 'venue_resolved' | 'waypoint';
-export type PlanTaskStatus = 'unresolved' | 'matched' | 'completed';
-
-export interface StopPoint {
-  id: string;
-  planId: string;
-  geometry: GeoPoint;
-  type: StopPointType;
-  sortOrder: number;
-  venueId: string | null;
-  resolvedName: string;
-}
-
-export interface PlanTask {
-  id: string;
-  planId: string;
-  description: string;
-  hashtag: string | null;
-  status: PlanTaskStatus;
-  resolvedVenueId: string | null;
-}
-
-export interface RoutePlan {
-  id: string;
-  userId: string;
-  departureAt: string;
-  speedModel: 'elevation';
-  shadeWeight: number;
-  greeneryWeight: number;
-  windWeight: number;
-  stops: StopPoint[];
-  tasks: PlanTask[];
-  routeGeometry: GeoLineString | null;
-  segments: RouteConditionSegment[];
-  createdAt: string;
 }

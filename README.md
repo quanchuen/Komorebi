@@ -47,7 +47,7 @@ Initial coverage is the Kanto / Tokyo region (OSM data + PLATEAU 3D building sha
 | `api/internal/domain/` | Pure domain types and interfaces — no external imports |
 | `api/internal/infra/` | Adapters: `postgres/`, `valhalla/`, `openmeteo/`, `tomorrowio/`, `openweathermap/` |
 | `web/` | SvelteKit 2 + MapLibre frontend |
-| `migrations/` | golang-migrate SQL files (`000001`–`000021`) |
+| `migrations/` | golang-migrate SQL files (`000001`–`000025`) |
 | `pipelines/osm_import/` | OSM PBF download and `osm2pgsql` flex import (`kanto.lua`) |
 | `pipelines/greenery/` | Per-edge greenery scoring SQL |
 | `api/pipelines/weather_fetch/` | Open-Meteo poller (Go) |
@@ -107,7 +107,7 @@ make migrate-up
 make osm-all          # download Kanto PBF → osm2pgsql import → extract venues
 ```
 
-Subtargets if you want them individually: `make osm-download`, `make osm-import`, `make osm-update` (incremental), `make osm-venues`.
+Subtargets if you want them individually: `make osm-download`, `make osm-import`, `make osm-venues`.
 
 **4. Compute greenery scores (~5–15 min)**
 

@@ -4,6 +4,7 @@
 // plain element styled by the :global(.km-marker…) rules in Map.svelte with
 // the chrome / route tokens from app.css, so no colour is written here.
 import type { VenueType } from '$lib/stores/map';
+import { ICONS, iconSvg, type IconName } from '$lib/utils/icons';
 
 export type MarkerKind = 'start' | 'end' | 'loop' | 'waypoint';
 
@@ -16,30 +17,6 @@ export function markerSizeForZoom(zoom: number): MarkerSize {
   if (zoom < 14) return 20;
   if (zoom < 16) return 24;
   return 28;
-}
-
-// Stroked 24-unit icons drawn in currentColor.
-const ICONS = {
-  bicycle:
-    '<circle cx="5.5" cy="17" r="3.5"/><circle cx="18.5" cy="17" r="3.5"/>' +
-    '<path d="M5.5 17l3.5-8h5.5l4 8M9 9L7.5 6h3M14.5 9l1.5 8"/>',
-  flag: '<path d="M6 21V4h11l-2.5 4 2.5 4H6"/>',
-  konbini:
-    '<path d="M4 9.5L5.5 5h13L20 9.5M4 9.5V20h16V9.5"/>' +
-    '<path d="M4 9.5a2.67 2.67 0 0 0 5.33 0 2.67 2.67 0 0 0 5.34 0A2.67 2.67 0 0 0 20 9.5M10 20v-6h4v6"/>',
-  cafe: '<path d="M5 9h11v5a5.5 5.5 0 0 1-11 0V9zM16 10h1.5a2 2 0 0 1 0 4H16M4 20h14"/>',
-  water: '<path d="M12 3s-6 6.8-6 11a6 6 0 0 0 12 0c0-4.2-6-11-6-11z"/>',
-  repair:
-    '<path d="M14.5 3.5a5 5 0 0 0-5.3 6.9L3 16.6 6.4 20l6.2-6.2a5 5 0 0 0 6.9-5.3l-2.8 2.8-2.7-.7-.7-2.7 2.8-2.8z"/>'
-} as const;
-
-export type IconName = keyof typeof ICONS;
-
-export function iconSvg(name: IconName, strokeWidth = 2): string {
-  return (
-    `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${strokeWidth}" ` +
-    `stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name]}</svg>`
-  );
 }
 
 export const VENUE_ICON: Record<VenueType, IconName> = {

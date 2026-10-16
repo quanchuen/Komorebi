@@ -1,14 +1,15 @@
 .DEFAULT_GOAL := help
 
-MIGRATE_URL ?= postgres://osm_dev:osm_dev@localhost:5432/cyclist_map_dev?sslmode=disable
+# One database variable for everything: migrations, pipelines, and the API.
+DATABASE_URL ?= postgres://osm_dev:osm_dev@localhost:5432/cyclist_map_dev?sslmode=disable
+MIGRATE_URL  ?= $(DATABASE_URL)
 
 OSM_PBF     := pipelines/osm_import/kanto-latest.osm.pbf
 OSM_URL     := https://download.geofabrik.de/asia/japan/kanto-latest.osm.pbf
 OSM_LUA     := pipelines/osm_import/kanto.lua
-OSM_DB      := $(MIGRATE_URL)
+OSM_DB      := $(DATABASE_URL)
 
 DEV_JWT_SECRET := cyclist-map-dev-secret-do-not-use-in-production
-DATABASE_URL   ?= $(MIGRATE_URL)
 API_PORT       ?= 8080
 COMPOSE        ?= docker compose
 
@@ -40,10 +41,9 @@ COSIGN_KEY ?=
 GITLEAKS_VERSION := v8.30.1
 GITLEAKS         ?= $(shell command -v gitleaks 2>/dev/null || echo $${GOPATH:-$$HOME/go}/bin/gitleaks)
 
-.PHONY: demo-routes
 .PHONY: hooks gitleaks-install secrets-audit
 .PHONY: watch api-rebuild image-print image-build image-push
-.PHONY: migrate-up migrate-down migrate-create osm-download osm-import osm-update osm-venues osm-all greenery plateau-shadow weather support-up support-stop project-up project-stop stack-up stack-down compose-config dev-run dev-api dev-martin dev-valhalla dev-web test test-unit test-integration test-web test-all web-lint web-lighthouse help
+.PHONY: migrate-up migrate-down migrate-create osm-download osm-import osm-venues osm-all greenery plateau-shadow weather support-up support-stop project-up project-stop stack-up stack-down compose-config dev-run dev-api dev-martin dev-valhalla dev-web test test-unit test-integration test-web test-all help
 
 ## Apply pending database migrations
 migrate-up:
@@ -57,10 +57,6 @@ migrate-down:
 migrate-create:
 	@read -p "Name: " name; \
 	migrate create -ext sql -dir migrations -seq -digits 6 $$name
-
-## Re-seed demo routes via the reroute tool (requires DB + Valhalla)
-demo-routes:
-	DATABASE_URL="$(DATABASE_URL)" VALHALLA_URL="$${VALHALLA_URL:-http://localhost:8002}" go -C api run ./cmd/reroute-demo
 
 ## Download Kanto PBF from Geofabrik
 osm-download:
@@ -79,17 +75,6 @@ osm-import: osm-download
 	    --number-processes=4 \
 	    $(OSM_PBF)
 
-## Incremental update using an existing slim database
-osm-update: osm-download
-	osm2pgsql \
-	    --output=flex \
-	    --style=$(OSM_LUA) \
-	    --database="$(OSM_DB)" \
-	    --schema=osm \
-	    --slim \
-	    --number-processes=4 \
-	    $(OSM_PBF)
-
 ## Extract venues from osm.pois into environment.venue
 osm-venues:
 	psql "$(OSM_DB)" -f pipelines/osm_import/extract_venues.sql
@@ -103,7 +88,7 @@ greenery:
 
 ## Fetch hourly weather from Open-Meteo for Tokyo area grid
 weather:
-	DATABASE_URL="$(MIGRATE_URL)" go -C api run ./pipelines/weather_fetch/
+	DATABASE_URL="$(DATABASE_URL)" go -C api run ./pipelines/weather_fetch/
 
 ## Run PLATEAU shadow precompute pipeline (requires Docker; uses pipelines profile)
 WARDS ?= chiyoda,minato,shibuya
@@ -221,14 +206,6 @@ test-web:
 
 ## Run unit, integration, and web checks
 test-all: test-unit test-integration test-web
-
-## Lint + format-check + design-token guard for the web app
-web-lint:
-	cd web && npm run lint && npm run format:check && npm run check:tokens
-
-## Run Lighthouse budget against a production preview of the web app
-web-lighthouse:
-	cd web && npm run build && npm run lighthouse
 
 ## Install the pre-commit hook (secret scan + web lint-staged) and gitleaks
 hooks: gitleaks-install

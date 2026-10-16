@@ -409,10 +409,6 @@
     );
   });
 
-  $effect(() => {
-    liveNavigationPosition.set($foregroundNavigation.position ?? $liveNavigationPosition);
-  });
-
   onDestroy(() => {
     clearTimeout(routeDebounce);
     clearTimeout(urlSyncTimeout);

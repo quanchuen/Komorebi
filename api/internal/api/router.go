@@ -15,7 +15,6 @@ func NewRouter(
 	routingIntentH *RoutingIntentHandler,
 	weatherH *WeatherHandler,
 	conditionsH *ConditionsHandler,
-	previewH *PreviewHandler,
 	planH *PlanHandler,
 	authSvc *app.AuthService,
 	communityH *CommunityHandler,
@@ -23,6 +22,7 @@ func NewRouter(
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
+	r.Use(middleware.RequestSize(1 << 20))
 
 	rh := &RouteHandler{svc: routeSvc}
 	dh := NewDiscoveryHandler(discoverySvc)
@@ -30,13 +30,11 @@ func NewRouter(
 	authH := NewAuthHandler(authSvc)
 
 	r.Route("/api/v1", func(r chi.Router) {
-		// Routes
+		// Routes (read-only; seeded by migrations)
 		r.Get("/routes", rh.List)
-		r.Post("/routes", rh.Create)
 		r.Get("/routes/{id}", rh.Get)
-		r.Patch("/routes/{id}", rh.Update)
-		r.Delete("/routes/{id}", rh.Archive)
 		r.Get("/routes/{id}/conditions", conditionsH.RouteConditions)
+		r.Get("/routes/{id}/reviews", communityH.ListReviews)
 
 		// Discovery
 		r.Get("/discover/nearby", dh.Nearby)
@@ -49,35 +47,33 @@ func NewRouter(
 
 		// Routing
 		r.Post("/routing/directions", routingH.Directions)
-		r.Post("/routing/intent", routingIntentH.Interpret)
+		// Public but spends Anthropic credits: cap concurrent calls.
+		r.With(middleware.Throttle(2)).Post("/routing/intent", routingIntentH.Interpret)
 		r.Post("/routing/conditions", conditionsH.RoutingConditions)
-		r.Get("/routing/conditions/preview", previewH.ConditionsPreview)
 
 		// Weather
 		r.Get("/weather/point", weatherH.AtPoint)
 		r.Get("/weather/grid", weatherH.Grid)
 
-		// Plans
-		r.Post("/plans", planH.CreatePlan)
+		// Plans (public read)
 		r.Get("/plans/{id}", planH.GetPlan)
-		r.Post("/plans/{id}/stops", planH.AddStop)
-		r.Delete("/plans/{id}/stops/{stop_id}", planH.RemoveStop)
-		r.Post("/plans/{id}/tasks", planH.AddTask)
-		r.Post("/routes/{id}/plans", planH.CreatePlanFromRoute)
 
-		// Auth (public)
+		// Auth
 		r.Post("/auth/register", authH.Register)
 		r.Post("/auth/login", authH.Login)
 		r.Post("/auth/refresh", authH.Refresh)
 
-		// Community — mixed auth
-		// Public reads
-		r.Get("/routes/{id}/reviews", communityH.ListReviews)
+		// Community (public read)
 		r.Get("/users/{id}/ride-logs", communityH.ListUserRideLogs)
 
 		// Protected writes
 		r.Group(func(r chi.Router) {
 			r.Use(AuthMiddleware(authSvc))
+			r.Post("/plans", planH.CreatePlan)
+			r.Post("/plans/{id}/stops", planH.AddStop)
+			r.Delete("/plans/{id}/stops/{stop_id}", planH.RemoveStop)
+			r.Post("/plans/{id}/tasks", planH.AddTask)
+			r.Post("/routes/{id}/plans", planH.CreatePlanFromRoute)
 			r.Post("/contributions", communityH.SubmitContribution)
 			r.Post("/routes/{id}/reviews", communityH.AddReview)
 			r.Post("/routes/{id}/ride-logs", communityH.LogRide)

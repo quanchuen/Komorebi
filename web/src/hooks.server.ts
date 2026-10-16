@@ -50,6 +50,8 @@ export const handle: Handle = async ({ event, resolve }) => {
   const upstream = new URL(`${pathname}${event.url.search}`, proxy.target());
   const requestHeaders = new Headers(event.request.headers);
   requestHeaders.delete('host');
+  // Node fetch decompresses the body but keeps content-encoding/length, so never ask for compression.
+  requestHeaders.delete('accept-encoding');
   for (const [name, value] of Object.entries(proxy.headers ?? {})) requestHeaders.set(name, value);
 
   const response = await fetch(upstream, {

@@ -35,7 +35,6 @@ func NewPlanHandler(svc PlanDirector) *PlanHandler {
 // --- Request / Response types ---
 
 type createPlanRequest struct {
-	UserID      string  `json:"user_id"`
 	DepartureAt string  `json:"departure_at"`
 	SpeedModel  string  `json:"speed_model"`
 	ShadeWeight float64 `json:"shade_weight"`
@@ -91,10 +90,6 @@ func (h *PlanHandler) CreatePlan(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
-	if req.UserID == "" {
-		writeError(w, http.StatusBadRequest, "user_id is required")
-		return
-	}
 
 	departureAt := time.Now()
 	if req.DepartureAt != "" {
@@ -112,7 +107,7 @@ func (h *PlanHandler) CreatePlan(w http.ResponseWriter, r *http.Request) {
 	}
 
 	p, err := h.svc.CreatePlan(app.CreatePlanRequest{
-		UserID:      req.UserID,
+		UserID:      UserIDFromContext(r.Context()),
 		DepartureAt: departureAt,
 		SpeedModel:  speedModel,
 		Preferences: plan.Preferences{
@@ -142,10 +137,6 @@ func (h *PlanHandler) CreatePlanFromRoute(w http.ResponseWriter, r *http.Request
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
-	if req.UserID == "" {
-		writeError(w, http.StatusBadRequest, "user_id is required")
-		return
-	}
 
 	departureAt := time.Now()
 	if req.DepartureAt != "" {
@@ -163,7 +154,7 @@ func (h *PlanHandler) CreatePlanFromRoute(w http.ResponseWriter, r *http.Request
 	}
 
 	p, err := h.svc.CreatePlan(app.CreatePlanRequest{
-		UserID:        req.UserID,
+		UserID:        UserIDFromContext(r.Context()),
 		DepartureAt:   departureAt,
 		SpeedModel:    speedModel,
 		SourceRouteID: routeID,
@@ -174,6 +165,10 @@ func (h *PlanHandler) CreatePlanFromRoute(w http.ResponseWriter, r *http.Request
 		},
 	})
 	if err != nil {
+		if errors.Is(err, app.ErrNotFound) {
+			writeError(w, http.StatusNotFound, "route not found")
+			return
+		}
 		writeError(w, http.StatusInternalServerError, "failed to create plan from route")
 		return
 	}

@@ -4,11 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
-	"komorebi/internal/domain/environment"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"komorebi/internal/domain/environment"
 )
 
 // WeatherRepo implements environment.WeatherRepository using PostGIS.
@@ -89,25 +90,6 @@ func (r *WeatherRepo) AtPoint(lat, lon float64, t time.Time) (*environment.Weath
 		return nil, fmt.Errorf("weather.AtPoint: %w", err)
 	}
 	return wg, nil
-}
-
-// AlongRoute returns one WeatherGrid per entry in segments, matched by the cell
-// containing the segment midpoint and the nearest hourly valid_at. Missing cells
-// return a zero WeatherGrid (caller should treat as "no data").
-func (r *WeatherRepo) AlongRoute(segments []environment.WeatherSegmentQuery) ([]environment.WeatherGrid, error) {
-	results := make([]environment.WeatherGrid, len(segments))
-	for i, seg := range segments {
-		wg, err := r.AtPoint(seg.MidLat, seg.MidLon, seg.ArrivalAt)
-		if err != nil {
-			if errors.Is(err, environment.ErrNoWeather) {
-				// Leave zero value; caller interprets as missing data
-				continue
-			}
-			return nil, fmt.Errorf("weather.AlongRoute[%d]: %w", i, err)
-		}
-		results[i] = *wg
-	}
-	return results, nil
 }
 
 // GridInBBox returns cells intersecting bbox (minLon, minLat, maxLon, maxLat)
@@ -240,35 +222,6 @@ func (r *WeatherRepo) UpsertMinutely(rows []environment.MinutelyPrecip) error {
 	})
 }
 
-// MinutelyAt returns cached minutely precipitation near (lat, lon) in [from, to].
-// Uses a small tolerance (~2.5km) to match the grid cell.
-func (r *WeatherRepo) MinutelyAt(lat, lon float64, from, to time.Time) ([]environment.MinutelyPrecip, error) {
-	ctx := context.Background()
-	const tolerance = 0.025 // ~2.5km at Tokyo latitude
-	rows, err := r.pool.Query(ctx, `
-		SELECT id::text, lat, lon, at, intensity_mmh, fetched_at
-		FROM environment.minutely_precip
-		WHERE lat BETWEEN $1 AND $2
-		  AND lon BETWEEN $3 AND $4
-		  AND at BETWEEN $5 AND $6
-		ORDER BY at ASC
-	`, lat-tolerance, lat+tolerance, lon-tolerance, lon+tolerance, from, to)
-	if err != nil {
-		return nil, fmt.Errorf("minutely.AtPoint: %w", err)
-	}
-	defer rows.Close()
-
-	var result []environment.MinutelyPrecip
-	for rows.Next() {
-		var m environment.MinutelyPrecip
-		if err := rows.Scan(&m.ID, &m.Lat, &m.Lon, &m.At, &m.IntensityMMH, &m.FetchedAt); err != nil {
-			return nil, fmt.Errorf("minutely scan: %w", err)
-		}
-		result = append(result, m)
-	}
-	return result, rows.Err()
-}
-
 // DeleteMinutelyBefore prunes stale minutely rows.
 func (r *WeatherRepo) DeleteMinutelyBefore(cutoff time.Time) error {
 	ctx := context.Background()
@@ -304,18 +257,7 @@ func polygonWKT(ring [][2]float64) string {
 	for i, p := range ring {
 		pts[i] = fmt.Sprintf("%f %f", p[0], p[1])
 	}
-	return fmt.Sprintf("POLYGON((%s))", joinStrings(pts, ", "))
-}
-
-func joinStrings(ss []string, sep string) string {
-	out := ""
-	for i, s := range ss {
-		if i > 0 {
-			out += sep
-		}
-		out += s
-	}
-	return out
+	return fmt.Sprintf("POLYGON((%s))", strings.Join(pts, ", "))
 }
 
 func scanWeatherGrid(row pgx.Row) (*environment.WeatherGrid, error) {

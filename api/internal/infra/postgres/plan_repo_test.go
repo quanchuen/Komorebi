@@ -2,6 +2,7 @@
 package postgres_test
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -34,7 +35,9 @@ func TestPlanRepo_CreateAndGetByID(t *testing.T) {
 	if err := repo.Create(p); err != nil {
 		t.Fatalf("Create: %v", err)
 	}
-	t.Cleanup(func() { _ = repo.Delete(p.ID) })
+	t.Cleanup(func() {
+		_, _ = pool.Exec(context.Background(), "DELETE FROM plan.route_plan WHERE id = $1::uuid", p.ID)
+	})
 
 	got, err := repo.GetByID(p.ID)
 	if err != nil {
@@ -66,7 +69,9 @@ func TestPlanRepo_Update_ReplaceStops(t *testing.T) {
 	if err := repo.Create(p); err != nil {
 		t.Fatalf("Create: %v", err)
 	}
-	t.Cleanup(func() { _ = repo.Delete(p.ID) })
+	t.Cleanup(func() {
+		_, _ = pool.Exec(context.Background(), "DELETE FROM plan.route_plan WHERE id = $1::uuid", p.ID)
+	})
 
 	// Add a third stop and update.
 	p.AddStop(plan.StopPoint{
@@ -95,7 +100,9 @@ func TestPlanRepo_Update_WithRouteWKT(t *testing.T) {
 	if err := repo.Create(p); err != nil {
 		t.Fatalf("Create: %v", err)
 	}
-	t.Cleanup(func() { _ = repo.Delete(p.ID) })
+	t.Cleanup(func() {
+		_, _ = pool.Exec(context.Background(), "DELETE FROM plan.route_plan WHERE id = $1::uuid", p.ID)
+	})
 
 	got, err := repo.GetByID(p.ID)
 	if err != nil {
@@ -120,7 +127,9 @@ func TestPlanRepo_Update_WithTask(t *testing.T) {
 	if err := repo.Create(p); err != nil {
 		t.Fatalf("Create: %v", err)
 	}
-	t.Cleanup(func() { _ = repo.Delete(p.ID) })
+	t.Cleanup(func() {
+		_, _ = pool.Exec(context.Background(), "DELETE FROM plan.route_plan WHERE id = $1::uuid", p.ID)
+	})
 
 	got, err := repo.GetByID(p.ID)
 	if err != nil {
@@ -134,24 +143,5 @@ func TestPlanRepo_Update_WithTask(t *testing.T) {
 	}
 	if got.Tasks[0].Status != plan.TaskUnresolved {
 		t.Errorf("expected status unresolved, got %q", got.Tasks[0].Status)
-	}
-}
-
-func TestPlanRepo_Delete(t *testing.T) {
-	pool := newTestPool(t)
-	repo := postgres.NewPlanRepo(pool)
-
-	p := samplePlan(t)
-	if err := repo.Create(p); err != nil {
-		t.Fatalf("Create: %v", err)
-	}
-
-	if err := repo.Delete(p.ID); err != nil {
-		t.Fatalf("Delete: %v", err)
-	}
-
-	_, err := repo.GetByID(p.ID)
-	if err == nil {
-		t.Fatal("expected ErrNotFound after delete, got nil")
 	}
 }

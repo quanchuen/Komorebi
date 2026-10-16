@@ -26,11 +26,8 @@ const (
 	StatusArchived  Status = "archived"
 )
 
-// Sentinel errors for route domain operations.
-var (
-	ErrEmptyName         = errors.New("route: name must not be empty")
-	ErrInvalidTransition = errors.New("route: invalid status transition")
-)
+// ErrEmptyName is returned when a route is created without a name.
+var ErrEmptyName = errors.New("route: name must not be empty")
 
 // Route is the aggregate root for the route bounded context.
 type Route struct {
@@ -71,39 +68,6 @@ func NewRoute(name, description string, difficulty Difficulty, creatorID string)
 		CreatedAt:   now,
 		UpdatedAt:   now,
 	}, nil
-}
-
-// Publish transitions the route from Draft to Published.
-func (r *Route) Publish() error {
-	if r.Status != StatusDraft {
-		return ErrInvalidTransition
-	}
-	r.Status = StatusPublished
-	r.UpdatedAt = time.Now().UTC()
-	return nil
-}
-
-// Archive transitions the route from Published to Archived.
-func (r *Route) Archive() error {
-	if r.Status != StatusPublished {
-		return ErrInvalidTransition
-	}
-	r.Status = StatusArchived
-	r.UpdatedAt = time.Now().UTC()
-	return nil
-}
-
-// UpdateMetadata replaces name, description, difficulty, and tags.
-func (r *Route) UpdateMetadata(name, description string, difficulty Difficulty, tags []string) error {
-	if name == "" {
-		return ErrEmptyName
-	}
-	r.Name = name
-	r.Description = description
-	r.Difficulty = difficulty
-	r.Tags = tags
-	r.UpdatedAt = time.Now().UTC()
-	return nil
 }
 
 // SetGeometry replaces the route geometry and derived metrics.

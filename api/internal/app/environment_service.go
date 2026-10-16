@@ -17,9 +17,7 @@ import (
 type EnvironmentQuerier interface {
 	ShadeForPoint(ctx context.Context, lon, lat float64, at time.Time) float64
 	WeatherForPoint(ctx context.Context, lon, lat float64, at time.Time) (windSpeedMS, windBearingDeg, precipMMH float64)
-	GreeneryForWay(ctx context.Context, osmWayID int64) float64
 	SignalsAlongSegment(ctx context.Context, segmentWKT string, bufferM float64) int
-	GreenWaveForSegment(ctx context.Context, segmentWKT string) *environment.GreenWaveResult
 }
 
 // EnvironmentService computes time-projected per-segment conditions for a route.
@@ -69,20 +67,6 @@ func (s *EnvironmentService) GetRouteConditions(ctx context.Context, req RouteCo
 		segWKT := geometryToLineStringWKT(seg.Geometry)
 		segBearingDeg := segmentBearing(seg.Geometry)
 
-		// Check for green wave on this segment.
-		gwResult := s.repo.GreenWaveForSegment(ctx, segWKT)
-		var gwOverride *environment.GreenWaveOverride
-		var gwDomain *environment.GreenWave
-		if gwResult != nil {
-			gwOverride = &environment.GreenWaveOverride{TargetSpeedKmh: gwResult.TargetSpeedKmh}
-			gwDomain = &environment.GreenWave{
-				ID:               gwResult.ID,
-				TargetSpeedKmh:   gwResult.TargetSpeedKmh,
-				DirectionBearing: gwResult.DirectionBearing,
-				Confidence:       gwResult.Confidence,
-			}
-		}
-
 		// Signal count (50 m buffer around segment).
 		signals := s.repo.SignalsAlongSegment(ctx, segWKT, 50)
 
@@ -90,7 +74,7 @@ func (s *EnvironmentService) GetRouteConditions(ctx context.Context, req RouteCo
 		speedKmh := adjustedSpeed(seg.GradePercent, req.SpeedModel)
 
 		// ETA seconds for this segment.
-		etaS := environment.SegmentETASeconds(distKm, speedKmh, signals, gwOverride)
+		etaS := environment.SegmentETASeconds(distKm, speedKmh, signals)
 
 		// Project arrival time at the midpoint of this segment.
 		arrivalAt := req.DepartureAt.Add(time.Duration(elapsedS+etaS/2) * time.Second)
@@ -108,7 +92,6 @@ func (s *EnvironmentService) GetRouteConditions(ctx context.Context, req RouteCo
 			WindBenefit: windBenefit,
 			Precip:      precipNorm,
 			ETA:         req.DepartureAt.Add(time.Duration(elapsedS) * time.Second),
-			GreenWave:   gwDomain,
 			SignalCount: signals,
 		}
 

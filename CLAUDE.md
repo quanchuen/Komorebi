@@ -83,7 +83,7 @@ make migrate-down                           # Rollback one migration
 make migrate-create                         # Create new migration pair
 ```
 
-Migrations use golang-migrate, numbered `000001`–`000024`. Four schemas: `routes`, `community`, `environment`, `plan`. The `osm` schema is managed by osm2pgsql.
+Migrations use golang-migrate, numbered `000001`–`000025`. Four schemas: `routes`, `community`, `environment`, `plan`. The `osm` schema is managed by osm2pgsql.
 
 ## Architecture
 
@@ -95,7 +95,7 @@ Migrations use golang-migrate, numbered `000001`–`000024`. Four schemas: `rout
 - **`api/internal/api/`** — HTTP handlers + chi router. Thin layer: parse request, call service, write JSON.
 
 **Key domain concepts:**
-- `Route` (aggregate root) has `Waypoints`, `Segments`, `Tags`. States: Draft → Published → Archived.
+- `Route` (aggregate root) has `Waypoints`, `Segments`, `Tags`. `status` column (draft/published/archived) is set by migrations; the HTTP API is read-only for routes.
 - `RoutePlan` holds ordered `StopPoints` + `PlanTasks` with hashtag venue resolution (#konbini, #cafe).
 - `EnvironmentService` computes time-projected conditions (shade, wind, rain, UV, greenery, signals) per segment using the speed model to project arrival times.
 - `RoutingService.GetDirections()` calls Valhalla with 3 profiles in parallel (Suggested, Fast, Avoid Main Roads).
@@ -140,9 +140,11 @@ pipeline does.
 
 ## API Endpoints (api/internal/api/router.go)
 
-**Public:** GET routes, GET discover/nearby|viewport|suggested, GET venues/tags, POST auth/register|login|refresh, GET weather/point, GET weather/grid, POST routing/directions, POST routing/intent, POST routing/conditions, GET routes/:id/conditions
+**Public:** GET routes, GET routes/:id, GET routes/:id/conditions, GET routes/:id/reviews, GET discover/nearby|viewport|suggested, GET venues/along-route, GET venues/tags, POST routing/directions, POST routing/intent (throttled to 2 concurrent), POST routing/conditions, GET weather/point, GET weather/grid, GET plans/:id, POST auth/register|login|refresh, GET users/:id/ride-logs
 
-**Authenticated:** POST contributions, POST reviews, POST ride-logs, POST plans, POST plans/:id/stops|tasks
+**Authenticated (Bearer JWT; user comes from the token, never the body):** POST plans, POST routes/:id/plans, POST plans/:id/stops, DELETE plans/:id/stops/:stop_id, POST plans/:id/tasks, POST contributions, POST routes/:id/reviews, POST routes/:id/ride-logs
+
+Routes are read-only over HTTP (seeded by migrations); there is no POST/PATCH/DELETE /routes. Bodies are capped at 1 MiB.
 
 ## Design Spec
 

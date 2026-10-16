@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	sdk "github.com/anthropics/anthropic-sdk-go"
 	"github.com/anthropics/anthropic-sdk-go/option"
@@ -93,7 +94,7 @@ func NewIntentAdapter(apiKey, model string) *IntentAdapter {
 		model = DefaultModel
 	}
 	return &IntentAdapter{
-		client: sdk.NewClient(option.WithAPIKey(apiKey)),
+		client: sdk.NewClient(option.WithAPIKey(apiKey), option.WithRequestTimeout(10*time.Second)),
 		model:  model,
 	}
 }

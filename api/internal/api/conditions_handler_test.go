@@ -12,7 +12,6 @@ import (
 	"komorebi/internal/app"
 	"komorebi/internal/domain/environment"
 	"komorebi/internal/domain/route"
-	"komorebi/internal/infra/postgres"
 )
 
 // --- stubs ---
@@ -57,7 +56,7 @@ func routeConditionsRequest(routeID, departureAt, speedModel string) *http.Reque
 
 func TestConditionsHandler_RouteNotFound(t *testing.T) {
 	h := NewConditionsHandler(
-		&stubRouteGetter{err: postgres.ErrNotFound},
+		&stubRouteGetter{err: app.ErrNotFound},
 		&stubConditionsComputer{},
 	)
 	w := httptest.NewRecorder()
@@ -111,6 +110,9 @@ func TestConditionsHandler_Success(t *testing.T) {
 	}
 	if seg.Colors.Shade != "#abc123" {
 		t.Errorf("color.shade: got %q, want #abc123", seg.Colors.Shade)
+	}
+	if _, err := time.Parse(time.RFC3339, seg.ETA); err != nil {
+		t.Errorf("eta %q is not RFC3339: %v", seg.ETA, err)
 	}
 }
 

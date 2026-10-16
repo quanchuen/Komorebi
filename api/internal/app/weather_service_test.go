@@ -30,21 +30,9 @@ func (s *stubWeatherRepo) AtPoint(_, _ float64, _ time.Time) (*environment.Weath
 	}
 	return s.grid, nil
 }
-func (s *stubWeatherRepo) AlongRoute(segments []environment.WeatherSegmentQuery) ([]environment.WeatherGrid, error) {
-	results := make([]environment.WeatherGrid, len(segments))
-	for i := range segments {
-		if s.grid != nil {
-			results[i] = *s.grid
-		}
-	}
-	return results, nil
-}
-func (s *stubWeatherRepo) DeleteBefore(_ time.Time) error                    { return nil }
+func (s *stubWeatherRepo) DeleteBefore(_ time.Time) error                      { return nil }
 func (s *stubWeatherRepo) UpsertMinutely(_ []environment.MinutelyPrecip) error { return nil }
-func (s *stubWeatherRepo) MinutelyAt(_, _ float64, _, _ time.Time) ([]environment.MinutelyPrecip, error) {
-	return nil, nil
-}
-func (s *stubWeatherRepo) DeleteMinutelyBefore(_ time.Time) error { return nil }
+func (s *stubWeatherRepo) DeleteMinutelyBefore(_ time.Time) error              { return nil }
 func (s *stubWeatherRepo) GridInBBox(_ context.Context, _ [4]float64, _ time.Time) ([]environment.WeatherGrid, error) {
 	return s.gridCells, nil
 }
@@ -347,31 +335,5 @@ func TestGridSnapshotEmptyGridEchoesRequestedTime(t *testing.T) {
 	}
 	if len(snap.Cells) != 0 {
 		t.Errorf("cells: want none, got %d", len(snap.Cells))
-	}
-}
-
-func TestAlongRouteFillsMissingCellsFromFetcher(t *testing.T) {
-	now := time.Now().UTC().Truncate(time.Hour)
-	fetcher := &stubFetcher{rows: hourlyRows(now, 6, 25)}
-	svc := NewWeatherService(&stubWeatherRepo{}, fetcher)
-
-	segments := []environment.WeatherSegmentQuery{
-		{MidLat: 35.68, MidLon: 139.76, ArrivalAt: now},
-		{MidLat: 35.69, MidLon: 139.77, ArrivalAt: now.Add(20 * time.Minute)},
-	}
-	results, err := svc.AlongRoute(segments, []float64{0, 90})
-	if err != nil {
-		t.Fatalf("AlongRoute: %v", err)
-	}
-	for i, r := range results {
-		if r.TemperatureC != 25 {
-			t.Errorf("segment %d: expected fetched temperature 25, got %v", i, r.TemperatureC)
-		}
-		if r.WindSpeedMS != 3 {
-			t.Errorf("segment %d: expected wind 3, got %v", i, r.WindSpeedMS)
-		}
-	}
-	if got := fetcher.calls.Load(); got != 1 {
-		t.Errorf("expected nearby segments to share 1 fetch, got %d", got)
 	}
 }

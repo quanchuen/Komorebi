@@ -3,6 +3,7 @@ package app
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"komorebi/internal/domain/community"
@@ -75,6 +76,7 @@ func (s *AuthService) Register(displayName, email, password string) (*community.
 		return nil, err // ErrEmailTaken propagates unchanged
 	}
 	if err := s.repo.SetPasswordHash(u.ID, string(hash)); err != nil {
+		_ = s.repo.Delete(u.ID) // do not leave an email taken by a user with no password
 		return nil, fmt.Errorf("auth: store password hash: %w", err)
 	}
 	return u, nil
@@ -83,7 +85,7 @@ func (s *AuthService) Register(displayName, email, password string) (*community.
 // Login authenticates by email/password and returns a JWT token pair.
 // Returns ErrBadCredentials for any auth failure (no oracle for callers).
 func (s *AuthService) Login(email, password string) (TokenPair, error) {
-	u, err := s.repo.GetByEmail(email)
+	u, err := s.repo.GetByEmail(strings.ToLower(strings.TrimSpace(email)))
 	if err != nil {
 		return TokenPair{}, ErrBadCredentials
 	}

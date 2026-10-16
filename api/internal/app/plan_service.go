@@ -17,7 +17,6 @@ type PlanRepository interface {
 	Create(p *plan.RoutePlan) error
 	GetByID(id string) (*plan.RoutePlan, error)
 	Update(p *plan.RoutePlan) error
-	Delete(id string) error
 }
 
 // RouteGeometryReader can load a Route's waypoints for plan seeding.
@@ -241,7 +240,3 @@ func renumberStops(p *plan.RoutePlan) {
 		p.Stops[i].SortOrder = i
 	}
 }
-
-// _ ensures PlanService satisfies PlanDirector at compile time.
-// (checked in plan_handler.go via the PlanDirector interface)
-var _ = time.Now // keep time import

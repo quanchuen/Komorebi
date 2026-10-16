@@ -4,16 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"komorebi/internal/app"
-	"komorebi/internal/domain/environment"
 	"komorebi/internal/domain/plan"
 	"komorebi/internal/domain/route"
-	"komorebi/internal/infra/postgres"
 )
 
 // ConditionsQuerier is the read interface the handler needs from the route service.
@@ -26,7 +23,7 @@ type ConditionsComputer interface {
 	GetRouteConditions(ctx context.Context, req app.RouteConditionsRequest) ([]app.SegmentConditionsResult, error)
 }
 
-// ConditionsHandler handles the route conditions and preview endpoints.
+// ConditionsHandler handles the route conditions endpoints.
 type ConditionsHandler struct {
 	routes ConditionsQuerier
 	env    ConditionsComputer
@@ -39,19 +36,13 @@ func NewConditionsHandler(routes ConditionsQuerier, env ConditionsComputer) *Con
 
 // --- Response types ---
 
-type greenWaveJSON struct {
-	SpeedKmh float64 `json:"speed_kmh"`
-	LengthKm float64 `json:"length_km,omitempty"`
-}
-
 type segmentConditionJSON struct {
-	Km          float64        `json:"km"`
-	ETA         string         `json:"eta"`
-	Shade       float64        `json:"shade"`
-	WindBenefit float64        `json:"wind_benefit"`
-	Precip      float64        `json:"precip"`
-	GreenWave   *greenWaveJSON `json:"green_wave,omitempty"`
-	Signals     int            `json:"signals"`
+	Km          float64 `json:"km"`
+	ETA         string  `json:"eta"`
+	Shade       float64 `json:"shade"`
+	WindBenefit float64 `json:"wind_benefit"`
+	Precip      float64 `json:"precip"`
+	Signals     int     `json:"signals"`
 	Colors      struct {
 		Shade string `json:"shade"`
 		Wind  string `json:"wind"`
@@ -85,7 +76,7 @@ func (h *ConditionsHandler) RouteConditions(w http.ResponseWriter, r *http.Reque
 
 	rt, err := h.routes.GetByID(id)
 	if err != nil {
-		if errors.Is(err, postgres.ErrNotFound) {
+		if errors.Is(err, app.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "route not found")
 			return
 		}
@@ -107,7 +98,7 @@ func (h *ConditionsHandler) RouteConditions(w http.ResponseWriter, r *http.Reque
 	for i, c := range conditions {
 		sj := segmentConditionJSON{
 			Km:          c.Km,
-			ETA:         c.ETA.Format("15:04"),
+			ETA:         c.ETA.UTC().Format(time.RFC3339),
 			Shade:       c.Shade,
 			WindBenefit: c.WindBenefit,
 			Precip:      c.Precip,
@@ -116,9 +107,6 @@ func (h *ConditionsHandler) RouteConditions(w http.ResponseWriter, r *http.Reque
 		sj.Colors.Shade = c.ShadeColor
 		sj.Colors.Wind = c.WindColor
 		sj.Colors.Rain = c.RainColor
-		if c.GreenWave != nil {
-			sj.GreenWave = &greenWaveJSON{SpeedKmh: c.GreenWave.TargetSpeedKmh}
-		}
 		segs[i] = sj
 	}
 
@@ -181,7 +169,7 @@ func (h *ConditionsHandler) RoutingConditions(w http.ResponseWriter, r *http.Req
 	for i, c := range conditions {
 		sj := segmentConditionJSON{
 			Km:          c.Km,
-			ETA:         c.ETA.Format("15:04"),
+			ETA:         c.ETA.UTC().Format(time.RFC3339),
 			Shade:       c.Shade,
 			WindBenefit: c.WindBenefit,
 			Precip:      c.Precip,
@@ -190,89 +178,8 @@ func (h *ConditionsHandler) RoutingConditions(w http.ResponseWriter, r *http.Req
 		sj.Colors.Shade = c.ShadeColor
 		sj.Colors.Wind = c.WindColor
 		sj.Colors.Rain = c.RainColor
-		if c.GreenWave != nil {
-			sj.GreenWave = &greenWaveJSON{SpeedKmh: c.GreenWave.TargetSpeedKmh}
-		}
 		segs[i] = sj
 	}
 
 	writeJSON(w, http.StatusOK, map[string]any{"segments": segs})
-}
-
-// --- Preview handler ---
-
-// ConditionsPreviewQuerier is the repo interface for the preview endpoint.
-type ConditionsPreviewQuerier interface {
-	ConditionsPreview(ctx context.Context, bbox [4]float64, at time.Time) ([]postgres.ConditionsPreviewCell, error)
-}
-
-// PreviewHandler handles the heatmap preview endpoint.
-type PreviewHandler struct {
-	repo ConditionsPreviewQuerier
-}
-
-// NewPreviewHandler creates a PreviewHandler.
-func NewPreviewHandler(repo ConditionsPreviewQuerier) *PreviewHandler {
-	return &PreviewHandler{repo: repo}
-}
-
-type previewCellJSON struct {
-	Lon         float64 `json:"lon"`
-	Lat         float64 `json:"lat"`
-	Shade       float64 `json:"shade"`
-	WindBenefit float64 `json:"wind_benefit"`
-	Precip      float64 `json:"precip"`
-	Colors      struct {
-		Shade string `json:"shade"`
-		Wind  string `json:"wind"`
-		Rain  string `json:"rain"`
-	} `json:"colors"`
-}
-
-// ConditionsPreview handles GET /api/v1/routing/conditions/preview
-func (h *PreviewHandler) ConditionsPreview(w http.ResponseWriter, r *http.Request) {
-	bboxStr := r.URL.Query().Get("bbox")
-	if bboxStr == "" {
-		writeError(w, http.StatusBadRequest, "bbox parameter required (minLon,minLat,maxLon,maxLat)")
-		return
-	}
-	var bbox [4]float64
-	_, err := fmt.Sscanf(bboxStr, "%f,%f,%f,%f", &bbox[0], &bbox[1], &bbox[2], &bbox[3])
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "bbox must be minLon,minLat,maxLon,maxLat")
-		return
-	}
-
-	departureAt := time.Now()
-	if raw := r.URL.Query().Get("departure_at"); raw != "" {
-		parsed, err := time.Parse(time.RFC3339, raw)
-		if err != nil {
-			writeError(w, http.StatusBadRequest, "departure_at must be RFC3339 format")
-			return
-		}
-		departureAt = parsed
-	}
-
-	cells, err := h.repo.ConditionsPreview(r.Context(), bbox, departureAt)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to load conditions preview")
-		return
-	}
-
-	out := make([]previewCellJSON, len(cells))
-	for i, c := range cells {
-		pj := previewCellJSON{
-			Lon:         c.Lon,
-			Lat:         c.Lat,
-			Shade:       c.Shade,
-			WindBenefit: c.WindBenefit,
-			Precip:      c.Precip,
-		}
-		pj.Colors.Shade = environment.ShadeColor(c.Shade)
-		pj.Colors.Wind = environment.WindColor(c.WindBenefit)
-		pj.Colors.Rain = environment.RainColor(c.Precip)
-		out[i] = pj
-	}
-
-	writeJSON(w, http.StatusOK, map[string]any{"cells": out})
 }

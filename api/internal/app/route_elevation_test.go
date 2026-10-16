@@ -74,11 +74,6 @@ func TestGetRouteBackfillsMissingElevation(t *testing.T) {
 	if sampler.calls != 1 {
 		t.Errorf("expected 1 sampler call after persistence, got %d", sampler.calls)
 	}
-	// Backfill is a read-path side effect: it must persist elevation only,
-	// never rewrite the whole aggregate (which would race concurrent edits).
-	if repo.updateCalls != 0 {
-		t.Errorf("expected backfill to avoid full Update, got %d calls", repo.updateCalls)
-	}
 }
 
 func TestGetRouteSkipsBackfillWhenElevationPresent(t *testing.T) {

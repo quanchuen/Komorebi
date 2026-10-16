@@ -3,9 +3,7 @@ package postgres
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"komorebi/internal/domain/community"
@@ -57,82 +55,6 @@ func (r *ContributionRepo) Create(c *community.Contribution) error {
 	return nil
 }
 
-// GetByID retrieves a Contribution by UUID.
-func (r *ContributionRepo) GetByID(id string) (*community.Contribution, error) {
-	ctx := context.Background()
-	row := r.pool.QueryRow(ctx, `
-		SELECT id, user_id,
-		       CASE WHEN route_geometry IS NOT NULL THEN ST_AsText(route_geometry) ELSE '' END,
-		       COALESCE(metadata::text, '{}'),
-		       status,
-		       created_at
-		FROM community.contribution WHERE id = $1::uuid
-	`, id)
-	var c community.Contribution
-	var geomWKT, metaJSON, statusStr string
-	var createdAt time.Time
-	if err := row.Scan(&c.ID, &c.UserID, &geomWKT, &metaJSON, &statusStr, &createdAt); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, ErrNotFound
-		}
-		return nil, fmt.Errorf("ContributionRepo.GetByID: %w", err)
-	}
-	c.Status = community.ContributionStatus(statusStr)
-	c.SubmittedAt = createdAt
-	if geomWKT != "" {
-		coords, err := wktToCoords(geomWKT)
-		if err == nil {
-			c.RouteGeometry = coords
-		}
-	}
-	if metaJSON != "" && metaJSON != "{}" {
-		_ = json.Unmarshal([]byte(metaJSON), &c.Metadata)
-		// Extract ModeratorNotes from metadata if present
-		if c.Metadata != nil {
-			if notes, ok := c.Metadata["moderator_notes"].(string); ok {
-				c.ModeratorNotes = notes
-			}
-		}
-	}
-	return &c, nil
-}
-
-// Update writes changed status and moderator notes back to the database.
-// ModeratorNotes is stored in a moderator_notes key inside metadata JSONB.
-func (r *ContributionRepo) Update(c *community.Contribution) error {
-	ctx := context.Background()
-	// Merge ModeratorNotes into the metadata map before serialising.
-	meta := c.Metadata
-	if meta == nil {
-		meta = make(map[string]any)
-	}
-	if c.ModeratorNotes != "" {
-		meta["moderator_notes"] = c.ModeratorNotes
-	}
-	metaJSON, err := json.Marshal(meta)
-	if err != nil {
-		return fmt.Errorf("ContributionRepo.Update marshal: %w", err)
-	}
-	_, err = r.pool.Exec(ctx, `
-		UPDATE community.contribution
-		SET status = $2::community.contribution_status,
-		    metadata = $3,
-		    updated_at = $4
-		WHERE id = $1::uuid
-	`, c.ID, string(c.Status), metaJSON, time.Now().UTC())
-	if err != nil {
-		return fmt.Errorf("ContributionRepo.Update: %w", err)
-	}
-	return nil
-}
-
-// Delete removes a contribution by ID.
-func (r *ContributionRepo) Delete(id string) error {
-	ctx := context.Background()
-	_, err := r.pool.Exec(ctx, `DELETE FROM community.contribution WHERE id = $1::uuid`, id)
-	return err
-}
-
 // ============================================================
 // ReviewRepo
 // ============================================================
@@ -161,23 +83,6 @@ func (r *ReviewRepo) Create(rev *community.Review) error {
 	return nil
 }
 
-// GetByID retrieves a Review by UUID.
-func (r *ReviewRepo) GetByID(id string) (*community.Review, error) {
-	ctx := context.Background()
-	row := r.pool.QueryRow(ctx, `
-		SELECT id, user_id, route_id, rating, COALESCE(body,''), created_at
-		FROM community.review WHERE id = $1::uuid
-	`, id)
-	var rev community.Review
-	if err := row.Scan(&rev.ID, &rev.UserID, &rev.RouteID, &rev.Rating, &rev.Body, &rev.CreatedAt); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, ErrNotFound
-		}
-		return nil, fmt.Errorf("ReviewRepo.GetByID: %w", err)
-	}
-	return &rev, nil
-}
-
 // ListByRoute returns all reviews for the given route, newest first.
 func (r *ReviewRepo) ListByRoute(routeID string) ([]*community.Review, error) {
 	ctx := context.Background()
@@ -202,14 +107,10 @@ func (r *ReviewRepo) ListByRoute(routeID string) ([]*community.Review, error) {
 	if reviews == nil {
 		reviews = []*community.Review{}
 	}
-	return reviews, rows.Err()
-}
-
-// Delete removes a Review by ID.
-func (r *ReviewRepo) Delete(id string) error {
-	ctx := context.Background()
-	_, err := r.pool.Exec(ctx, `DELETE FROM community.review WHERE id = $1::uuid`, id)
-	return err
+	if err := rows.Err(); err != nil && !isNotFound(err) { // 22P02 surfaces here, not from Query
+		return nil, err
+	}
+	return reviews, nil
 }
 
 // ============================================================
@@ -258,25 +159,6 @@ func (r *RideLogRepo) Create(rl *community.RideLog) error {
 	return nil
 }
 
-// GetByID retrieves a RideLog by UUID.
-func (r *RideLogRepo) GetByID(id string) (*community.RideLog, error) {
-	ctx := context.Background()
-	row := r.pool.QueryRow(ctx, `
-		SELECT id, user_id, COALESCE(route_id::text, ''),
-		       CASE WHEN gpx_track IS NOT NULL THEN ST_AsText(gpx_track) ELSE '' END,
-		       started_at, finished_at, created_at
-		FROM community.ride_log WHERE id = $1::uuid
-	`, id)
-	rl, err := scanRideLog(row)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, ErrNotFound
-		}
-		return nil, fmt.Errorf("RideLogRepo.GetByID: %w", err)
-	}
-	return rl, nil
-}
-
 // ListByUser returns all ride logs for the given user, newest first.
 func (r *RideLogRepo) ListByUser(userID string) ([]*community.RideLog, error) {
 	ctx := context.Background()
@@ -293,31 +175,6 @@ func (r *RideLogRepo) ListByUser(userID string) ([]*community.RideLog, error) {
 	}
 	defer rows.Close()
 	return collectRideLogs(rows)
-}
-
-// ListByRoute returns all ride logs for the given route, newest first.
-func (r *RideLogRepo) ListByRoute(routeID string) ([]*community.RideLog, error) {
-	ctx := context.Background()
-	rows, err := r.pool.Query(ctx, `
-		SELECT id, user_id, COALESCE(route_id::text, ''),
-		       CASE WHEN gpx_track IS NOT NULL THEN ST_AsText(gpx_track) ELSE '' END,
-		       started_at, finished_at, created_at
-		FROM community.ride_log
-		WHERE route_id = $1::uuid
-		ORDER BY started_at DESC
-	`, routeID)
-	if err != nil {
-		return nil, fmt.Errorf("RideLogRepo.ListByRoute: %w", err)
-	}
-	defer rows.Close()
-	return collectRideLogs(rows)
-}
-
-// Delete removes a RideLog by ID.
-func (r *RideLogRepo) Delete(id string) error {
-	ctx := context.Background()
-	_, err := r.pool.Exec(ctx, `DELETE FROM community.ride_log WHERE id = $1::uuid`, id)
-	return err
 }
 
 // --- helpers ---
@@ -357,8 +214,8 @@ func collectRideLogs(rows pgx.Rows) ([]*community.RideLog, error) {
 	if logs == nil {
 		logs = []*community.RideLog{}
 	}
-	return logs, rows.Err()
+	if err := rows.Err(); err != nil && !isNotFound(err) {
+		return nil, err
+	}
+	return logs, nil
 }
-
-// ensure strings import is used (wktToCoords uses strings.Split etc via route_repo.go).
-var _ = strings.Join

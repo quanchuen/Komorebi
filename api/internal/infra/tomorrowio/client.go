@@ -6,8 +6,11 @@ package tomorrowio
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"log"
 	"net/http"
+	"net/url"
 	"time"
 
 	"komorebi/internal/domain/environment"
@@ -40,10 +43,10 @@ func (c *Client) Name() string { return "tomorrow-io" }
 
 // FetchMinutely returns per-minute precipitation nowcast for the next 60 min.
 func (c *Client) FetchMinutely(ctx context.Context, lat, lon float64) ([]environment.MinutelyPrecip, error) {
-	url := fmt.Sprintf("%s?location=%f,%f&timesteps=1m&apikey=%s",
+	u := fmt.Sprintf("%s?location=%f,%f&timesteps=1m&apikey=%s",
 		c.baseURL, lat, lon, c.apiKey)
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -51,7 +54,7 @@ func (c *Client) FetchMinutely(ctx context.Context, lat, lon float64) ([]environ
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("tomorrow-io minutely: %w", err)
+		return nil, fmt.Errorf("tomorrow-io minutely: %w", stripURL(err))
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
@@ -91,10 +94,10 @@ func (c *Client) FetchMinutely(ctx context.Context, lat, lon float64) ([]environ
 var _ environment.WeatherFetcher = (*Client)(nil)
 
 func (c *Client) FetchPoint(ctx context.Context, lat, lon float64) ([]environment.WeatherGrid, error) {
-	url := fmt.Sprintf("%s?location=%f,%f&timesteps=1h&apikey=%s",
+	u := fmt.Sprintf("%s?location=%f,%f&timesteps=1h&apikey=%s",
 		c.baseURL, lat, lon, c.apiKey)
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -102,7 +105,7 @@ func (c *Client) FetchPoint(ctx context.Context, lat, lon float64) ([]environmen
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("tomorrow-io: %w", err)
+		return nil, fmt.Errorf("tomorrow-io: %w", stripURL(err))
 	}
 	defer resp.Body.Close()
 
@@ -124,7 +127,8 @@ func (c *Client) FetchGrid(ctx context.Context, minLat, maxLat, minLon, maxLon, 
 		for lon := minLon; lon <= maxLon+1e-9; lon += stepDeg {
 			cells, err := c.FetchPoint(ctx, lat, lon)
 			if err != nil {
-				return nil, fmt.Errorf("tomorrow-io: grid %f,%f: %w", lat, lon, err)
+				log.Printf("tomorrow-io: grid point %f,%f: %v (skipping)", lat, lon, err)
+				continue
 			}
 			all = append(all, cells...)
 			select {
@@ -134,7 +138,20 @@ func (c *Client) FetchGrid(ctx context.Context, minLat, maxLat, minLon, maxLon, 
 			}
 		}
 	}
+	if len(all) == 0 {
+		return nil, fmt.Errorf("tomorrow-io: every grid point failed")
+	}
 	return all, nil
+}
+
+// stripURL unwraps a *url.Error so the API key in the query string never
+// reaches logs or error messages.
+func stripURL(err error) error {
+	var ue *url.Error
+	if errors.As(err, &ue) {
+		return ue.Err
+	}
+	return err
 }
 
 // --- response types ---
@@ -144,10 +161,10 @@ type forecastResponse struct {
 		Hourly []struct {
 			Time   string `json:"time"`
 			Values struct {
-				WindSpeed        float64 `json:"windSpeed"`
-				WindDirection    float64 `json:"windDirection"`
-				PrecipIntensity  float64 `json:"precipitationIntensity"`
-				Temperature      float64 `json:"temperature"`
+				WindSpeed       float64 `json:"windSpeed"`
+				WindDirection   float64 `json:"windDirection"`
+				PrecipIntensity float64 `json:"precipitationIntensity"`
+				Temperature     float64 `json:"temperature"`
 			} `json:"values"`
 		} `json:"hourly"`
 	} `json:"timelines"`

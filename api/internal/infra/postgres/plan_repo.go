@@ -3,7 +3,6 @@ package postgres
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"komorebi/internal/domain/plan"
@@ -11,7 +10,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// PlanRepo implements plan.Repository using PostgreSQL.
+// PlanRepo implements app.PlanRepository using PostgreSQL.
 type PlanRepo struct {
 	pool *pgxpool.Pool
 }
@@ -73,7 +72,7 @@ func (r *PlanRepo) GetByID(id string) (*plan.RoutePlan, error) {
 		&p.CreatedAt, &p.UpdatedAt,
 	)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if isNotFound(err) {
 			return nil, ErrNotFound
 		}
 		return nil, fmt.Errorf("GetByID plan: %w", err)
@@ -128,13 +127,6 @@ func (r *PlanRepo) Update(p *plan.RoutePlan) error {
 		}
 		return insertTasks(ctx, tx, p.ID, p.Tasks)
 	})
-}
-
-// Delete removes a plan by ID. Child rows cascade via FK.
-func (r *PlanRepo) Delete(id string) error {
-	ctx := context.Background()
-	_, err := r.pool.Exec(ctx, "DELETE FROM plan.route_plan WHERE id = $1::uuid", id)
-	return err
 }
 
 // --- helpers ---

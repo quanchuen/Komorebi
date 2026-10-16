@@ -4,11 +4,15 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
+	"strings"
 	"time"
 )
 
-// ErrEmptyDisplayName is returned when a display name is blank.
-var ErrEmptyDisplayName = errors.New("community: display name must not be empty")
+// Validation errors for NewUser.
+var (
+	ErrEmptyDisplayName = errors.New("community: display name must not be empty")
+	ErrEmptyEmail       = errors.New("community: email must not be empty")
+)
 
 // User represents a registered cyclist.
 type User struct {
@@ -19,10 +23,15 @@ type User struct {
 	CreatedAt   time.Time
 }
 
-// NewUser creates a new User with a generated ID.
+// NewUser creates a new User with a generated ID. Email is normalised
+// (trimmed, lower-cased) so the unique index catches case variants.
 func NewUser(displayName, email string) (*User, error) {
 	if displayName == "" {
 		return nil, ErrEmptyDisplayName
+	}
+	email = strings.ToLower(strings.TrimSpace(email))
+	if email == "" {
+		return nil, ErrEmptyEmail
 	}
 	return &User{
 		ID:          newID(),

@@ -2,9 +2,11 @@ package postgres
 
 import (
 	"context"
+	"errors"
+	"log"
 	"time"
 
-	"komorebi/internal/domain/environment"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -41,7 +43,9 @@ func (r *EnvironmentRepo) ShadeForPoint(ctx context.Context, lon, lat float64, a
 		ORDER BY LEAST(ABS(month - $2), 12 - ABS(month - $2)) ASC
 		LIMIT 1
 	`, at.In(shadowGridZone).Hour(), int(at.In(shadowGridZone).Month()), lon, lat)
-	_ = row.Scan(&shade) // ignore ErrNoRows — shade stays 0
+	if err := row.Scan(&shade); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		log.Printf("EnvironmentRepo.ShadeForPoint: %v", err)
+	}
 	return shade
 }
 
@@ -59,21 +63,10 @@ func (r *EnvironmentRepo) WeatherForPoint(ctx context.Context, lon, lat float64,
 		LIMIT 1
 	`, lon, lat,
 		at.Add(-time.Hour), at.Add(time.Hour), at)
-	_ = row.Scan(&windSpeedMS, &windBearingDeg, &precipMMH)
+	if err := row.Scan(&windSpeedMS, &windBearingDeg, &precipMMH); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		log.Printf("EnvironmentRepo.WeatherForPoint: %v", err)
+	}
 	return
-}
-
-// GreeneryForWay returns greenery_score (0–1) for the given OSM way ID.
-// Returns 0 if no row exists for this way.
-func (r *EnvironmentRepo) GreeneryForWay(ctx context.Context, osmWayID int64) float64 {
-	var score float64
-	row := r.pool.QueryRow(ctx, `
-		SELECT greenery_score
-		FROM environment.greenery_edge
-		WHERE osm_way_id = $1
-	`, osmWayID)
-	_ = row.Scan(&score)
-	return score
 }
 
 // SignalsAlongSegment returns the count of traffic signals within buffer_m
@@ -89,107 +82,8 @@ func (r *EnvironmentRepo) SignalsAlongSegment(ctx context.Context, segmentWKT st
 			$2
 		)
 	`, segmentWKT, bufferM)
-	_ = row.Scan(&count)
+	if err := row.Scan(&count); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		log.Printf("EnvironmentRepo.SignalsAlongSegment: %v", err)
+	}
 	return count
-}
-
-// GreenWaveForSegment returns the first active GreenWave corridor that
-// overlaps the given LINESTRING (WKT), or nil if none exists.
-func (r *EnvironmentRepo) GreenWaveForSegment(ctx context.Context, segmentWKT string) *environment.GreenWaveResult {
-	row := r.pool.QueryRow(ctx, `
-		SELECT gw.id, gw.target_speed_kmh, gw.direction_bearing, gw.confidence
-		FROM environment.green_wave gw
-		JOIN LATERAL (
-			SELECT way.geom
-			FROM osm.planet_osm_line way
-			WHERE way.osm_id = ANY(gw.osm_way_ids)
-			LIMIT 1
-		) w ON true
-		WHERE ST_Intersects(
-			w.geom,
-			ST_GeomFromText($1, 4326)
-		)
-		ORDER BY gw.confidence DESC
-		LIMIT 1
-	`, segmentWKT)
-	var gw environment.GreenWaveResult
-	if err := row.Scan(&gw.ID, &gw.TargetSpeedKmh, &gw.DirectionBearing, &gw.Confidence); err != nil {
-		return nil // no green wave — safe default
-	}
-	return &gw
-}
-
-// ConditionsPreviewCell is one heatmap cell for the conditions/preview endpoint.
-type ConditionsPreviewCell struct {
-	Lon         float64
-	Lat         float64
-	Shade       float64
-	WindBenefit float64
-	Precip      float64
-}
-
-// ConditionsPreview returns a grid of cells within the bounding box,
-// joining shade and weather data at the given time. Used for map heatmaps.
-// Returns an empty slice when no data covers the bbox.
-func (r *EnvironmentRepo) ConditionsPreview(ctx context.Context, bbox [4]float64, at time.Time) ([]ConditionsPreviewCell, error) {
-	rows, err := r.pool.Query(ctx, `
-		SELECT
-			ST_X(ST_Centroid(sg.cell_geometry)) AS lon,
-			ST_Y(ST_Centroid(sg.cell_geometry)) AS lat,
-			sg.shade_coverage,
-			COALESCE(wg.wind_speed_ms, 0)          AS wind_speed_ms,
-			COALESCE(wg.wind_bearing_deg, 0)        AS wind_bearing_deg,
-			COALESCE(wg.precip_intensity_mmh, 0)    AS precip_mmh
-		FROM environment.shadow_grid sg
-		LEFT JOIN environment.weather_grid wg
-			ON ST_Intersects(sg.cell_geometry, wg.cell_geometry)
-			AND wg.valid_at BETWEEN $5 AND $6
-		WHERE sg.hour_slot = $1
-		  AND sg.month     = $2
-		  AND ST_Intersects(
-			sg.cell_geometry,
-			ST_MakeEnvelope($3, $4, $7, $8, 4326)
-		  )
-		LIMIT 500
-	`,
-		at.UTC().Hour(), int(at.UTC().Month()),
-		bbox[0], bbox[1],
-		at.Add(-time.Hour), at.Add(time.Hour),
-		bbox[2], bbox[3],
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var cells []ConditionsPreviewCell
-	for rows.Next() {
-		var c ConditionsPreviewCell
-		var windSpeedMS, windBearingDeg, precipMMH float64
-		if err := rows.Scan(&c.Lon, &c.Lat, &c.Shade, &windSpeedMS, &windBearingDeg, &precipMMH); err != nil {
-			return nil, err
-		}
-		// wind_benefit is not directional here (no route bearing) — use 0 as neutral
-		_ = windBearingDeg
-		_ = windSpeedMS
-		c.WindBenefit = 0
-		c.Precip = normalisePrecip(precipMMH)
-		cells = append(cells, c)
-	}
-	if cells == nil {
-		cells = []ConditionsPreviewCell{}
-	}
-	return cells, rows.Err()
-}
-
-// normalisePrecip maps precip_intensity_mmh to [0, 1].
-// 0 mm/h → 0.0; ≥10 mm/h → 1.0 (heavy rain threshold).
-func normalisePrecip(mmh float64) float64 {
-	if mmh <= 0 {
-		return 0
-	}
-	if mmh >= 10 {
-		return 1
-	}
-	return mmh / 10
 }
