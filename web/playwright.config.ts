@@ -39,6 +39,7 @@ export default defineConfig({
     url: `http://localhost:${PORT}/`,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
-    env: { API_URL: 'http://127.0.0.1:9' }
+    // Curated routes are feature-flagged off by default; the tests cover them on.
+    env: { API_URL: 'http://127.0.0.1:9', PUBLIC_FLAG_CURATED_ROUTES: '1' }
   }
 });

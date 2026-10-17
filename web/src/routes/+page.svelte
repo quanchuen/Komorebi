@@ -61,15 +61,17 @@
   import { summarise, windChipPhrase } from '$lib/utils/conditions';
   import { metresBetween, LOOP_M } from '$lib/utils/mapMarkers';
   import type { Route } from '$lib/api/types';
+  import { flags } from '$lib/flags';
 
   let { data }: { data: PageData } = $props();
 
   // The server render carries the featured set; the client refreshes it
   // when the departure time changes.
   onMount(() => {
-    if (data.routes.length > 0) featuredRoutes.set(data.routes);
+    if (flags.curatedRoutes && data.routes.length > 0) featuredRoutes.set(data.routes);
   });
   $effect(() => {
+    if (!flags.curatedRoutes) return;
     const dep = $departureAt;
     const c = $mapCentre ?? { lat: 35.6895, lon: 139.6917 };
     void refreshFeatured(c, dep);
@@ -235,7 +237,7 @@
   let viewportTimer: ReturnType<typeof setTimeout>;
   $effect(() => {
     const bbox = $bboxString;
-    if (!bbox) return;
+    if (!bbox || !flags.curatedRoutes) return;
     clearTimeout(viewportTimer);
     viewportTimer = setTimeout(() => void refreshRoutesInView(bbox), 400);
   });
@@ -437,7 +439,7 @@
       />
     {:else if $explorePanel === 'routes'}
       <RoutesListPanel onselect={selectRoute} onclose={closePanel} />
-    {:else if $explorePanel === 'none' && !$layersOpen}
+    {:else if flags.curatedRoutes && $explorePanel === 'none' && !$layersOpen}
       <RoutesPeek onopen={() => explorePanel.set('routes')} {routeWind} />
     {/if}
 
@@ -467,7 +469,7 @@
         </div>
       </div>
     {:else}
-      {#if $explorePanel === 'none' && !$highlightedRouteId}
+      {#if flags.curatedRoutes && $explorePanel === 'none' && !$highlightedRouteId}
         <div class="absolute left-4 bottom-4 z-20">
           <RoutesPeek onopen={() => explorePanel.set('routes')} />
         </div>

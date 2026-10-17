@@ -103,6 +103,8 @@ services:
       # CARTO basemap key (browser-side; free at carto.com/basemaps/apikey).
       # Interpolated from the host shell or a root .env file; never commit it.
       - PUBLIC_CARTO_API_KEY=${PUBLIC_CARTO_API_KEY:-}
+      # Feature flags (web/src/lib/flags.ts): PUBLIC_FLAG_<NAME>=1 turns one on.
+      - PUBLIC_FLAG_CURATED_ROUTES=${PUBLIC_FLAG_CURATED_ROUTES:-}
     # host.docker.internal resolves natively on Docker Desktop; this maps it on
     # Linux too (needed when WEB_API_URL points at a host process).
     extra_hosts:

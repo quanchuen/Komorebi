@@ -116,6 +116,7 @@ Migrations use golang-migrate, numbered `000001`–`000025`. Four schemas: `rout
 | `ANTHROPIC_API_KEY` | No | — | Enables natural-language route intent (`POST /routing/intent`); without it the endpoint returns 503 |
 | `INTENT_MODEL` | No | `claude-opus-5` | Claude model for the route-intent adapter |
 | `PUBLIC_CARTO_API_KEY` | No | — | CARTO basemap key for the **web** service (browser tile URLs). Without it CARTO watermarks tiles "API KEY REQUIRED". Free at carto.com/basemaps/apikey; lives in `.envrc`, never in git |
+| `PUBLIC_FLAG_<NAME>` | No | off | **Web** feature flags, read at runtime from `web/src/lib/flags.ts`; `1` turns one on. Current: `PUBLIC_FLAG_CURATED_ROUTES` (map layer, peek bar, list, featured picks) |
 
 ## Data Pipelines
 

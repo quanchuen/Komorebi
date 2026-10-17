@@ -1,6 +1,7 @@
 // web/src/lib/stores/map.ts
 import { writable, derived, get } from 'svelte/store';
 import type { Map as MapLibreMap } from 'maplibre-gl';
+import { flags } from '$lib/flags';
 
 export type OverlayType = 'shade' | 'wind' | 'rain' | null;
 
@@ -15,7 +16,9 @@ export type MapLayer =
   | 'greenery'
   | 'curated-routes'
   | 'cycling-roads';
-export const visibleLayers = writable<Set<MapLayer>>(new Set<MapLayer>(['curated-routes']));
+export const visibleLayers = writable<Set<MapLayer>>(
+  new Set<MapLayer>(flags.curatedRoutes ? ['curated-routes'] : [])
+);
 
 export function toggleLayer(layer: MapLayer): void {
   visibleLayers.update((set) => {

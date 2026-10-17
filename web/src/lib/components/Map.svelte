@@ -4,6 +4,7 @@
   import maplibregl from 'maplibre-gl';
   import 'maplibre-gl/dist/maplibre-gl.css';
   import { env } from '$env/dynamic/public';
+  import { flags } from '$lib/flags';
   import {
     mapInstance,
     mapBounds,
@@ -325,7 +326,11 @@
             type: 'line',
             source: 'martin-routes',
             'source-layer': 'routes',
-            layout: { 'line-cap': 'round', 'line-join': 'round' },
+            layout: {
+              'line-cap': 'round',
+              'line-join': 'round',
+              visibility: flags.curatedRoutes ? 'visible' : 'none'
+            },
             paint: {
               'line-color': ROUTE_CASING,
               'line-width': ['interpolate', ['linear'], ['zoom'], 8, 2.5, 14, 6.5]
@@ -336,7 +341,11 @@
             type: 'line',
             source: 'martin-routes',
             'source-layer': 'routes',
-            layout: { 'line-cap': 'round', 'line-join': 'round' },
+            layout: {
+              'line-cap': 'round',
+              'line-join': 'round',
+              visibility: flags.curatedRoutes ? 'visible' : 'none'
+            },
             paint: {
               'line-color': ROUTE,
               'line-width': ['interpolate', ['linear'], ['zoom'], 8, 1, 14, 3]

@@ -3,6 +3,7 @@ import type { PageServerLoad } from './$types';
 import type { Route } from '$lib/api/types';
 import { discoveryRouteToRoute } from '$lib/api/types';
 import { env } from '$env/dynamic/private';
+import { flags } from '$lib/flags';
 
 export const load: PageServerLoad = async ({ fetch }) => {
   const DEFAULT_LAT = 35.6895;
@@ -10,6 +11,7 @@ export const load: PageServerLoad = async ({ fetch }) => {
   const now = new Date();
   now.setMinutes(0, 0, 0);
   const departureAt = now.toISOString();
+  if (!flags.curatedRoutes) return { routes: [] as Route[], departureAt };
 
   try {
     const apiURL = env.API_URL ?? 'http://127.0.0.1:8080';

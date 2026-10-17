@@ -7,6 +7,7 @@
 <script lang="ts">
   import { visibleLayers, toggleLayer, type MapLayer } from '$lib/stores/map';
   import { isMobile, layersOpen } from '$lib/stores/ui';
+  import { flags } from '$lib/flags';
   import IconButton from '$lib/components/ui/IconButton.svelte';
   import SectionLabel from './SectionLabel.svelte';
   import Sheet from './Sheet.svelte';
@@ -45,13 +46,14 @@
       swatch: 'bg-greenery-mid'
     }
   ];
+  const curatedRow: Row = {
+    layer: 'curated-routes',
+    name: 'Curated routes',
+    source: 'Komorebi editors · community reviews',
+    swatch: 'bg-route-muted'
+  };
   const alwaysOn: Row[] = [
-    {
-      layer: 'curated-routes',
-      name: 'Curated routes',
-      source: 'Komorebi editors · community reviews',
-      swatch: 'bg-route-muted'
-    },
+    ...(flags.curatedRoutes ? [curatedRow] : []),
     {
       layer: 'cycling-roads',
       name: 'Cycling infrastructure',
@@ -104,7 +106,7 @@
   <div class="mx-4 my-1.5 h-px bg-hairline"></div>
   {#if $isMobile}
     <p class="px-4 pt-2 text-xs text-text-subtle">
-      Always on: curated routes · cycling infrastructure
+      Always on: {flags.curatedRoutes ? 'curated routes · ' : ''}cycling infrastructure
     </p>
     <div class="flex flex-col px-2 pt-1 pb-3">
       {#each alwaysOn as r (r.layer)}

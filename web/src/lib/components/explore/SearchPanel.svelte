@@ -7,6 +7,7 @@
   import VenueChips from '$lib/components/VenueChips.svelte';
   import SectionLabel from './SectionLabel.svelte';
   import { recentPlaces, savedRoutes, rememberPlace } from '$lib/stores/recents';
+  import { flags } from '$lib/flags';
   import { featuredRoutes } from '$lib/stores/routesInView';
   import DifficultyBadge from '$lib/components/DifficultyBadge.svelte';
   import { km, climb } from '$lib/utils/format';
@@ -40,7 +41,9 @@
 
   // RECENT mixes recently searched places and saved routes, newest first.
   let recent = $derived(
-    [...$recentPlaces, ...$savedRoutes].sort((a, b) => b.at - a.at).slice(0, 5)
+    [...$recentPlaces, ...(flags.curatedRoutes ? $savedRoutes : [])]
+      .sort((a, b) => b.at - a.at)
+      .slice(0, 5)
   );
 
   function pick(place: PlaceHit) {
